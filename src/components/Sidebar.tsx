@@ -106,6 +106,14 @@ export default function Sidebar({ profile }: any) {
             </NavLink>
 
             <NavLink
+              to="/admin/links"
+              className={linkClass}
+              onClick={closeMobileMenu}
+            >
+              Links Academy
+            </NavLink>
+
+            <NavLink
               to="/clientes"
               className={linkClass}
               onClick={closeMobileMenu}
