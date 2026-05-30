@@ -1,8 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+
+type Course = {
+  id: number;
+  title: string;
+  subtitle: string | null;
+  cover_url: string | null;
+  badge: string | null;
+  order_index: number | null;
+  is_active: boolean | null;
+};
 
 type Lesson = {
   id: number;
+  course_id: number | null;
   module_title: string;
   lesson_title: string;
   description: string | null;
@@ -46,10 +57,12 @@ function convertYoutubeToEmbed(url: string) {
 }
 
 export default function AdminLessons() {
+  const [courses, setCourses] = useState<Course[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
 
   const [editingId, setEditingId] = useState<number | null>(null);
 
+  const [selectedCourseId, setSelectedCourseId] = useState("");
   const [moduleTitle, setModuleTitle] = useState("");
   const [lessonTitle, setLessonTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -59,13 +72,39 @@ export default function AdminLessons() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadLessons();
+    loadData();
   }, []);
+
+  async function loadData() {
+    await Promise.all([loadCourses(), loadLessons()]);
+  }
+
+  async function loadCourses() {
+    const { data, error } = await supabase
+      .from("courses")
+      .select("*")
+      .order("order_index", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      alert("Erro ao carregar cursos.");
+      console.log(error);
+      return;
+    }
+
+    const coursesData = data || [];
+    setCourses(coursesData);
+
+    if (!selectedCourseId && coursesData.length > 0) {
+      setSelectedCourseId(String(coursesData[0].id));
+    }
+  }
 
   async function loadLessons() {
     const { data, error } = await supabase
       .from("lessons")
       .select("*")
+      .order("course_id", { ascending: true })
       .order("module_title", { ascending: true })
       .order("order_index", { ascending: true });
 
@@ -80,6 +119,7 @@ export default function AdminLessons() {
 
   function clearForm() {
     setEditingId(null);
+    setSelectedCourseId(courses.length > 0 ? String(courses[0].id) : "");
     setModuleTitle("");
     setLessonTitle("");
     setDescription("");
@@ -88,6 +128,11 @@ export default function AdminLessons() {
   }
 
   function validateForm() {
+    if (!selectedCourseId) {
+      alert("Escolha o curso dessa aula.");
+      return false;
+    }
+
     if (!moduleTitle.trim()) {
       alert("Preencha o nome do módulo.");
       return false;
@@ -135,6 +180,7 @@ export default function AdminLessons() {
     setLoading(true);
 
     const lessonData = {
+      course_id: Number(selectedCourseId),
       module_title: moduleTitle.trim(),
       lesson_title: lessonTitle.trim(),
       description: description.trim(),
@@ -177,6 +223,7 @@ export default function AdminLessons() {
 
   function startEdit(lesson: Lesson) {
     setEditingId(lesson.id);
+    setSelectedCourseId(lesson.course_id ? String(lesson.course_id) : "");
     setModuleTitle(lesson.module_title);
     setLessonTitle(lesson.lesson_title);
     setDescription(lesson.description || "");
@@ -207,14 +254,33 @@ export default function AdminLessons() {
     window.open(url, "_blank");
   }
 
-  const modules = lessons.reduce<Record<string, Lesson[]>>((acc, lesson) => {
-    if (!acc[lesson.module_title]) {
-      acc[lesson.module_title] = [];
-    }
+  function getCourseTitle(courseId: number | null) {
+    if (!courseId) return "Sem curso";
 
-    acc[lesson.module_title].push(lesson);
-    return acc;
-  }, {});
+    const course = courses.find((item) => item.id === courseId);
+
+    return course?.title || "Curso não encontrado";
+  }
+
+  const groupedByCourse = useMemo(() => {
+    const grouped: Record<string, Lesson[]> = {};
+
+    lessons.forEach((lesson) => {
+      const courseTitle = getCourseTitle(lesson.course_id);
+
+      if (!grouped[courseTitle]) {
+        grouped[courseTitle] = [];
+      }
+
+      grouped[courseTitle].push(lesson);
+    });
+
+    return grouped;
+  }, [lessons, courses]);
+
+  const selectedCourse = courses.find(
+    (course) => String(course.id) === selectedCourseId
+  );
 
   return (
     <div className="text-white">
@@ -226,7 +292,7 @@ export default function AdminLessons() {
         <h1 className="text-4xl font-black mb-2">Gerenciar Aulas</h1>
 
         <p className="text-zinc-400">
-          Poste, edite, organize e apague aulas da FatorZ Academy.
+          Cadastre aulas dentro dos cursos da FatorZ Academy.
         </p>
       </div>
 
@@ -237,13 +303,63 @@ export default function AdminLessons() {
           </h2>
 
           <label className="block mb-2 text-sm font-bold text-zinc-400">
+            Curso
+          </label>
+
+          <select
+            value={selectedCourseId}
+            onChange={(e) => setSelectedCourseId(e.target.value)}
+            className="w-full bg-zinc-800 border border-zinc-700 p-4 rounded-xl mb-4 outline-none focus:border-pink-500"
+          >
+            <option value="">Selecione um curso</option>
+
+            {courses.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.title}
+              </option>
+            ))}
+          </select>
+
+          {selectedCourse && (
+            <div className="bg-black border border-zinc-800 rounded-2xl overflow-hidden mb-5">
+              <div className="aspect-video bg-zinc-950">
+                {selectedCourse.cover_url ? (
+                  <img
+                    src={selectedCourse.cover_url}
+                    alt={selectedCourse.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-zinc-600 font-black">
+                    Curso sem capa
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4">
+                <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-2">
+                  {selectedCourse.badge || "Curso"}
+                </p>
+
+                <h3 className="font-black text-lg">{selectedCourse.title}</h3>
+
+                {selectedCourse.subtitle && (
+                  <p className="text-zinc-500 text-sm mt-1">
+                    {selectedCourse.subtitle}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <label className="block mb-2 text-sm font-bold text-zinc-400">
             Módulo
           </label>
 
           <input
             value={moduleTitle}
             onChange={(e) => setModuleTitle(e.target.value)}
-            placeholder="Ex: Módulo 1"
+            placeholder="Ex: Módulo 1 - Fundamentos"
             className="w-full bg-zinc-800 border border-zinc-700 p-4 rounded-xl mb-4 outline-none focus:border-pink-500"
           />
 
@@ -254,7 +370,7 @@ export default function AdminLessons() {
           <input
             value={lessonTitle}
             onChange={(e) => setLessonTitle(e.target.value)}
-            placeholder="Ex: Marketing"
+            placeholder="Ex: O que é posicionamento"
             className="w-full bg-zinc-800 border border-zinc-700 p-4 rounded-xl mb-4 outline-none focus:border-pink-500"
           />
 
@@ -281,21 +397,13 @@ export default function AdminLessons() {
           />
 
           <div className="bg-black border border-zinc-800 rounded-2xl p-4 mb-4">
-            <p className="text-sm text-zinc-400 mb-2">
-              Links aceitos:
-            </p>
+            <p className="text-sm text-zinc-400 mb-2">Links aceitos:</p>
 
-            <p className="text-xs text-zinc-500">
-              youtube.com/watch?v=...
-            </p>
+            <p className="text-xs text-zinc-500">youtube.com/watch?v=...</p>
 
-            <p className="text-xs text-zinc-500">
-              youtu.be/...
-            </p>
+            <p className="text-xs text-zinc-500">youtu.be/...</p>
 
-            <p className="text-xs text-zinc-500">
-              youtube.com/embed/...
-            </p>
+            <p className="text-xs text-zinc-500">youtube.com/embed/...</p>
           </div>
 
           <label className="block mb-2 text-sm font-bold text-zinc-400">
@@ -348,88 +456,149 @@ export default function AdminLessons() {
             </div>
           </div>
 
-          {lessons.length === 0 ? (
-            <div className="bg-zinc-800 rounded-3xl p-8">
-              <p className="text-zinc-400">
-                Nenhuma aula cadastrada ainda.
+          {courses.length === 0 && (
+            <div className="bg-red-950 border border-red-800 rounded-3xl p-6 mb-6">
+              <h3 className="text-xl font-black mb-2">
+                Nenhum curso cadastrado.
+              </h3>
+
+              <p className="text-red-200">
+                Antes de cadastrar aulas, crie pelo menos um curso em
+                /admin/cursos.
               </p>
             </div>
+          )}
+
+          {lessons.length === 0 ? (
+            <div className="bg-zinc-800 rounded-3xl p-8">
+              <p className="text-zinc-400">Nenhuma aula cadastrada ainda.</p>
+            </div>
           ) : (
-            <div className="space-y-6">
-              {Object.entries(modules).map(([moduleName, moduleLessons]) => (
-                <div key={moduleName} className="bg-zinc-800 rounded-3xl p-5">
-                  <div className="mb-4">
-                    <h3 className="text-xl font-black">{moduleName}</h3>
+            <div className="space-y-8">
+              {Object.entries(groupedByCourse).map(
+                ([courseName, courseLessons]) => {
+                  const modules = courseLessons.reduce<Record<string, Lesson[]>>(
+                    (acc, lesson) => {
+                      if (!acc[lesson.module_title]) {
+                        acc[lesson.module_title] = [];
+                      }
 
-                    <p className="text-zinc-500 text-sm">
-                      {moduleLessons.length} aula
-                      {moduleLessons.length > 1 ? "s" : ""}
-                    </p>
-                  </div>
+                      acc[lesson.module_title].push(lesson);
+                      return acc;
+                    },
+                    {}
+                  );
 
-                  <div className="space-y-3">
-                    {moduleLessons.map((lesson) => (
-                      <div
-                        key={lesson.id}
-                        className="bg-zinc-900 border border-zinc-700 rounded-2xl p-4 flex flex-col gap-4"
-                      >
-                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                          <div>
-                            <p className="text-pink-500 font-bold">
-                              Aula {lesson.order_index}
-                            </p>
+                  return (
+                    <div
+                      key={courseName}
+                      className="bg-black border border-zinc-800 rounded-[32px] p-5"
+                    >
+                      <div className="mb-5">
+                        <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-2">
+                          Curso
+                        </p>
 
-                            <h4 className="text-lg font-black">
-                              {lesson.lesson_title}
-                            </h4>
+                        <h3 className="text-2xl font-black">{courseName}</h3>
 
-                            <p className="text-zinc-400 text-sm mt-1">
-                              {lesson.description || "Sem descrição"}
-                            </p>
-
-                            <p className="text-zinc-600 text-xs mt-3 break-all">
-                              {lesson.video_url}
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap gap-3">
-                            <button
-                              onClick={() => openPreview(lesson.video_url)}
-                              className="bg-zinc-700 hover:bg-zinc-600 px-4 py-3 rounded-xl font-bold"
-                            >
-                              Ver vídeo
-                            </button>
-
-                            <button
-                              onClick={() => startEdit(lesson)}
-                              className="bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-xl font-bold"
-                            >
-                              Editar
-                            </button>
-
-                            <button
-                              onClick={() => deleteLesson(lesson.id)}
-                              className="bg-red-600 hover:bg-red-700 px-4 py-3 rounded-xl font-bold"
-                            >
-                              Excluir
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="aspect-video bg-black rounded-2xl overflow-hidden border border-zinc-800">
-                          <iframe
-                            src={lesson.video_url}
-                            title={lesson.lesson_title}
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowFullScreen
-                          />
-                        </div>
+                        <p className="text-zinc-500 text-sm mt-1">
+                          {courseLessons.length} aula
+                          {courseLessons.length > 1 ? "s" : ""}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+
+                      <div className="space-y-6">
+                        {Object.entries(modules).map(
+                          ([moduleName, moduleLessons]) => (
+                            <div
+                              key={moduleName}
+                              className="bg-zinc-800 rounded-3xl p-5"
+                            >
+                              <div className="mb-4">
+                                <h4 className="text-xl font-black">
+                                  {moduleName}
+                                </h4>
+
+                                <p className="text-zinc-500 text-sm">
+                                  {moduleLessons.length} aula
+                                  {moduleLessons.length > 1 ? "s" : ""}
+                                </p>
+                              </div>
+
+                              <div className="space-y-3">
+                                {moduleLessons.map((lesson) => (
+                                  <div
+                                    key={lesson.id}
+                                    className="bg-zinc-900 border border-zinc-700 rounded-2xl p-4 flex flex-col gap-4"
+                                  >
+                                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                                      <div>
+                                        <p className="text-pink-500 font-bold">
+                                          Aula {lesson.order_index}
+                                        </p>
+
+                                        <h5 className="text-lg font-black">
+                                          {lesson.lesson_title}
+                                        </h5>
+
+                                        <p className="text-zinc-400 text-sm mt-1">
+                                          {lesson.description ||
+                                            "Sem descrição"}
+                                        </p>
+
+                                        <p className="text-zinc-600 text-xs mt-3 break-all">
+                                          {lesson.video_url}
+                                        </p>
+                                      </div>
+
+                                      <div className="flex flex-wrap gap-3">
+                                        <button
+                                          onClick={() =>
+                                            openPreview(lesson.video_url)
+                                          }
+                                          className="bg-zinc-700 hover:bg-zinc-600 px-4 py-3 rounded-xl font-bold"
+                                        >
+                                          Ver vídeo
+                                        </button>
+
+                                        <button
+                                          onClick={() => startEdit(lesson)}
+                                          className="bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-xl font-bold"
+                                        >
+                                          Editar
+                                        </button>
+
+                                        <button
+                                          onClick={() =>
+                                            deleteLesson(lesson.id)
+                                          }
+                                          className="bg-red-600 hover:bg-red-700 px-4 py-3 rounded-xl font-bold"
+                                        >
+                                          Excluir
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="aspect-video bg-black rounded-2xl overflow-hidden border border-zinc-800">
+                                      <iframe
+                                        src={lesson.video_url}
+                                        title={lesson.lesson_title}
+                                        className="w-full h-full"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                        allowFullScreen
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+              )}
             </div>
           )}
         </section>

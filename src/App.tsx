@@ -11,6 +11,7 @@ import Projects from "./pages/Projects";
 import Settings from "./pages/Settings";
 import Academy from "./pages/Academy";
 import MyDeliveries from "./pages/MyDeliveries";
+import AdminCourses from "./pages/AdminCourses";
 import AdminLessons from "./pages/AdminLessons";
 import AdminLinks from "./pages/AdminLinks";
 import AdminUsers from "./pages/AdminUsers";
@@ -303,6 +304,17 @@ export default function App() {
             <AdminRoute user={user} profile={profile}>
               <DashboardLayout profile={profile}>
                 <AdminUsers />
+              </DashboardLayout>
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/cursos"
+          element={
+            <AdminRoute user={user} profile={profile}>
+              <DashboardLayout profile={profile}>
+                <AdminCourses />
               </DashboardLayout>
             </AdminRoute>
           }
