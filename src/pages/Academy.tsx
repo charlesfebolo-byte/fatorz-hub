@@ -47,15 +47,6 @@ type AcademyLink = {
   is_active: boolean | null;
 };
 
-function formatMoneyFromCents(cents: number | null | undefined) {
-  const value = Number(cents || 0) / 100;
-
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
 function beautifyLessonText(text: string | null | undefined) {
   if (!text) return "";
 
@@ -78,6 +69,15 @@ function beautifyLessonText(text: string | null | undefined) {
     .replace(/\s*Chamada para ação:/gi, "\nChamada para ação:")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function formatMoneyFromCents(cents: number | null | undefined) {
+  const value = Number(cents || 0) / 100;
+
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 }
 
 export default function Academy({ user, profile }: any) {
@@ -369,8 +369,6 @@ export default function Academy({ user, profile }: any) {
     return selectedCourseLessons[index + 1] || null;
   }, [selectedLesson, selectedCourseLessons]);
 
-  const lessonDescription = beautifyLessonText(selectedLesson?.description);
-
   if (!user) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -655,6 +653,83 @@ export default function Academy({ user, profile }: any) {
               )}
             </div>
           </section>
+
+          <section
+            id="materiais"
+            className="max-w-[1500px] mx-auto px-4 md:px-10"
+          >
+            <div className="bg-zinc-950 border border-zinc-900 rounded-[36px] p-6 md:p-8">
+              <div className="mb-8">
+                <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                  Materiais extras
+                </p>
+
+                <h2 className="text-3xl md:text-5xl font-black mb-4">
+                  Links úteis da Academy
+                </h2>
+
+                <p className="text-zinc-400 max-w-3xl">
+                  Ferramentas, prompts, sites, materiais de apoio e recursos
+                  importantes para acelerar seus estudos.
+                </p>
+              </div>
+
+              {links.length === 0 ? (
+                <div className="bg-black border border-zinc-800 rounded-3xl p-8">
+                  <h3 className="text-2xl font-black mb-2">
+                    Nenhum link útil publicado ainda.
+                  </h3>
+
+                  <p className="text-zinc-400">
+                    Quando novos materiais forem adicionados, eles aparecerão
+                    aqui.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {Object.entries(groupedLinks).map(
+                    ([category, categoryLinks]) => (
+                      <div key={category}>
+                        <h3 className="text-2xl font-black mb-4">
+                          {category}
+                        </h3>
+
+                        <div className="flex gap-5 overflow-x-auto pb-4">
+                          {categoryLinks.map((link) => (
+                            <div
+                              key={link.id}
+                              className="min-w-[260px] bg-black border border-zinc-800 rounded-3xl p-6 flex flex-col"
+                            >
+                              <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-3">
+                                {link.category || "Geral"}
+                              </p>
+
+                              <h4 className="text-2xl font-black mb-3">
+                                {link.title}
+                              </h4>
+
+                              {link.description && (
+                                <p className="text-zinc-400 mb-6 flex-1 text-sm">
+                                  {link.description}
+                                </p>
+                              )}
+
+                              <button
+                                onClick={() => openLink(link.url)}
+                                className="bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black mt-auto"
+                              >
+                                Abrir link
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
         </main>
       )}
 
@@ -734,6 +809,12 @@ export default function Academy({ user, profile }: any) {
                   >
                     Ver episódios
                   </button>
+
+                  {selectedCourse.is_paid && (
+                    <div className="bg-black/45 border border-white/10 rounded-full px-5 py-4 font-black">
+                      {formatMoneyFromCents(selectedCourse.price_cents)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -773,60 +854,87 @@ export default function Academy({ user, profile }: any) {
 
           <section
             id="player"
-            className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 grid xl:grid-cols-[1fr_400px] gap-8 mb-10"
+            className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 grid xl:grid-cols-[1fr_420px] gap-8 mb-10"
           >
-            <div className="relative overflow-hidden bg-white/[0.035] border border-white/10 backdrop-blur-2xl rounded-[34px] p-4 md:p-6 shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
-              <div className="absolute -top-32 -right-32 w-80 h-80 bg-pink-500/10 rounded-full blur-3xl" />
-              <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl" />
+            <div className="relative overflow-hidden rounded-[42px] border border-white/10 bg-gradient-to-br from-white/[0.07] via-white/[0.035] to-white/[0.015] backdrop-blur-2xl p-4 md:p-6 shadow-[0_30px_120px_rgba(0,0,0,0.65)]">
+              <div className="absolute -top-40 -right-40 w-96 h-96 bg-pink-500/15 rounded-full blur-3xl" />
+              <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+              <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.08),transparent_30%)]" />
 
               {selectedLesson ? (
                 <div className="relative z-10">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-5 mb-6">
                     <div>
-                      <p className="text-pink-500 font-black uppercase tracking-[0.3em] text-xs mb-2">
+                      <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-3">
                         Agora assistindo
                       </p>
 
-                      <h2 className="text-2xl md:text-4xl font-black leading-tight">
+                      <h2 className="text-3xl md:text-5xl font-black leading-tight max-w-4xl">
                         {selectedLesson.lesson_title}
                       </h2>
+
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <span className="bg-black/45 border border-white/10 px-4 py-2 rounded-full text-xs md:text-sm font-black text-zinc-300">
+                          {selectedLesson.module_title}
+                        </span>
+
+                        <span className="bg-black/45 border border-white/10 px-4 py-2 rounded-full text-xs md:text-sm font-black text-zinc-300">
+                          Aula #{selectedLesson.order_index || selectedLesson.id}
+                        </span>
+
+                        <span
+                          className={`border px-4 py-2 rounded-full text-xs md:text-sm font-black ${
+                            isLessonCompleted(selectedLesson.id)
+                              ? "bg-green-500/15 border-green-400/30 text-green-300"
+                              : "bg-pink-500/10 border-pink-400/20 text-pink-300"
+                          }`}
+                        >
+                          {isLessonCompleted(selectedLesson.id)
+                            ? "Concluída"
+                            : "Em andamento"}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="bg-black/45 border border-white/10 px-4 py-2 rounded-full text-xs md:text-sm font-black text-zinc-300">
-                        {selectedLesson.module_title}
-                      </span>
-
-                      <span className="bg-black/45 border border-white/10 px-4 py-2 rounded-full text-xs md:text-sm font-black text-zinc-300">
-                        Aula #{selectedLesson.order_index || selectedLesson.id}
-                      </span>
-                    </div>
+                    <button
+                      onClick={() => toggleLessonCompleted(selectedLesson)}
+                      className={`shrink-0 px-6 py-4 rounded-full font-black transition shadow-lg ${
+                        isLessonCompleted(selectedLesson.id)
+                          ? "bg-green-500 text-black hover:bg-green-400"
+                          : "bg-white text-black hover:bg-zinc-200"
+                      }`}
+                    >
+                      {isLessonCompleted(selectedLesson.id)
+                        ? "Concluída"
+                        : "Marcar concluída"}
+                    </button>
                   </div>
 
-                  <div className="relative aspect-video bg-black rounded-[28px] overflow-hidden border border-white/10 mb-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
-                    <div className="absolute inset-0 ring-1 ring-white/5 rounded-[28px] pointer-events-none" />
-                    <iframe
-                      src={selectedLesson.video_url}
-                      title={selectedLesson.lesson_title}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+                  <div className="relative rounded-[34px] p-2 bg-gradient-to-br from-white/10 via-white/5 to-transparent border border-white/10 mb-7 shadow-[0_25px_70px_rgba(0,0,0,0.65)]">
+                    <div className="aspect-video bg-black rounded-[28px] overflow-hidden border border-white/10">
+                      <iframe
+                        src={selectedLesson.video_url}
+                        title={selectedLesson.lesson_title}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
                   </div>
 
                   <div className="grid lg:grid-cols-[1fr_280px] gap-6">
-                    <div className="bg-black/25 border border-white/5 rounded-[28px] p-6">
-                      <p className="text-pink-500 font-black uppercase tracking-[0.28em] text-xs mb-3">
-                        Descrição da aula
+                    <div className="rounded-[34px] border border-white/10 bg-black/35 p-6 md:p-8">
+                      <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-4">
+                        Conteúdo da aula
                       </p>
 
-                      <h3 className="text-3xl md:text-5xl font-black mb-5 leading-tight break-words">
+                      <h3 className="text-3xl md:text-5xl font-black leading-tight mb-6 break-words">
                         {selectedLesson.lesson_title}
                       </h3>
 
-                      {lessonDescription ? (
-                        <div className="text-zinc-300 leading-8 text-[15px] md:text-base whitespace-pre-line break-words max-w-none">
-                          {lessonDescription}
+                      {selectedLesson.description ? (
+                        <div className="text-zinc-300 text-[15px] md:text-base leading-8 whitespace-pre-line break-words">
+                          {beautifyLessonText(selectedLesson.description)}
                         </div>
                       ) : (
                         <p className="text-zinc-500">
@@ -835,52 +943,52 @@ export default function Academy({ user, profile }: any) {
                       )}
                     </div>
 
-                    <div className="bg-black/35 border border-white/10 rounded-[28px] p-5 h-fit">
-                      <p className="text-zinc-500 text-sm font-bold mb-4">
-                        Progresso da aula
+                    <div className="rounded-[34px] border border-white/10 bg-black/40 p-5 h-fit">
+                      <p className="text-zinc-500 text-xs uppercase tracking-[0.28em] font-black mb-4">
+                        Navegação
                       </p>
 
-                      <button
-                        onClick={() => toggleLessonCompleted(selectedLesson)}
-                        className={`w-full px-5 py-4 rounded-2xl font-black mb-3 transition ${
-                          isLessonCompleted(selectedLesson.id)
-                            ? "bg-green-500 text-black"
-                            : "bg-pink-500 hover:bg-pink-600 text-white"
-                        }`}
-                      >
-                        {isLessonCompleted(selectedLesson.id)
-                          ? "Concluída"
-                          : "Marcar concluída"}
-                      </button>
-
-                      {nextLesson && (
+                      {nextLesson ? (
                         <button
                           onClick={() => selectLesson(nextLesson)}
-                          className="w-full bg-white/10 border border-white/10 hover:bg-white/15 px-5 py-4 rounded-2xl font-black transition"
+                          className="w-full bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black transition mb-3"
                         >
                           Próxima aula →
                         </button>
+                      ) : (
+                        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 mb-3">
+                          <p className="text-zinc-400 text-sm font-bold">
+                            Você chegou ao fim deste curso.
+                          </p>
+                        </div>
                       )}
 
-                      <div className="mt-4 pt-4 border-t border-white/10">
-                        <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
-                          Status
-                        </p>
+                      <button
+                        onClick={() => {
+                          const section = document.getElementById("episodios");
+                          section?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="w-full bg-white/10 border border-white/10 hover:bg-white/15 px-5 py-4 rounded-2xl font-black transition"
+                      >
+                        Ver episódios
+                      </button>
 
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-2.5 h-2.5 rounded-full ${
-                              isLessonCompleted(selectedLesson.id)
-                                ? "bg-green-400"
-                                : "bg-pink-500"
-                            }`}
-                          />
-
-                          <span className="text-sm text-zinc-300 font-medium">
-                            {isLessonCompleted(selectedLesson.id)
-                              ? "Aula finalizada"
-                              : "Em andamento"}
+                      <div className="mt-5 pt-5 border-t border-white/10">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-zinc-500 text-sm font-bold">
+                            Progresso
                           </span>
+
+                          <span className="text-pink-400 text-sm font-black">
+                            {progressPercentage}%
+                          </span>
+                        </div>
+
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-pink-500 to-fuchsia-500 rounded-full"
+                            style={{ width: `${progressPercentage}%` }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -901,107 +1009,131 @@ export default function Academy({ user, profile }: any) {
 
             <aside
               id="episodios"
-              className="bg-white/[0.035] border border-white/10 backdrop-blur-2xl rounded-[34px] p-5 h-fit sticky top-24 shadow-[0_20px_80px_rgba(0,0,0,0.45)]"
+              className="relative h-fit xl:sticky xl:top-24 overflow-hidden rounded-[42px] border border-white/10 bg-gradient-to-br from-white/[0.075] via-white/[0.035] to-white/[0.015] backdrop-blur-2xl p-5 shadow-[0_30px_100px_rgba(0,0,0,0.55)]"
             >
-              <div className="mb-5">
-                <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-2">
-                  Catálogo
-                </p>
+              <div className="absolute -top-24 -right-24 w-56 h-56 bg-pink-500/10 rounded-full blur-3xl" />
 
-                <h2 className="text-3xl font-black">Episódios</h2>
-              </div>
+              <div className="relative z-10">
+                <div className="flex items-start justify-between gap-4 mb-5">
+                  <div>
+                    <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-2">
+                      Catálogo
+                    </p>
 
-              <div className="relative mb-5">
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar aula..."
-                  className="w-full bg-black/45 border border-white/10 rounded-2xl p-4 outline-none focus:border-pink-500 transition"
-                />
-              </div>
+                    <h2 className="text-3xl font-black">Episódios</h2>
+                  </div>
 
-              <div className="space-y-4 max-h-[720px] overflow-y-auto pr-1">
-                {Object.keys(groupedLessons).length === 0 ? (
-                  <p className="text-zinc-400">Nenhuma aula encontrada.</p>
-                ) : (
-                  Object.entries(groupedLessons).map(
-                    ([moduleTitle, moduleLessons]) => (
-                      <div
-                        key={moduleTitle}
-                        className="bg-black/30 border border-white/10 rounded-[28px] overflow-hidden"
-                      >
-                        <button
-                          onClick={() => toggleModule(moduleTitle)}
-                          className="w-full text-left px-5 py-4 flex items-center justify-between gap-3"
+                  <span className="bg-black/45 border border-white/10 text-zinc-300 px-3 py-2 rounded-full text-sm font-black">
+                    {selectedCourseLessons.length}
+                  </span>
+                </div>
+
+                <div className="relative mb-5">
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar aula..."
+                    className="w-full bg-black/45 border border-white/10 rounded-full px-5 py-4 outline-none focus:border-pink-500 transition text-sm"
+                  />
+                </div>
+
+                <div className="space-y-4 max-h-[720px] overflow-y-auto pr-2">
+                  {Object.keys(groupedLessons).length === 0 ? (
+                    <p className="text-zinc-400">Nenhuma aula encontrada.</p>
+                  ) : (
+                    Object.entries(groupedLessons).map(
+                      ([moduleTitle, moduleLessons]) => (
+                        <div
+                          key={moduleTitle}
+                          className="overflow-hidden rounded-[30px] border border-white/10 bg-black/30"
                         >
-                          <div>
-                            <p className="text-white font-black text-lg leading-tight">
-                              {moduleTitle}
-                            </p>
+                          <button
+                            onClick={() => toggleModule(moduleTitle)}
+                            className="w-full text-left px-5 py-5 flex items-center justify-between gap-4 hover:bg-white/[0.03] transition"
+                          >
+                            <div>
+                              <p className="text-white font-black text-base leading-tight">
+                                {moduleTitle}
+                              </p>
 
-                            <p className="text-zinc-500 text-sm mt-1">
-                              {moduleLessons.length} aula
-                              {moduleLessons.length > 1 ? "s" : ""}
-                            </p>
-                          </div>
+                              <p className="text-zinc-500 text-sm mt-1">
+                                {moduleLessons.length} aula
+                                {moduleLessons.length > 1 ? "s" : ""}
+                              </p>
+                            </div>
 
-                          <span className="text-pink-500 text-2xl font-light">
-                            {openModules[moduleTitle] ? "−" : "+"}
-                          </span>
-                        </button>
+                            <span className="text-pink-400 text-2xl font-light">
+                              {openModules[moduleTitle] ? "−" : "+"}
+                            </span>
+                          </button>
 
-                        {openModules[moduleTitle] && (
-                          <div className="px-4 pb-4 space-y-3">
-                            {moduleLessons.map((lesson) => {
-                              const active = selectedLesson?.id === lesson.id;
-                              const completed = isLessonCompleted(lesson.id);
+                          {openModules[moduleTitle] && (
+                            <div className="px-3 pb-3 space-y-2">
+                              {moduleLessons.map((lesson, index) => {
+                                const active =
+                                  selectedLesson?.id === lesson.id;
+                                const completed = isLessonCompleted(lesson.id);
 
-                              return (
-                                <button
-                                  key={lesson.id}
-                                  onClick={() => selectLesson(lesson)}
-                                  className={`w-full text-left rounded-[22px] p-4 border transition-all duration-200 ${
-                                    active
-                                      ? "bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white border-pink-400 shadow-[0_10px_30px_rgba(236,72,153,0.25)]"
-                                      : "bg-white/[0.03] border-white/5 hover:bg-white/[0.07] text-zinc-300"
-                                  }`}
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <p className="font-black text-base leading-snug">
-                                        {lesson.lesson_title}
-                                      </p>
-
+                                return (
+                                  <button
+                                    key={lesson.id}
+                                    onClick={() => selectLesson(lesson)}
+                                    className={`group w-full text-left rounded-[24px] p-4 border transition-all duration-200 ${
+                                      active
+                                        ? "bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white border-pink-300 shadow-[0_12px_35px_rgba(236,72,153,0.28)]"
+                                        : "bg-white/[0.035] border-white/5 hover:bg-white/[0.075] text-zinc-300"
+                                    }`}
+                                  >
+                                    <div className="flex items-start gap-4">
                                       <div
-                                        className={`mt-2 flex items-center gap-2 text-sm ${
+                                        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-sm font-black ${
                                           active
-                                            ? "text-white/80"
-                                            : "text-zinc-500"
+                                            ? "bg-white text-pink-500"
+                                            : "bg-black/50 border border-white/10 text-zinc-400 group-hover:text-white"
                                         }`}
                                       >
-                                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+                                        {index + 1}
+                                      </div>
 
-                                        <span>
-                                          Aula #{lesson.order_index || lesson.id}
-                                        </span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between gap-2">
+                                          <p className="font-black text-[15px] leading-snug break-words">
+                                            {lesson.lesson_title}
+                                          </p>
+
+                                          {completed && (
+                                            <span className="shrink-0 bg-green-500 text-black px-2 py-1 rounded-full text-[10px] font-black uppercase">
+                                              OK
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div
+                                          className={`mt-2 flex items-center gap-2 text-xs ${
+                                            active
+                                              ? "text-white/80"
+                                              : "text-zinc-500"
+                                          }`}
+                                        >
+                                          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+
+                                          <span>
+                                            Aula #
+                                            {lesson.order_index || lesson.id}
+                                          </span>
+                                        </div>
                                       </div>
                                     </div>
-
-                                    {completed && (
-                                      <span className="shrink-0 bg-green-500 text-black px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wide">
-                                        OK
-                                      </span>
-                                    )}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
                     )
-                  )
-                )}
+                  )}
+                </div>
               </div>
             </aside>
           </section>
