@@ -235,6 +235,9 @@ export default function Academy({ user, profile }: any) {
   function selectLesson(lesson: Lesson) {
     setSelectedLesson(lesson);
     localStorage.setItem("fatorz_last_lesson_id", String(lesson.id));
+
+    const section = document.getElementById("player");
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function toggleModule(moduleTitle: string) {
@@ -317,6 +320,18 @@ export default function Academy({ user, profile }: any) {
 
   const progressPercentage =
     totalLessons === 0 ? 0 : Math.round((totalCompleted / totalLessons) * 100);
+
+  const nextLesson = useMemo(() => {
+    if (!selectedLesson) return null;
+
+    const index = selectedCourseLessons.findIndex(
+      (lesson) => lesson.id === selectedLesson.id
+    );
+
+    if (index < 0) return null;
+
+    return selectedCourseLessons[index + 1] || null;
+  }, [selectedLesson, selectedCourseLessons]);
 
   if (!user) {
     return (
@@ -591,7 +606,7 @@ export default function Academy({ user, profile }: any) {
                           </h3>
 
                           {course.subtitle && (
-                            <p className="text-zinc-400 text-sm mb-5 line-clamp-2">
+                            <p className="text-zinc-400 text-sm mb-5">
                               {course.subtitle}
                             </p>
                           )}
@@ -620,240 +635,112 @@ export default function Academy({ user, profile }: any) {
                 </div>
               )}
             </div>
-
-            <div className="mb-12">
-              <div className="flex items-end justify-between gap-4 mb-5">
-                <div>
-                  <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-2">
-                    Biblioteca
-                  </p>
-
-                  <h2 className="text-3xl md:text-5xl font-black">
-                    Todos os treinamentos
-                  </h2>
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                {courses.map((course) => {
-                  const courseLessons = getLessonsByCourse(course.id);
-                  const courseProgress = getProgressByCourse(course.id);
-
-                  return (
-                    <button
-                      key={course.id}
-                      onClick={() => openCourse(course)}
-                      className="group text-left bg-zinc-950 border border-zinc-900 hover:border-zinc-600 rounded-3xl overflow-hidden transition"
-                    >
-                      <div className="aspect-video bg-black overflow-hidden">
-                        {course.cover_url ? (
-                          <img
-                            src={course.cover_url}
-                            alt={course.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                            <span className="text-zinc-600 font-black">
-                              Sem capa
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-4">
-                        <h3 className="font-black text-xl mb-2">
-                          {course.title}
-                        </h3>
-
-                        <p className="text-zinc-500 text-sm mb-4">
-                          {courseLessons.length} aula
-                          {courseLessons.length !== 1 ? "s" : ""} disponíveis
-                        </p>
-
-                        <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-pink-500 rounded-full"
-                            style={{ width: `${courseProgress}%` }}
-                          />
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-          <section
-            id="materiais"
-            className="max-w-[1500px] mx-auto px-4 md:px-10"
-          >
-            <div className="bg-zinc-950 border border-zinc-900 rounded-[36px] p-6 md:p-8">
-              <div className="mb-8">
-                <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
-                  Materiais extras
-                </p>
-
-                <h2 className="text-3xl md:text-5xl font-black mb-4">
-                  Links úteis da Academy
-                </h2>
-
-                <p className="text-zinc-400 max-w-3xl">
-                  Ferramentas, prompts, sites, materiais de apoio e recursos
-                  importantes para acelerar seus estudos.
-                </p>
-              </div>
-
-              {links.length === 0 ? (
-                <div className="bg-black border border-zinc-800 rounded-3xl p-8">
-                  <h3 className="text-2xl font-black mb-2">
-                    Nenhum link útil publicado ainda.
-                  </h3>
-
-                  <p className="text-zinc-400">
-                    Quando novos materiais forem adicionados, eles aparecerão
-                    aqui.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  {Object.entries(groupedLinks).map(
-                    ([category, categoryLinks]) => (
-                      <div key={category}>
-                        <h3 className="text-2xl font-black mb-4">
-                          {category}
-                        </h3>
-
-                        <div className="flex gap-5 overflow-x-auto pb-4">
-                          {categoryLinks.map((link) => (
-                            <div
-                              key={link.id}
-                              className="min-w-[260px] bg-black border border-zinc-800 rounded-3xl p-6 flex flex-col"
-                            >
-                              <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-3">
-                                {link.category || "Geral"}
-                              </p>
-
-                              <h4 className="text-2xl font-black mb-3">
-                                {link.title}
-                              </h4>
-
-                              {link.description && (
-                                <p className="text-zinc-400 mb-6 flex-1 text-sm">
-                                  {link.description}
-                                </p>
-                              )}
-
-                              <button
-                                onClick={() => openLink(link.url)}
-                                className="bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black mt-auto"
-                              >
-                                Abrir link
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </div>
           </section>
         </main>
       )}
 
       {selectedCourse && (
-        <main className="pt-24 pb-16">
-          <section className="relative min-h-[430px] flex items-end overflow-hidden">
-            {selectedCourse.cover_url && (
-              <img
-                src={selectedCourse.cover_url}
-                alt={selectedCourse.title}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            )}
+        <main className="pt-24 pb-16 relative overflow-hidden">
+          {selectedCourse.cover_url && (
+            <img
+              src={selectedCourse.cover_url}
+              alt={selectedCourse.title}
+              className="fixed inset-0 w-full h-full object-cover opacity-20 blur-2xl scale-110 pointer-events-none"
+            />
+          )}
 
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/20" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent" />
+          <div className="fixed inset-0 bg-gradient-to-b from-black via-[#050505]/95 to-black pointer-events-none" />
 
-            <div className="relative z-10 max-w-[1500px] mx-auto w-full px-4 md:px-10 pb-10">
-              <button
-                onClick={backToCourses}
-                className="bg-white/10 border border-white/10 hover:bg-white/20 px-5 py-3 rounded-xl font-black mb-6 backdrop-blur"
-              >
-                ← Voltar para cursos
-              </button>
-
-              <p className="text-pink-500 font-black uppercase tracking-[0.35em] mb-3">
-                {selectedCourse.badge || "FatorZ Academy"}
-              </p>
-
-              <h1 className="text-5xl md:text-8xl font-black mb-5 leading-none">
-                {selectedCourse.title}
-              </h1>
-
-              {selectedCourse.subtitle && (
-                <p className="text-zinc-200 text-lg md:text-2xl max-w-4xl font-medium mb-4">
-                  {selectedCourse.subtitle}
-                </p>
+          <section className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 mb-8">
+            <div className="relative overflow-hidden rounded-[42px] border border-white/10 bg-white/[0.03] shadow-2xl shadow-pink-500/5">
+              {selectedCourse.cover_url && (
+                <img
+                  src={selectedCourse.cover_url}
+                  alt={selectedCourse.title}
+                  className="absolute inset-0 w-full h-full object-cover opacity-35"
+                />
               )}
 
-              {selectedCourse.description && (
-                <p className="text-zinc-400 max-w-3xl mb-8">
-                  {selectedCourse.description}
-                </p>
-              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/85 to-black/20" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
 
-              <div className="flex flex-wrap gap-3">
-                {selectedLesson && (
-                  <button
-                    onClick={() => {
-                      const section = document.getElementById("player");
-                      section?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-xl font-black text-lg"
-                  >
-                    ▶ Continuar
-                  </button>
+              <div className="relative z-10 p-6 md:p-10 min-h-[390px] flex flex-col justify-end">
+                <button
+                  onClick={backToCourses}
+                  className="w-fit bg-white/10 border border-white/10 hover:bg-white/20 px-5 py-3 rounded-xl font-black mb-8 backdrop-blur"
+                >
+                  ← Voltar para cursos
+                </button>
+
+                <p className="text-pink-500 font-black uppercase tracking-[0.35em] mb-3">
+                  {selectedCourse.badge || "FatorZ Academy"}
+                </p>
+
+                <h1 className="text-5xl md:text-8xl font-black mb-5 leading-none max-w-5xl">
+                  {selectedCourse.title}
+                </h1>
+
+                {selectedCourse.subtitle && (
+                  <p className="text-zinc-200 text-lg md:text-2xl max-w-4xl font-medium mb-4">
+                    {selectedCourse.subtitle}
+                  </p>
                 )}
 
-                <button
-                  onClick={() => {
-                    const section = document.getElementById("aulas");
-                    section?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="bg-white/15 border border-white/10 hover:bg-white/25 px-8 py-4 rounded-xl font-black text-lg backdrop-blur"
-                >
-                  Ver aulas
-                </button>
+                {selectedCourse.description && (
+                  <p className="text-zinc-400 max-w-3xl mb-8">
+                    {selectedCourse.description}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-3">
+                  {selectedLesson && (
+                    <button
+                      onClick={() => {
+                        const section = document.getElementById("player");
+                        section?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-xl font-black text-lg"
+                    >
+                      ▶ Continuar
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      const section = document.getElementById("episodios");
+                      section?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="bg-white/15 border border-white/10 hover:bg-white/25 px-8 py-4 rounded-xl font-black text-lg backdrop-blur"
+                  >
+                    Ver episódios
+                  </button>
+                </div>
               </div>
             </div>
           </section>
 
-          <section className="max-w-[1500px] mx-auto px-4 md:px-10 -mt-4 relative z-20 mb-8">
+          <section className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 mb-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-zinc-950 border border-zinc-900 rounded-3xl p-5">
+              <div className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-3xl p-5">
                 <p className="text-zinc-400 mb-2">Aulas</p>
                 <h2 className="text-4xl font-black">{totalLessons}</h2>
               </div>
 
-              <div className="bg-zinc-950 border border-zinc-900 rounded-3xl p-5">
+              <div className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-3xl p-5">
                 <p className="text-zinc-400 mb-2">Concluídas</p>
                 <h2 className="text-4xl font-black text-green-400">
                   {totalCompleted}
                 </h2>
               </div>
 
-              <div className="bg-zinc-950 border border-zinc-900 rounded-3xl p-5">
+              <div className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-3xl p-5">
                 <p className="text-zinc-400 mb-2">Progresso</p>
                 <h2 className="text-4xl font-black text-pink-500">
                   {progressPercentage}%
                 </h2>
               </div>
 
-              <div className="bg-zinc-950 border border-zinc-900 rounded-3xl p-5">
+              <div className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-3xl p-5">
                 <p className="text-zinc-400 mb-2">Acesso</p>
                 <h2 className="text-2xl font-black">
                   {isAdmin ? "Admin" : formatDate(profile?.academy_expires_at)}
@@ -864,12 +751,31 @@ export default function Academy({ user, profile }: any) {
 
           <section
             id="player"
-            className="max-w-[1500px] mx-auto px-4 md:px-10 grid xl:grid-cols-[1fr_410px] gap-8 mb-10"
+            className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 grid xl:grid-cols-[1fr_430px] gap-8 mb-10"
           >
-            <div className="bg-black border border-zinc-900 rounded-[32px] p-3 md:p-5">
+            <div className="relative overflow-hidden bg-white/[0.035] border border-white/10 backdrop-blur-xl rounded-[38px] p-3 md:p-5 shadow-2xl shadow-black">
+              <div className="absolute -top-40 -right-40 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl" />
+              <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+
               {selectedLesson ? (
-                <>
-                  <div className="aspect-video bg-zinc-950 rounded-3xl overflow-hidden border border-zinc-900 mb-6">
+                <div className="relative z-10">
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3 px-1">
+                    <div>
+                      <p className="text-pink-500 font-black uppercase tracking-[0.28em] text-xs mb-2">
+                        Agora assistindo
+                      </p>
+
+                      <h2 className="text-2xl md:text-4xl font-black">
+                        {selectedLesson.lesson_title}
+                      </h2>
+                    </div>
+
+                    <span className="bg-black/60 border border-white/10 px-4 py-2 rounded-full text-sm font-black text-zinc-300">
+                      Aula #{selectedLesson.order_index || selectedLesson.id}
+                    </span>
+                  </div>
+
+                  <div className="aspect-video bg-black rounded-[30px] overflow-hidden border border-white/10 mb-6 shadow-2xl shadow-black">
                     <iframe
                       src={selectedLesson.video_url}
                       title={selectedLesson.lesson_title}
@@ -879,39 +785,54 @@ export default function Academy({ user, profile }: any) {
                     />
                   </div>
 
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 px-2 pb-2">
+                  <div className="grid lg:grid-cols-[1fr_260px] gap-5 px-1 pb-2">
                     <div>
                       <p className="text-pink-500 font-black uppercase tracking-widest text-sm mb-2">
                         {selectedLesson.module_title}
                       </p>
 
-                      <h2 className="text-3xl md:text-5xl font-black mb-3">
+                      <h3 className="text-3xl md:text-5xl font-black mb-4">
                         {selectedLesson.lesson_title}
-                      </h2>
+                      </h3>
 
                       {selectedLesson.description && (
-                        <p className="text-zinc-400 max-w-3xl">
+                        <p className="text-zinc-400 leading-relaxed max-w-4xl">
                           {selectedLesson.description}
                         </p>
                       )}
                     </div>
 
-                    <button
-                      onClick={() => toggleLessonCompleted(selectedLesson)}
-                      className={`px-6 py-4 rounded-2xl font-black shrink-0 ${
-                        isLessonCompleted(selectedLesson.id)
-                          ? "bg-green-500 text-black"
-                          : "bg-zinc-900 border border-zinc-800 hover:bg-zinc-800"
-                      }`}
-                    >
-                      {isLessonCompleted(selectedLesson.id)
-                        ? "Concluída"
-                        : "Marcar concluída"}
-                    </button>
+                    <div className="bg-black/50 border border-white/10 rounded-3xl p-5 h-fit">
+                      <p className="text-zinc-500 text-sm font-bold mb-4">
+                        Status da aula
+                      </p>
+
+                      <button
+                        onClick={() => toggleLessonCompleted(selectedLesson)}
+                        className={`w-full px-5 py-4 rounded-2xl font-black mb-3 ${
+                          isLessonCompleted(selectedLesson.id)
+                            ? "bg-green-500 text-black"
+                            : "bg-pink-500 hover:bg-pink-600 text-white"
+                        }`}
+                      >
+                        {isLessonCompleted(selectedLesson.id)
+                          ? "Concluída"
+                          : "Marcar concluída"}
+                      </button>
+
+                      {nextLesson && (
+                        <button
+                          onClick={() => selectLesson(nextLesson)}
+                          className="w-full bg-white/10 border border-white/10 hover:bg-white/20 px-5 py-4 rounded-2xl font-black"
+                        >
+                          Próxima aula →
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </>
+                </div>
               ) : (
-                <div className="p-10 text-center">
+                <div className="relative z-10 p-10 text-center">
                   <h2 className="text-3xl font-black mb-3">
                     Nenhuma aula publicada neste curso.
                   </h2>
@@ -924,16 +845,28 @@ export default function Academy({ user, profile }: any) {
             </div>
 
             <aside
-              id="aulas"
-              className="bg-zinc-950 border border-zinc-900 rounded-[32px] p-5 h-fit"
+              id="episodios"
+              className="bg-white/[0.035] border border-white/10 backdrop-blur-xl rounded-[38px] p-5 h-fit sticky top-24 shadow-2xl shadow-black"
             >
-              <h2 className="text-2xl font-black mb-5">Episódios</h2>
+              <div className="flex items-center justify-between gap-3 mb-5">
+                <div>
+                  <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-1">
+                    Catálogo
+                  </p>
+
+                  <h2 className="text-3xl font-black">Episódios</h2>
+                </div>
+
+                <span className="bg-black/60 border border-white/10 px-3 py-2 rounded-xl text-sm font-black text-zinc-400">
+                  {selectedCourseLessons.length}
+                </span>
+              </div>
 
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar aula..."
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 outline-none focus:border-pink-500 mb-5"
+                className="w-full bg-black/55 border border-white/10 rounded-2xl p-4 outline-none focus:border-pink-500 mb-5"
               />
 
               <div className="space-y-4 max-h-[720px] overflow-y-auto pr-1">
@@ -944,47 +877,61 @@ export default function Academy({ user, profile }: any) {
                     ([moduleTitle, moduleLessons]) => (
                       <div
                         key={moduleTitle}
-                        className="bg-black border border-zinc-900 rounded-2xl overflow-hidden"
+                        className="bg-black/45 border border-white/10 rounded-3xl overflow-hidden"
                       >
                         <button
                           onClick={() => toggleModule(moduleTitle)}
                           className="w-full text-left p-4 font-black flex items-center justify-between gap-3"
                         >
                           <span>{moduleTitle}</span>
-                          <span>{openModules[moduleTitle] ? "−" : "+"}</span>
+                          <span className="text-pink-500">
+                            {openModules[moduleTitle] ? "−" : "+"}
+                          </span>
                         </button>
 
                         {openModules[moduleTitle] && (
                           <div className="p-3 pt-0 space-y-2">
-                            {moduleLessons.map((lesson) => (
-                              <button
-                                key={lesson.id}
-                                onClick={() => selectLesson(lesson)}
-                                className={`w-full text-left p-4 rounded-xl transition ${
-                                  selectedLesson?.id === lesson.id
-                                    ? "bg-pink-500 text-white"
-                                    : "bg-zinc-950 hover:bg-zinc-900 text-zinc-300"
-                                }`}
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="font-black">
-                                      {lesson.lesson_title}
-                                    </p>
+                            {moduleLessons.map((lesson) => {
+                              const active = selectedLesson?.id === lesson.id;
+                              const completed = isLessonCompleted(lesson.id);
 
-                                    <p className="text-sm opacity-70 mt-1">
-                                      Aula #{lesson.order_index || lesson.id}
-                                    </p>
+                              return (
+                                <button
+                                  key={lesson.id}
+                                  onClick={() => selectLesson(lesson)}
+                                  className={`w-full text-left p-4 rounded-2xl transition border ${
+                                    active
+                                      ? "bg-pink-500 text-white border-pink-400 shadow-lg shadow-pink-500/20"
+                                      : "bg-white/[0.04] border-white/5 hover:bg-white/[0.08] text-zinc-300"
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="font-black">
+                                        {lesson.lesson_title}
+                                      </p>
+
+                                      <p
+                                        className={`text-sm mt-1 ${
+                                          active
+                                            ? "text-white/75"
+                                            : "text-zinc-500"
+                                        }`}
+                                      >
+                                        Aula #
+                                        {lesson.order_index || lesson.id}
+                                      </p>
+                                    </div>
+
+                                    {completed && (
+                                      <span className="bg-green-500 text-black px-2 py-1 rounded-lg text-xs font-black">
+                                        OK
+                                      </span>
+                                    )}
                                   </div>
-
-                                  {isLessonCompleted(lesson.id) && (
-                                    <span className="bg-green-500 text-black px-2 py-1 rounded-lg text-xs font-black">
-                                      OK
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            ))}
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
