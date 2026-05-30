@@ -97,12 +97,24 @@ export default function Sidebar({ profile }: any) {
               Usuários
             </NavLink>
 
+            <div className="mt-5 mb-1 text-xs uppercase tracking-widest text-zinc-600 font-black">
+              Academy Admin
+            </div>
+
+            <NavLink
+              to="/admin/cursos"
+              className={linkClass}
+              onClick={closeMobileMenu}
+            >
+              Cursos Academy
+            </NavLink>
+
             <NavLink
               to="/admin/aulas"
               className={linkClass}
               onClick={closeMobileMenu}
             >
-              Postar Aulas
+              Aulas Academy
             </NavLink>
 
             <NavLink
@@ -112,6 +124,10 @@ export default function Sidebar({ profile }: any) {
             >
               Links Academy
             </NavLink>
+
+            <div className="mt-5 mb-1 text-xs uppercase tracking-widest text-zinc-600 font-black">
+              Gestão
+            </div>
 
             <NavLink
               to="/clientes"

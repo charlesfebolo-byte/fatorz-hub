@@ -11,7 +11,42 @@ type Course = {
   badge: string | null;
   order_index: number | null;
   is_active: boolean | null;
+  price_cents: number | null;
+  payment_url: string | null;
+  is_paid: boolean | null;
 };
+
+function formatMoneyFromCents(cents: number | null | undefined) {
+  const value = Number(cents || 0) / 100;
+
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function convertMoneyToCents(value: string) {
+  const cleanValue = value
+    .replace("R$", "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+
+  const numberValue = Number(cleanValue);
+
+  if (Number.isNaN(numberValue)) return 0;
+
+  return Math.round(numberValue * 100);
+}
+
+function convertCentsToInput(cents: number | null | undefined) {
+  const value = Number(cents || 0) / 100;
+
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 export default function AdminCourses() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -24,6 +59,10 @@ export default function AdminCourses() {
   const [badge, setBadge] = useState("");
   const [orderIndex, setOrderIndex] = useState(1);
   const [isActive, setIsActive] = useState(true);
+
+  const [isPaid, setIsPaid] = useState(false);
+  const [priceInput, setPriceInput] = useState("0,00");
+  const [paymentUrl, setPaymentUrl] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -57,6 +96,9 @@ export default function AdminCourses() {
     setBadge("");
     setOrderIndex(1);
     setIsActive(true);
+    setIsPaid(false);
+    setPriceInput("0,00");
+    setPaymentUrl("");
   }
 
   function validateForm() {
@@ -68,6 +110,20 @@ export default function AdminCourses() {
     if (!orderIndex || orderIndex < 1) {
       alert("A ordem precisa ser maior que 0.");
       return false;
+    }
+
+    if (isPaid) {
+      const priceCents = convertMoneyToCents(priceInput);
+
+      if (priceCents <= 0) {
+        alert("Informe um valor maior que R$ 0,00 para curso pago.");
+        return false;
+      }
+
+      if (!paymentUrl.trim()) {
+        alert("Informe o link de pagamento desse curso.");
+        return false;
+      }
     }
 
     return true;
@@ -137,6 +193,8 @@ export default function AdminCourses() {
 
     setLoading(true);
 
+    const priceCents = isPaid ? convertMoneyToCents(priceInput) : 0;
+
     const courseData = {
       title: title.trim(),
       subtitle: subtitle.trim(),
@@ -145,6 +203,9 @@ export default function AdminCourses() {
       badge: badge.trim(),
       order_index: Number(orderIndex),
       is_active: isActive,
+      is_paid: isPaid,
+      price_cents: priceCents,
+      payment_url: isPaid ? paymentUrl.trim() : "",
     };
 
     if (editingId) {
@@ -190,6 +251,10 @@ export default function AdminCourses() {
     setOrderIndex(course.order_index || 1);
     setIsActive(course.is_active !== false);
 
+    setIsPaid(course.is_paid === true);
+    setPriceInput(convertCentsToInput(course.price_cents));
+    setPaymentUrl(course.payment_url || "");
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -222,7 +287,7 @@ export default function AdminCourses() {
         <h1 className="text-4xl font-black mb-2">Gerenciar Cursos</h1>
 
         <p className="text-zinc-400">
-          Cadastre cursos com capa, descrição e ordem de exibição na FatorZ
+          Cadastre cursos, capas, valores e links de pagamento da FatorZ
           Academy.
         </p>
       </div>
@@ -322,6 +387,67 @@ export default function AdminCourses() {
                   }}
                 />
               </div>
+            </div>
+          )}
+
+          <label className="block mb-2 text-sm font-bold text-zinc-400">
+            Tipo de acesso
+          </label>
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => setIsPaid(false)}
+              className={`p-4 rounded-2xl font-black border transition ${
+                !isPaid
+                  ? "bg-green-500 text-black border-green-500"
+                  : "bg-black border-zinc-800 text-zinc-400 hover:bg-zinc-800"
+              }`}
+            >
+              Grátis
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsPaid(true)}
+              className={`p-4 rounded-2xl font-black border transition ${
+                isPaid
+                  ? "bg-pink-500 text-white border-pink-500"
+                  : "bg-black border-zinc-800 text-zinc-400 hover:bg-zinc-800"
+              }`}
+            >
+              Pago
+            </button>
+          </div>
+
+          {isPaid && (
+            <div className="bg-black border border-zinc-800 rounded-2xl p-4 mb-4">
+              <label className="block mb-2 text-sm font-bold text-zinc-400">
+                Valor do curso
+              </label>
+
+              <input
+                value={priceInput}
+                onChange={(e) => setPriceInput(e.target.value)}
+                placeholder="297,00"
+                className="w-full bg-zinc-900 border border-zinc-700 p-4 rounded-xl mb-4 outline-none focus:border-pink-500"
+              />
+
+              <label className="block mb-2 text-sm font-bold text-zinc-400">
+                Link de pagamento
+              </label>
+
+              <input
+                value={paymentUrl}
+                onChange={(e) => setPaymentUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full bg-zinc-900 border border-zinc-700 p-4 rounded-xl outline-none focus:border-pink-500"
+              />
+
+              <p className="text-xs text-zinc-500 mt-3">
+                Você pode trocar esse link quando quiser. Pode ser Mercado Pago,
+                Hotmart, Kiwify, Perfect Pay ou qualquer checkout.
+              </p>
             </div>
           )}
 
@@ -429,15 +555,27 @@ export default function AdminCourses() {
                         {course.badge || "Curso"}
                       </p>
 
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-black ${
-                          course.is_active
-                            ? "bg-green-500 text-black"
-                            : "bg-zinc-700 text-zinc-300"
-                        }`}
-                      >
-                        {course.is_active ? "Ativo" : "Inativo"}
-                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-black ${
+                            course.is_paid
+                              ? "bg-pink-500 text-white"
+                              : "bg-green-500 text-black"
+                          }`}
+                        >
+                          {course.is_paid ? "Pago" : "Grátis"}
+                        </span>
+
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-black ${
+                            course.is_active
+                              ? "bg-green-500 text-black"
+                              : "bg-zinc-700 text-zinc-300"
+                          }`}
+                        >
+                          {course.is_active ? "Ativo" : "Inativo"}
+                        </span>
+                      </div>
                     </div>
 
                     <h3 className="text-2xl font-black mb-2">
@@ -456,6 +594,22 @@ export default function AdminCourses() {
                       </p>
                     )}
 
+                    <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 mb-5">
+                      <p className="text-zinc-400 text-sm mb-1">Valor</p>
+
+                      <h4 className="text-2xl font-black">
+                        {course.is_paid
+                          ? formatMoneyFromCents(course.price_cents)
+                          : "Grátis"}
+                      </h4>
+
+                      {course.is_paid && course.payment_url && (
+                        <p className="text-zinc-600 text-xs mt-3 break-all">
+                          {course.payment_url}
+                        </p>
+                      )}
+                    </div>
+
                     <p className="text-zinc-600 text-xs mb-5">
                       Ordem: {course.order_index || 1}
                     </p>
@@ -467,6 +621,17 @@ export default function AdminCourses() {
                       >
                         Editar
                       </button>
+
+                      {course.is_paid && course.payment_url && (
+                        <button
+                          onClick={() =>
+                            window.open(course.payment_url || "", "_blank")
+                          }
+                          className="bg-pink-500 hover:bg-pink-600 px-4 py-3 rounded-xl font-bold"
+                        >
+                          Ver checkout
+                        </button>
+                      )}
 
                       <button
                         onClick={() => deleteCourse(course.id)}
