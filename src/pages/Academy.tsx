@@ -12,6 +12,9 @@ type Course = {
   badge: string | null;
   order_index: number | null;
   is_active: boolean | null;
+  price_cents?: number | null;
+  payment_url?: string | null;
+  is_paid?: boolean | null;
 };
 
 type Lesson = {
@@ -43,6 +46,39 @@ type AcademyLink = {
   order_index: number | null;
   is_active: boolean | null;
 };
+
+function formatMoneyFromCents(cents: number | null | undefined) {
+  const value = Number(cents || 0) / 100;
+
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function beautifyLessonText(text: string | null | undefined) {
+  if (!text) return "";
+
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/-{4,}/g, "\n\n")
+    .replace(/\s*Tarefa prática:/gi, "\n\nTarefa prática:")
+    .replace(/\s*Responda:/gi, "\n\nResponda:")
+    .replace(/\s*Exemplo:/gi, "\n\nExemplo:")
+    .replace(/\s*Prompt 1:/gi, "\n\nPrompt 1:")
+    .replace(/\s*Prompt 2:/gi, "\n\nPrompt 2:")
+    .replace(/\s*Prompt 3:/gi, "\n\nPrompt 3:")
+    .replace(/\s*Contexto:/gi, "\nContexto:")
+    .replace(/\s*Objetivo:/gi, "\nObjetivo:")
+    .replace(/\s*Público:/gi, "\nPúblico:")
+    .replace(/\s*Publico:/gi, "\nPúblico:")
+    .replace(/\s*Formato:/gi, "\nFormato:")
+    .replace(/\s*Estilo:/gi, "\nEstilo:")
+    .replace(/\s*Chamada para ação:/gi, "\nChamada para ação:")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 export default function Academy({ user, profile }: any) {
   const navigate = useNavigate();
@@ -333,6 +369,8 @@ export default function Academy({ user, profile }: any) {
     return selectedCourseLessons[index + 1] || null;
   }, [selectedLesson, selectedCourseLessons]);
 
+  const lessonDescription = beautifyLessonText(selectedLesson?.description);
+
   if (!user) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -499,7 +537,7 @@ export default function Academy({ user, profile }: any) {
                 {featuredCourse && (
                   <button
                     onClick={() => openCourse(featuredCourse)}
-                    className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-xl font-black text-lg"
+                    className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-full font-black text-lg"
                   >
                     ▶ Assistir agora
                   </button>
@@ -510,29 +548,10 @@ export default function Academy({ user, profile }: any) {
                     const section = document.getElementById("cursos");
                     section?.scrollIntoView({ behavior: "smooth" });
                   }}
-                  className="bg-white/15 border border-white/10 hover:bg-white/25 px-8 py-4 rounded-xl font-black text-lg backdrop-blur"
+                  className="bg-white/15 border border-white/10 hover:bg-white/25 px-8 py-4 rounded-full font-black text-lg backdrop-blur"
                 >
                   Ver cursos
                 </button>
-              </div>
-
-              <div className="grid grid-cols-3 max-w-xl gap-3 mt-10">
-                <div className="bg-black/45 border border-white/10 backdrop-blur rounded-2xl p-4">
-                  <p className="text-zinc-400 text-sm">Cursos</p>
-                  <h3 className="text-3xl font-black">{courses.length}</h3>
-                </div>
-
-                <div className="bg-black/45 border border-white/10 backdrop-blur rounded-2xl p-4">
-                  <p className="text-zinc-400 text-sm">Aulas</p>
-                  <h3 className="text-3xl font-black">{lessons.length}</h3>
-                </div>
-
-                <div className="bg-black/45 border border-white/10 backdrop-blur rounded-2xl p-4">
-                  <p className="text-zinc-400 text-sm">Acesso</p>
-                  <h3 className="text-xl font-black">
-                    {isAdmin ? "Admin" : formatDate(profile?.academy_expires_at)}
-                  </h3>
-                </div>
               </div>
             </div>
           </section>
@@ -645,38 +664,39 @@ export default function Academy({ user, profile }: any) {
             <img
               src={selectedCourse.cover_url}
               alt={selectedCourse.title}
-              className="fixed inset-0 w-full h-full object-cover opacity-20 blur-2xl scale-110 pointer-events-none"
+              className="fixed inset-0 w-full h-full object-cover opacity-[0.13] blur-3xl scale-110 pointer-events-none"
             />
           )}
 
-          <div className="fixed inset-0 bg-gradient-to-b from-black via-[#050505]/95 to-black pointer-events-none" />
+          <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.08),transparent_25%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.06),transparent_25%)] pointer-events-none" />
+          <div className="fixed inset-0 bg-gradient-to-b from-black via-[#050505]/96 to-black pointer-events-none" />
 
           <section className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 mb-8">
-            <div className="relative overflow-hidden rounded-[42px] border border-white/10 bg-white/[0.03] shadow-2xl shadow-pink-500/5">
+            <div className="relative overflow-hidden rounded-[38px] border border-white/10 bg-white/[0.035] backdrop-blur-2xl shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
               {selectedCourse.cover_url && (
                 <img
                   src={selectedCourse.cover_url}
                   alt={selectedCourse.title}
-                  className="absolute inset-0 w-full h-full object-cover opacity-35"
+                  className="absolute inset-0 w-full h-full object-cover opacity-30"
                 />
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/85 to-black/20" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/85 to-black/30" />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
 
-              <div className="relative z-10 p-6 md:p-10 min-h-[390px] flex flex-col justify-end">
+              <div className="relative z-10 p-6 md:p-10 min-h-[340px] flex flex-col justify-end">
                 <button
                   onClick={backToCourses}
-                  className="w-fit bg-white/10 border border-white/10 hover:bg-white/20 px-5 py-3 rounded-xl font-black mb-8 backdrop-blur"
+                  className="w-fit bg-white/10 border border-white/10 hover:bg-white/15 px-5 py-3 rounded-full font-black mb-8 backdrop-blur transition"
                 >
                   ← Voltar para cursos
                 </button>
 
-                <p className="text-pink-500 font-black uppercase tracking-[0.35em] mb-3">
+                <p className="text-pink-500 font-black uppercase tracking-[0.35em] text-xs md:text-sm mb-3">
                   {selectedCourse.badge || "FatorZ Academy"}
                 </p>
 
-                <h1 className="text-5xl md:text-8xl font-black mb-5 leading-none max-w-5xl">
+                <h1 className="text-4xl md:text-7xl font-black leading-none mb-4 max-w-5xl">
                   {selectedCourse.title}
                 </h1>
 
@@ -687,7 +707,7 @@ export default function Academy({ user, profile }: any) {
                 )}
 
                 {selectedCourse.description && (
-                  <p className="text-zinc-400 max-w-3xl mb-8">
+                  <p className="text-zinc-400 max-w-3xl mb-8 leading-relaxed whitespace-pre-line">
                     {selectedCourse.description}
                   </p>
                 )}
@@ -699,7 +719,7 @@ export default function Academy({ user, profile }: any) {
                         const section = document.getElementById("player");
                         section?.scrollIntoView({ behavior: "smooth" });
                       }}
-                      className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-xl font-black text-lg"
+                      className="bg-white text-black hover:bg-zinc-200 px-7 py-4 rounded-full font-black text-base md:text-lg transition"
                     >
                       ▶ Continuar
                     </button>
@@ -710,7 +730,7 @@ export default function Academy({ user, profile }: any) {
                       const section = document.getElementById("episodios");
                       section?.scrollIntoView({ behavior: "smooth" });
                     }}
-                    className="bg-white/15 border border-white/10 hover:bg-white/25 px-8 py-4 rounded-xl font-black text-lg backdrop-blur"
+                    className="bg-white/10 border border-white/10 hover:bg-white/15 px-7 py-4 rounded-full font-black text-base md:text-lg backdrop-blur transition"
                   >
                     Ver episódios
                   </button>
@@ -721,28 +741,30 @@ export default function Academy({ user, profile }: any) {
 
           <section className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 mb-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-3xl p-5">
-                <p className="text-zinc-400 mb-2">Aulas</p>
-                <h2 className="text-4xl font-black">{totalLessons}</h2>
+              <div className="bg-white/[0.035] backdrop-blur-xl border border-white/10 rounded-[26px] p-5">
+                <p className="text-zinc-500 mb-2 text-sm">Aulas</p>
+                <h2 className="text-3xl md:text-4xl font-black">
+                  {totalLessons}
+                </h2>
               </div>
 
-              <div className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-3xl p-5">
-                <p className="text-zinc-400 mb-2">Concluídas</p>
-                <h2 className="text-4xl font-black text-green-400">
+              <div className="bg-white/[0.035] backdrop-blur-xl border border-white/10 rounded-[26px] p-5">
+                <p className="text-zinc-500 mb-2 text-sm">Concluídas</p>
+                <h2 className="text-3xl md:text-4xl font-black text-green-400">
                   {totalCompleted}
                 </h2>
               </div>
 
-              <div className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-3xl p-5">
-                <p className="text-zinc-400 mb-2">Progresso</p>
-                <h2 className="text-4xl font-black text-pink-500">
+              <div className="bg-white/[0.035] backdrop-blur-xl border border-white/10 rounded-[26px] p-5">
+                <p className="text-zinc-500 mb-2 text-sm">Progresso</p>
+                <h2 className="text-3xl md:text-4xl font-black text-pink-500">
                   {progressPercentage}%
                 </h2>
               </div>
 
-              <div className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-3xl p-5">
-                <p className="text-zinc-400 mb-2">Acesso</p>
-                <h2 className="text-2xl font-black">
+              <div className="bg-white/[0.035] backdrop-blur-xl border border-white/10 rounded-[26px] p-5">
+                <p className="text-zinc-500 mb-2 text-sm">Acesso</p>
+                <h2 className="text-xl md:text-2xl font-black">
                   {isAdmin ? "Admin" : formatDate(profile?.academy_expires_at)}
                 </h2>
               </div>
@@ -751,31 +773,38 @@ export default function Academy({ user, profile }: any) {
 
           <section
             id="player"
-            className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 grid xl:grid-cols-[1fr_430px] gap-8 mb-10"
+            className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 grid xl:grid-cols-[1fr_400px] gap-8 mb-10"
           >
-            <div className="relative overflow-hidden bg-white/[0.035] border border-white/10 backdrop-blur-xl rounded-[38px] p-3 md:p-5 shadow-2xl shadow-black">
-              <div className="absolute -top-40 -right-40 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl" />
-              <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+            <div className="relative overflow-hidden bg-white/[0.035] border border-white/10 backdrop-blur-2xl rounded-[34px] p-4 md:p-6 shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
+              <div className="absolute -top-32 -right-32 w-80 h-80 bg-pink-500/10 rounded-full blur-3xl" />
+              <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl" />
 
               {selectedLesson ? (
                 <div className="relative z-10">
-                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3 px-1">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
                     <div>
-                      <p className="text-pink-500 font-black uppercase tracking-[0.28em] text-xs mb-2">
+                      <p className="text-pink-500 font-black uppercase tracking-[0.3em] text-xs mb-2">
                         Agora assistindo
                       </p>
 
-                      <h2 className="text-2xl md:text-4xl font-black">
+                      <h2 className="text-2xl md:text-4xl font-black leading-tight">
                         {selectedLesson.lesson_title}
                       </h2>
                     </div>
 
-                    <span className="bg-black/60 border border-white/10 px-4 py-2 rounded-full text-sm font-black text-zinc-300">
-                      Aula #{selectedLesson.order_index || selectedLesson.id}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="bg-black/45 border border-white/10 px-4 py-2 rounded-full text-xs md:text-sm font-black text-zinc-300">
+                        {selectedLesson.module_title}
+                      </span>
+
+                      <span className="bg-black/45 border border-white/10 px-4 py-2 rounded-full text-xs md:text-sm font-black text-zinc-300">
+                        Aula #{selectedLesson.order_index || selectedLesson.id}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="aspect-video bg-black rounded-[30px] overflow-hidden border border-white/10 mb-6 shadow-2xl shadow-black">
+                  <div className="relative aspect-video bg-black rounded-[28px] overflow-hidden border border-white/10 mb-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
+                    <div className="absolute inset-0 ring-1 ring-white/5 rounded-[28px] pointer-events-none" />
                     <iframe
                       src={selectedLesson.video_url}
                       title={selectedLesson.lesson_title}
@@ -785,31 +814,35 @@ export default function Academy({ user, profile }: any) {
                     />
                   </div>
 
-                  <div className="grid lg:grid-cols-[1fr_260px] gap-5 px-1 pb-2">
-                    <div>
-                      <p className="text-pink-500 font-black uppercase tracking-widest text-sm mb-2">
-                        {selectedLesson.module_title}
+                  <div className="grid lg:grid-cols-[1fr_280px] gap-6">
+                    <div className="bg-black/25 border border-white/5 rounded-[28px] p-6">
+                      <p className="text-pink-500 font-black uppercase tracking-[0.28em] text-xs mb-3">
+                        Descrição da aula
                       </p>
 
-                      <h3 className="text-3xl md:text-5xl font-black mb-4">
+                      <h3 className="text-3xl md:text-5xl font-black mb-5 leading-tight break-words">
                         {selectedLesson.lesson_title}
                       </h3>
 
-                      {selectedLesson.description && (
-                        <p className="text-zinc-400 leading-relaxed max-w-4xl">
-                          {selectedLesson.description}
+                      {lessonDescription ? (
+                        <div className="text-zinc-300 leading-8 text-[15px] md:text-base whitespace-pre-line break-words max-w-none">
+                          {lessonDescription}
+                        </div>
+                      ) : (
+                        <p className="text-zinc-500">
+                          Sem descrição para esta aula.
                         </p>
                       )}
                     </div>
 
-                    <div className="bg-black/50 border border-white/10 rounded-3xl p-5 h-fit">
+                    <div className="bg-black/35 border border-white/10 rounded-[28px] p-5 h-fit">
                       <p className="text-zinc-500 text-sm font-bold mb-4">
-                        Status da aula
+                        Progresso da aula
                       </p>
 
                       <button
                         onClick={() => toggleLessonCompleted(selectedLesson)}
-                        className={`w-full px-5 py-4 rounded-2xl font-black mb-3 ${
+                        className={`w-full px-5 py-4 rounded-2xl font-black mb-3 transition ${
                           isLessonCompleted(selectedLesson.id)
                             ? "bg-green-500 text-black"
                             : "bg-pink-500 hover:bg-pink-600 text-white"
@@ -823,11 +856,33 @@ export default function Academy({ user, profile }: any) {
                       {nextLesson && (
                         <button
                           onClick={() => selectLesson(nextLesson)}
-                          className="w-full bg-white/10 border border-white/10 hover:bg-white/20 px-5 py-4 rounded-2xl font-black"
+                          className="w-full bg-white/10 border border-white/10 hover:bg-white/15 px-5 py-4 rounded-2xl font-black transition"
                         >
                           Próxima aula →
                         </button>
                       )}
+
+                      <div className="mt-4 pt-4 border-t border-white/10">
+                        <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+                          Status
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full ${
+                              isLessonCompleted(selectedLesson.id)
+                                ? "bg-green-400"
+                                : "bg-pink-500"
+                            }`}
+                          />
+
+                          <span className="text-sm text-zinc-300 font-medium">
+                            {isLessonCompleted(selectedLesson.id)
+                              ? "Aula finalizada"
+                              : "Em andamento"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -846,28 +901,24 @@ export default function Academy({ user, profile }: any) {
 
             <aside
               id="episodios"
-              className="bg-white/[0.035] border border-white/10 backdrop-blur-xl rounded-[38px] p-5 h-fit sticky top-24 shadow-2xl shadow-black"
+              className="bg-white/[0.035] border border-white/10 backdrop-blur-2xl rounded-[34px] p-5 h-fit sticky top-24 shadow-[0_20px_80px_rgba(0,0,0,0.45)]"
             >
-              <div className="flex items-center justify-between gap-3 mb-5">
-                <div>
-                  <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-1">
-                    Catálogo
-                  </p>
+              <div className="mb-5">
+                <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-2">
+                  Catálogo
+                </p>
 
-                  <h2 className="text-3xl font-black">Episódios</h2>
-                </div>
-
-                <span className="bg-black/60 border border-white/10 px-3 py-2 rounded-xl text-sm font-black text-zinc-400">
-                  {selectedCourseLessons.length}
-                </span>
+                <h2 className="text-3xl font-black">Episódios</h2>
               </div>
 
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar aula..."
-                className="w-full bg-black/55 border border-white/10 rounded-2xl p-4 outline-none focus:border-pink-500 mb-5"
-              />
+              <div className="relative mb-5">
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar aula..."
+                  className="w-full bg-black/45 border border-white/10 rounded-2xl p-4 outline-none focus:border-pink-500 transition"
+                />
+              </div>
 
               <div className="space-y-4 max-h-[720px] overflow-y-auto pr-1">
                 {Object.keys(groupedLessons).length === 0 ? (
@@ -877,20 +928,30 @@ export default function Academy({ user, profile }: any) {
                     ([moduleTitle, moduleLessons]) => (
                       <div
                         key={moduleTitle}
-                        className="bg-black/45 border border-white/10 rounded-3xl overflow-hidden"
+                        className="bg-black/30 border border-white/10 rounded-[28px] overflow-hidden"
                       >
                         <button
                           onClick={() => toggleModule(moduleTitle)}
-                          className="w-full text-left p-4 font-black flex items-center justify-between gap-3"
+                          className="w-full text-left px-5 py-4 flex items-center justify-between gap-3"
                         >
-                          <span>{moduleTitle}</span>
-                          <span className="text-pink-500">
+                          <div>
+                            <p className="text-white font-black text-lg leading-tight">
+                              {moduleTitle}
+                            </p>
+
+                            <p className="text-zinc-500 text-sm mt-1">
+                              {moduleLessons.length} aula
+                              {moduleLessons.length > 1 ? "s" : ""}
+                            </p>
+                          </div>
+
+                          <span className="text-pink-500 text-2xl font-light">
                             {openModules[moduleTitle] ? "−" : "+"}
                           </span>
                         </button>
 
                         {openModules[moduleTitle] && (
-                          <div className="p-3 pt-0 space-y-2">
+                          <div className="px-4 pb-4 space-y-3">
                             {moduleLessons.map((lesson) => {
                               const active = selectedLesson?.id === lesson.id;
                               const completed = isLessonCompleted(lesson.id);
@@ -899,32 +960,35 @@ export default function Academy({ user, profile }: any) {
                                 <button
                                   key={lesson.id}
                                   onClick={() => selectLesson(lesson)}
-                                  className={`w-full text-left p-4 rounded-2xl transition border ${
+                                  className={`w-full text-left rounded-[22px] p-4 border transition-all duration-200 ${
                                     active
-                                      ? "bg-pink-500 text-white border-pink-400 shadow-lg shadow-pink-500/20"
-                                      : "bg-white/[0.04] border-white/5 hover:bg-white/[0.08] text-zinc-300"
+                                      ? "bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white border-pink-400 shadow-[0_10px_30px_rgba(236,72,153,0.25)]"
+                                      : "bg-white/[0.03] border-white/5 hover:bg-white/[0.07] text-zinc-300"
                                   }`}
                                 >
                                   <div className="flex items-start justify-between gap-3">
                                     <div>
-                                      <p className="font-black">
+                                      <p className="font-black text-base leading-snug">
                                         {lesson.lesson_title}
                                       </p>
 
-                                      <p
-                                        className={`text-sm mt-1 ${
+                                      <div
+                                        className={`mt-2 flex items-center gap-2 text-sm ${
                                           active
-                                            ? "text-white/75"
+                                            ? "text-white/80"
                                             : "text-zinc-500"
                                         }`}
                                       >
-                                        Aula #
-                                        {lesson.order_index || lesson.id}
-                                      </p>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+
+                                        <span>
+                                          Aula #{lesson.order_index || lesson.id}
+                                        </span>
+                                      </div>
                                     </div>
 
                                     {completed && (
-                                      <span className="bg-green-500 text-black px-2 py-1 rounded-lg text-xs font-black">
+                                      <span className="shrink-0 bg-green-500 text-black px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wide">
                                         OK
                                       </span>
                                     )}
