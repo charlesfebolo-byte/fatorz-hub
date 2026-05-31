@@ -284,15 +284,15 @@ export default function Mural({ user, profile }: MuralProps) {
             </div>
 
             <h1 className="text-4xl md:text-6xl font-black leading-tight mb-4">
-              Notícias, avisos e atualizações{" "}
+              Novidades e comunicados{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]">
                 sem bagunça.
               </span>
             </h1>
 
             <p className="text-zinc-400 text-lg leading-relaxed max-w-3xl">
-              Um espaço controlado pela FatorZ: somente admins publicam, os
-              membros acompanham e reagem com emojis seguros.
+              Acompanhe novidades, avisos, atualizações e comunicados oficiais
+              da FatorZ em um só lugar.
             </p>
           </div>
 
