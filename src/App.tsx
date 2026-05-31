@@ -21,6 +21,7 @@ import CheckoutAcademy from "./pages/CheckoutAcademy";
 import ThankYou from "./pages/ThankYou";
 
 import Sidebar from "./components/Sidebar";
+import FatorzAssistant from "./components/FatorzAssistant";
 
 function LoadingScreen({ text = "Carregando..." }: { text?: string }) {
   return (
@@ -377,6 +378,8 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      <FatorzAssistant user={user} profile={profile} />
     </BrowserRouter>
   );
 }

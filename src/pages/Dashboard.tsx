@@ -75,6 +75,95 @@ type Payment = {
   payment_method: string | null;
   notes: string | null;
 };
+;
+
+const checklistItems = [
+  {
+    id: "bio",
+    title: "Bio clara",
+    description: "Deixe óbvio o que você faz, para quem faz e como a pessoa avança.",
+  },
+  {
+    id: "destaques",
+    title: "Destaques organizados",
+    description: "Use destaques como serviços, resultados, feedbacks, localização e dúvidas.",
+  },
+  {
+    id: "link",
+    title: "Link funcionando",
+    description: "Confira se o link da bio leva para WhatsApp, página ou oferta certa.",
+  },
+  {
+    id: "prova",
+    title: "Prova social",
+    description: "Publique feedbacks, bastidores, entregas, antes/depois ou resultados reais.",
+  },
+  {
+    id: "conteudo",
+    title: "Conteúdo da semana",
+    description: "Tenha pelo menos uma ideia de post, story ou Reels para os próximos dias.",
+  },
+  {
+    id: "cta",
+    title: "Chamada para ação",
+    description: "Todo conteúdo precisa indicar o próximo passo: comentar, chamar, salvar ou clicar.",
+  },
+];
+
+const weeklyMissions = [
+  {
+    title: "Poste uma prova social",
+    description:
+      "Mostre um feedback, bastidor, entrega ou transformação que aumente confiança na sua marca.",
+    action: "Criar um story ou post com uma prova real.",
+  },
+  {
+    title: "Responda uma dúvida em Reels",
+    description:
+      "Pegue uma pergunta comum do seu público e responda de forma simples em até 30 segundos.",
+    action: "Gravar um Reels curto com uma resposta direta.",
+  },
+  {
+    title: "Revise sua bio",
+    description:
+      "Sua bio precisa dizer o que você faz, para quem faz e como a pessoa fala com você.",
+    action: "Ajustar a bio e conferir o link principal.",
+  },
+  {
+    title: "Mostre um bastidor",
+    description:
+      "Bastidor gera proximidade. Mostre seu processo, rotina, organização ou preparação.",
+    action: "Postar 3 stories mostrando o processo.",
+  },
+  {
+    title: "Crie um conteúdo de autoridade",
+    description:
+      "Ensine algo pequeno, mas útil. O objetivo é a pessoa sentir que você entende do assunto.",
+    action: "Publicar uma dica prática com CTA leve.",
+  },
+];
+
+function getChecklistInitialState() {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const saved = window.localStorage.getItem("fatorz_presence_checklist");
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getCurrentWeeklyMission() {
+  const start = new Date(new Date().getFullYear(), 0, 1);
+  const today = new Date();
+  const days = Math.floor(
+    (today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const week = Math.floor(days / 7);
+
+  return weeklyMissions[week % weeklyMissions.length];
+}
 
 export default function Dashboard({ user, profile }: any) {
   const navigate = useNavigate();
@@ -87,6 +176,17 @@ export default function Dashboard({ user, profile }: any) {
   const [clients, setClients] = useState<Client[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [checklist, setChecklist] = useState<Record<string, boolean>>(
+    getChecklistInitialState
+  );
+
+  const [diagnostic, setDiagnostic] = useState({
+    objetivo: "",
+    maiorDificuldade: "",
+    frequencia: "",
+    estrutura: "",
+  });
 
   const isAdmin = profile?.role === "admin";
 
@@ -335,109 +435,586 @@ export default function Dashboard({ user, profile }: any) {
   const latestProjects = projects.slice(0, 5);
   const latestSubscriptions = subscriptions.slice(0, 5);
 
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "fatorz_presence_checklist",
+        JSON.stringify(checklist)
+      );
+    } catch {
+      // Mantém funcionando mesmo se o navegador bloquear localStorage.
+    }
+  }, [checklist]);
+
+  function toggleChecklistItem(id: string) {
+    setChecklist((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  }
+
+  const checklistCompleted = checklistItems.filter((item) => checklist[item.id])
+    .length;
+
+  const checklistPercentage = Math.round(
+    (checklistCompleted / checklistItems.length) * 100
+  );
+
+  const diagnosticResult = useMemo(() => {
+    const answers = Object.values(diagnostic).filter(Boolean).length;
+
+    if (answers < 2) {
+      return {
+        title: "Comece pelo diagnóstico",
+        area: "Direção",
+        description:
+          "Responda pelo menos duas perguntas para o Hub indicar o próximo passo da sua marca.",
+        recommendation: "Preencha o diagnóstico rápido abaixo.",
+        score: 25,
+      };
+    }
+
+    if (diagnostic.maiorDificuldade === "conteudo") {
+      return {
+        title: "Seu maior gargalo parece ser conteúdo",
+        area: "Conteúdo",
+        description:
+          "Sua marca precisa de ideias mais claras, consistentes e com função: atrair, gerar confiança e vender.",
+        recommendation:
+          "Use o Assistente FatorZ para criar ideias, legendas e roteiros. Depois cumpra a missão da semana.",
+        score: 58,
+      };
+    }
+
+    if (diagnostic.maiorDificuldade === "perfil") {
+      return {
+        title: "Seu maior gargalo parece ser perfil",
+        area: "Perfil",
+        description:
+          "Antes de vender, o perfil precisa passar confiança em poucos segundos: bio, destaques, prova social e link.",
+        recommendation:
+          "Complete o checklist de presença digital e revise sua bio, destaques e provas.",
+        score: 51,
+      };
+    }
+
+    if (diagnostic.maiorDificuldade === "vendas") {
+      return {
+        title: "Seu maior gargalo parece ser venda",
+        area: "Vendas",
+        description:
+          "Talvez o problema não seja só postagem. Pode faltar uma oferta clara, CTA melhor e uma página que conduza o cliente.",
+        recommendation:
+          "Revise sua oferta, CTA e considere usar uma landing page para organizar a venda.",
+        score: 63,
+      };
+    }
+
+    if (diagnostic.maiorDificuldade === "posicionamento") {
+      return {
+        title: "Seu maior gargalo parece ser posicionamento",
+        area: "Posicionamento",
+        description:
+          "Quando a marca não comunica bem o valor, o público compara só por preço e demora para confiar.",
+        recommendation:
+          "Defina uma promessa clara, organize a comunicação visual e publique conteúdos de autoridade.",
+        score: 56,
+      };
+    }
+
+    return {
+      title: "Sua marca precisa de direção",
+      area: "Presença digital",
+      description:
+        "O próximo passo é organizar o básico: perfil, conteúdo, prova social e uma rotina simples de postagem.",
+      recommendation:
+        "Comece pelo checklist e use o Assistente FatorZ para transformar isso em posts práticos.",
+      score: 45,
+    };
+  }, [diagnostic]);
+
+  const weeklyMission = getCurrentWeeklyMission();
+
   if (!isAdmin) {
     return (
-      <div className="text-white">
-        <section className="mb-10">
-          <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
-            Painel
-          </p>
+      <div className="text-white relative overflow-hidden">
+        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(0,92,255,0.18),transparent_26%),radial-gradient(circle_at_85%_5%,rgba(255,0,150,0.15),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(145,35,255,0.13),transparent_32%)]" />
 
-          <h1 className="text-4xl font-black mb-3">
-            Bem-vindo, {profile?.nome || user?.email || "Usuário"}
-          </h1>
+        <div className="relative z-10">
+          <section className="mb-8 overflow-hidden rounded-[38px] border border-white/10 bg-gradient-to-br from-zinc-950 via-black to-zinc-950 p-6 md:p-10 shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
+            <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-8 items-center">
+              <div>
+                <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 mb-6">
+                  <span className="h-2.5 w-2.5 rounded-full bg-pink-500 shadow-[0_0_20px_rgba(255,0,150,0.9)]" />
+                  <p className="text-xs font-black uppercase tracking-[0.28em] text-zinc-300">
+                    Hub FatorZ
+                  </p>
+                </div>
 
-          <p className="text-zinc-400 max-w-3xl">
-            Acompanhe sua conta, seu acesso à Academy e suas entregas da FatorZ.
-          </p>
-        </section>
+                <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                  Painel inteligente
+                </p>
 
-        <section className="grid lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-            <p className="text-zinc-400 mb-2">Seu plano</p>
+                <h1 className="text-4xl md:text-6xl font-black leading-none mb-5">
+                  Bem-vindo, {profile?.nome || user?.email || "Usuário"}.
+                </h1>
 
-            <h2 className="text-4xl font-black">
-              {profile?.role === "premium"
-                ? "Premium"
-                : profile?.role === "admin"
-                ? "Admin"
-                : "Gratuito"}
-            </h2>
-          </div>
+                <p className="text-zinc-400 text-lg max-w-3xl leading-relaxed mb-7">
+                  Use o Hub para entender o próximo passo da sua marca, organizar
+                  sua presença digital, cumprir missões de postagem e acessar a
+                  FatorZ Academy.
+                </p>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-            <p className="text-zinc-400 mb-2">Academy</p>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => {
+                      const section = document.getElementById("diagnostico");
+                      section?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-7 py-4 rounded-2xl font-black shadow-[0_0_35px_rgba(255,0,150,0.25)]"
+                  >
+                    Fazer diagnóstico
+                  </button>
 
-            <h2
-              className={`text-4xl font-black ${
-                academyActive ? "text-green-400" : "text-red-400"
-              }`}
-            >
-              {academyActive ? "Ativo" : "Bloqueado"}
-            </h2>
-          </div>
+                  <button
+                    onClick={() => navigate("/academy")}
+                    className="bg-white text-black hover:bg-zinc-200 px-7 py-4 rounded-2xl font-black"
+                  >
+                    Abrir Academy
+                  </button>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-            <p className="text-zinc-400 mb-2">Vencimento</p>
+                  <button
+                    onClick={() => {
+                      const section = document.getElementById("missao");
+                      section?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="bg-white/10 border border-white/10 hover:bg-white/15 px-7 py-4 rounded-2xl font-black"
+                  >
+                    Ver missão da semana
+                  </button>
+                </div>
+              </div>
 
-            <h2 className="text-4xl font-black">
-              {formatDate(profile?.academy_expires_at)}
-            </h2>
-          </div>
-        </section>
+              <div className="relative overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.035] p-6 backdrop-blur-xl">
+                <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-pink-500/20 blur-3xl" />
+                <div className="absolute -left-16 -bottom-16 h-52 w-52 rounded-full bg-blue-500/15 blur-3xl" />
 
-        <section className="grid xl:grid-cols-2 gap-8">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-[40px] p-10">
-            <p className="text-pink-500 font-black uppercase tracking-widest mb-4">
-              FatorZ Academy
-            </p>
+                <div className="relative z-10">
+                  <p className="text-zinc-500 font-bold mb-2">
+                    Radar da sua marca
+                  </p>
 
-            <h2 className="text-5xl font-black mb-6">Continue estudando.</h2>
+                  <h2 className="text-3xl md:text-4xl font-black mb-4">
+                    {diagnosticResult.area}
+                  </h2>
 
-            <p className="text-zinc-400 text-lg mb-8">
-              Acesse suas aulas, acompanhe seu progresso e evolua sua presença
-              digital com IA.
-            </p>
+                  <div className="mb-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-bold text-zinc-400">
+                        Nível de clareza
+                      </span>
+                      <span className="text-sm font-black text-pink-400">
+                        {diagnosticResult.score}%
+                      </span>
+                    </div>
 
-            <div className="flex flex-wrap gap-4">
-              <button
-                onClick={() => navigate("/academy")}
-                className="bg-pink-500 hover:bg-pink-600 px-8 py-4 rounded-2xl font-black"
-              >
-                Abrir Academy
-              </button>
+                    <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                        style={{ width: `${diagnosticResult.score}%` }}
+                      />
+                    </div>
+                  </div>
 
-              {!academyActive && (
-                <button
-                  onClick={() => navigate("/checkout/academy")}
-                  className="bg-white text-black px-8 py-4 rounded-2xl font-black"
-                >
-                  Assinar Academy
-                </button>
-              )}
+                  <p className="text-xl font-black mb-3">
+                    {diagnosticResult.title}
+                  </p>
+
+                  <p className="text-zinc-400 leading-relaxed mb-5">
+                    {diagnosticResult.description}
+                  </p>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                    <p className="text-xs font-black uppercase tracking-widest text-pink-400 mb-2">
+                      Próximo passo recomendado
+                    </p>
+                    <p className="text-zinc-300 font-bold leading-relaxed">
+                      {diagnosticResult.recommendation}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-[40px] p-10">
-            <p className="text-pink-500 font-black uppercase tracking-widest mb-4">
-              Entregas
-            </p>
+          <section className="grid md:grid-cols-3 gap-5 mb-8">
+            <div className="rounded-[30px] border border-white/10 bg-zinc-950/80 p-6">
+              <p className="text-zinc-500 mb-2 font-bold">Seu plano</p>
 
-            <h2 className="text-5xl font-black mb-6">Seus materiais.</h2>
+              <h2 className="text-4xl font-black">
+                {profile?.role === "premium"
+                  ? "Premium"
+                  : profile?.role === "admin"
+                  ? "Admin"
+                  : "Gratuito"}
+              </h2>
+            </div>
 
-            <p className="text-zinc-400 text-lg mb-8">
-              Veja os projetos, status e links de entrega dos serviços feitos
-              pela FatorZ.
-            </p>
+            <div className="rounded-[30px] border border-white/10 bg-zinc-950/80 p-6">
+              <p className="text-zinc-500 mb-2 font-bold">Academy</p>
 
-            <button
-              onClick={() => navigate("/minhas-entregas")}
-              className="bg-green-500 hover:bg-green-600 text-black px-8 py-4 rounded-2xl font-black"
+              <h2
+                className={`text-4xl font-black ${
+                  academyActive ? "text-green-400" : "text-pink-500"
+                }`}
+              >
+                {academyActive ? "Ativo" : "Prévia"}
+              </h2>
+            </div>
+
+            <div className="rounded-[30px] border border-white/10 bg-zinc-950/80 p-6">
+              <p className="text-zinc-500 mb-2 font-bold">Checklist</p>
+
+              <h2 className="text-4xl font-black text-pink-500">
+                {checklistCompleted}/{checklistItems.length}
+              </h2>
+            </div>
+          </section>
+
+          <section
+            id="diagnostico"
+            className="grid xl:grid-cols-[1fr_420px] gap-8 mb-8"
+          >
+            <div className="rounded-[40px] border border-white/10 bg-zinc-950/85 p-6 md:p-8">
+              <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                Diagnóstico rápido
+              </p>
+
+              <h2 className="text-3xl md:text-5xl font-black mb-4">
+                Onde sua marca mais precisa evoluir?
+              </h2>
+
+              <p className="text-zinc-400 max-w-3xl mb-8 leading-relaxed">
+                Responda de forma simples. O Hub usa isso para te mostrar o
+                próximo passo mais inteligente.
+              </p>
+
+              <div className="grid md:grid-cols-2 gap-5">
+                <label className="block">
+                  <span className="text-sm font-black text-zinc-300">
+                    Qual seu objetivo principal?
+                  </span>
+                  <select
+                    value={diagnostic.objetivo}
+                    onChange={(event) =>
+                      setDiagnostic((prev) => ({
+                        ...prev,
+                        objetivo: event.target.value,
+                      }))
+                    }
+                    className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                  >
+                    <option value="">Escolha uma opção</option>
+                    <option value="atrair">Atrair mais pessoas</option>
+                    <option value="confianca">Gerar mais confiança</option>
+                    <option value="vender">Vender melhor</option>
+                    <option value="organizar">Organizar minha presença</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black text-zinc-300">
+                    Qual é sua maior dificuldade?
+                  </span>
+                  <select
+                    value={diagnostic.maiorDificuldade}
+                    onChange={(event) =>
+                      setDiagnostic((prev) => ({
+                        ...prev,
+                        maiorDificuldade: event.target.value,
+                      }))
+                    }
+                    className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                  >
+                    <option value="">Escolha uma opção</option>
+                    <option value="conteudo">Criar conteúdo</option>
+                    <option value="perfil">Organizar o perfil</option>
+                    <option value="posicionamento">Posicionamento</option>
+                    <option value="vendas">Transformar atenção em venda</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black text-zinc-300">
+                    Com que frequência você posta?
+                  </span>
+                  <select
+                    value={diagnostic.frequencia}
+                    onChange={(event) =>
+                      setDiagnostic((prev) => ({
+                        ...prev,
+                        frequencia: event.target.value,
+                      }))
+                    }
+                    className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                  >
+                    <option value="">Escolha uma opção</option>
+                    <option value="quase-nunca">Quase nunca</option>
+                    <option value="as-vezes">Às vezes</option>
+                    <option value="semanal">Toda semana</option>
+                    <option value="constante">Com constância</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black text-zinc-300">
+                    Seu perfil já parece profissional?
+                  </span>
+                  <select
+                    value={diagnostic.estrutura}
+                    onChange={(event) =>
+                      setDiagnostic((prev) => ({
+                        ...prev,
+                        estrutura: event.target.value,
+                      }))
+                    }
+                    className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                  >
+                    <option value="">Escolha uma opção</option>
+                    <option value="nao">Ainda não</option>
+                    <option value="mais-ou-menos">Mais ou menos</option>
+                    <option value="quase">Quase pronto</option>
+                    <option value="sim">Sim, mas quero melhorar</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="rounded-[40px] border border-pink-500/20 bg-gradient-to-br from-black via-zinc-950 to-pink-950/25 p-6 md:p-8">
+              <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                Resultado
+              </p>
+
+              <h3 className="text-3xl font-black mb-4">
+                {diagnosticResult.title}
+              </h3>
+
+              <p className="text-zinc-400 leading-relaxed mb-6">
+                {diagnosticResult.description}
+              </p>
+
+              <div className="rounded-3xl bg-black/50 border border-white/10 p-5 mb-6">
+                <p className="text-zinc-500 text-sm font-bold mb-2">
+                  Recomendação
+                </p>
+
+                <p className="text-white font-bold leading-relaxed">
+                  {diagnosticResult.recommendation}
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  const section = document.getElementById("checklist");
+                  section?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="w-full bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black"
+              >
+                Ir para o checklist
+              </button>
+            </div>
+          </section>
+
+          <section
+            id="checklist"
+            className="grid xl:grid-cols-[1fr_420px] gap-8 mb-8"
+          >
+            <div className="rounded-[40px] border border-white/10 bg-zinc-950/85 p-6 md:p-8">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 mb-8">
+                <div>
+                  <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                    Checklist de presença
+                  </p>
+
+                  <h2 className="text-3xl md:text-5xl font-black">
+                    Organize o básico que vende confiança.
+                  </h2>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/50 px-5 py-4">
+                  <p className="text-zinc-500 text-sm font-bold">Progresso</p>
+                  <p className="text-3xl font-black text-pink-500">
+                    {checklistPercentage}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {checklistItems.map((item) => {
+                  const checked = !!checklist[item.id];
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => toggleChecklistItem(item.id)}
+                      className={`w-full text-left rounded-[26px] border p-5 transition ${
+                        checked
+                          ? "border-green-400/30 bg-green-500/10"
+                          : "border-white/10 bg-black/35 hover:border-pink-500/50"
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div
+                          className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border font-black ${
+                            checked
+                              ? "border-green-400 bg-green-400 text-black"
+                              : "border-white/20 text-zinc-500"
+                          }`}
+                        >
+                          {checked ? "✓" : ""}
+                        </div>
+
+                        <div>
+                          <h3 className="text-xl font-black mb-1">
+                            {item.title}
+                          </h3>
+
+                          <p className="text-zinc-400 leading-relaxed">
+                            {item.description}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              id="missao"
+              className="rounded-[40px] border border-white/10 bg-gradient-to-br from-[#005cff]/15 via-zinc-950 to-[#ff0096]/15 p-6 md:p-8 h-fit"
             >
-              Ver minhas entregas
-            </button>
-          </div>
-        </section>
+              <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                Missão da semana
+              </p>
+
+              <h2 className="text-3xl md:text-4xl font-black mb-4">
+                {weeklyMission.title}
+              </h2>
+
+              <p className="text-zinc-400 leading-relaxed mb-6">
+                {weeklyMission.description}
+              </p>
+
+              <div className="rounded-3xl border border-white/10 bg-black/45 p-5 mb-6">
+                <p className="text-zinc-500 text-sm font-bold mb-2">
+                  Tarefa prática
+                </p>
+
+                <p className="text-white font-black leading-relaxed">
+                  {weeklyMission.action}
+                </p>
+              </div>
+
+              <p className="text-zinc-500 text-sm leading-relaxed mb-6">
+                Dica: use o botão flutuante do Assistente FatorZ para pedir
+                ideias, legenda, CTA e roteiro para cumprir essa missão.
+              </p>
+
+              <button
+                onClick={() =>
+                  setDiagnostic((prev) => ({
+                    ...prev,
+                    maiorDificuldade: "conteudo",
+                  }))
+                }
+                className="w-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-6 py-4 rounded-2xl font-black"
+              >
+                Quero criar conteúdo
+              </button>
+            </div>
+          </section>
+
+          <section className="grid xl:grid-cols-3 gap-6">
+            <div className="rounded-[38px] border border-white/10 bg-zinc-950 p-7">
+              <p className="text-pink-500 font-black uppercase tracking-widest mb-4">
+                FatorZ Academy
+              </p>
+
+              <h2 className="text-4xl font-black mb-5">
+                Continue estudando.
+              </h2>
+
+              <p className="text-zinc-400 leading-relaxed mb-7">
+                Veja a grade de cursos, acompanhe sua evolução e acesse aulas
+                premium quando seu plano estiver ativo.
+              </p>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => navigate("/academy")}
+                  className="bg-pink-500 hover:bg-pink-600 px-6 py-4 rounded-2xl font-black"
+                >
+                  Abrir Academy
+                </button>
+
+                {!academyActive && (
+                  <button
+                    onClick={() => navigate("/checkout/academy")}
+                    className="bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black"
+                  >
+                    Assinar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-[38px] border border-white/10 bg-zinc-950 p-7">
+              <p className="text-pink-500 font-black uppercase tracking-widest mb-4">
+                Assistente FatorZ
+              </p>
+
+              <h2 className="text-4xl font-black mb-5">Peça ajuda rápida.</h2>
+
+              <p className="text-zinc-400 leading-relaxed mb-7">
+                Use o botão flutuante no canto da tela para gerar ideias,
+                legendas, roteiros, CTAs e tirar dúvidas do Hub.
+              </p>
+
+              <div className="rounded-2xl border border-white/10 bg-black/45 p-4">
+                <p className="font-black text-white">
+                  Sugestão de pedido:
+                </p>
+
+                <p className="text-zinc-400 mt-2">
+                  “Crie 5 ideias de Reels para minha marca vender melhor sem
+                  parecer forçado.”
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-[38px] border border-white/10 bg-zinc-950 p-7">
+              <p className="text-pink-500 font-black uppercase tracking-widest mb-4">
+                Entregas
+              </p>
+
+              <h2 className="text-4xl font-black mb-5">Seus materiais.</h2>
+
+              <p className="text-zinc-400 leading-relaxed mb-7">
+                Veja seus projetos, status, arquivos e links de entrega dos
+                serviços feitos pela FatorZ.
+              </p>
+
+              <button
+                onClick={() => navigate("/minhas-entregas")}
+                className="bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black"
+              >
+                Ver minhas entregas
+              </button>
+            </div>
+          </section>
+        </div>
       </div>
     );
   }
