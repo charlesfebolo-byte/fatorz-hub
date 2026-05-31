@@ -218,6 +218,28 @@ function getMissionByArea(area: string) {
   return getCurrentWeeklyMission();
 }
 
+function getCurrentWeekKey() {
+  const start = new Date(new Date().getFullYear(), 0, 1);
+  const today = new Date();
+  const days = Math.floor(
+    (today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const week = Math.floor(days / 7);
+
+  return `${today.getFullYear()}-${week}`;
+}
+
+function getCompletedMissionsInitialState() {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const saved = window.localStorage.getItem("fatorz_completed_missions");
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
 function getChecklistInitialState() {
   if (typeof window === "undefined") return {};
 
@@ -262,6 +284,9 @@ export default function Dashboard({ user, profile }: any) {
 
   const [diagnosticOpen, setDiagnosticOpen] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [completedMissions, setCompletedMissions] = useState<Record<string, boolean>>(
+    getCompletedMissionsInitialState
+  );
 
   const isAdmin = profile?.role === "admin";
 
@@ -677,6 +702,129 @@ export default function Dashboard({ user, profile }: any) {
   }
 
 
+  const missionKey = `${getCurrentWeekKey()}-${diagnosticResult.area}`;
+  const missionCompleted = !!completedMissions[missionKey];
+
+  function toggleMissionCompleted() {
+    setCompletedMissions((prev) => ({
+      ...prev,
+      [missionKey]: !prev[missionKey],
+    }));
+  }
+
+  const presenceScores = useMemo(() => {
+    const perfil =
+      15 +
+      (checklist.bio ? 20 : 0) +
+      (checklist.destaques ? 18 : 0) +
+      (diagnostic.estrutura === "sim"
+        ? 22
+        : diagnostic.estrutura === "quase"
+        ? 15
+        : diagnostic.estrutura === "mais-ou-menos"
+        ? 8
+        : 0) +
+      (checklist.link ? 15 : 0) +
+      (checklist.cta ? 10 : 0);
+
+    const conteudo =
+      15 +
+      (checklist.conteudo ? 25 : 0) +
+      (diagnostic.frequencia === "constante"
+        ? 25
+        : diagnostic.frequencia === "semanal"
+        ? 18
+        : diagnostic.frequencia === "as-vezes"
+        ? 10
+        : 0) +
+      (diagnostic.objetivo ? 15 : 0) +
+      (missionCompleted ? 20 : 0);
+
+    const confianca =
+      12 +
+      (checklist.prova ? 25 : 0) +
+      (diagnostic.provaSocial === "sim"
+        ? 28
+        : diagnostic.provaSocial === "pouca"
+        ? 14
+        : 0) +
+      (checklist.destaques ? 15 : 0) +
+      (checklist.bio ? 10 : 0) +
+      (missionCompleted ? 10 : 0);
+
+    const vendas =
+      12 +
+      (checklist.cta ? 22 : 0) +
+      (checklist.link ? 18 : 0) +
+      (diagnostic.linkVenda === "sim"
+        ? 20
+        : diagnostic.linkVenda === "confuso"
+        ? 8
+        : 0) +
+      (diagnostic.clarezaOferta === "sim"
+        ? 18
+        : diagnostic.clarezaOferta === "mais-ou-menos"
+        ? 9
+        : 0) +
+      (diagnostic.objetivo === "vender" ? 10 : 0);
+
+    return [
+      { label: "Perfil", value: Math.min(perfil, 100) },
+      { label: "Conteúdo", value: Math.min(conteudo, 100) },
+      { label: "Confiança", value: Math.min(confianca, 100) },
+      { label: "Venda", value: Math.min(vendas, 100) },
+    ];
+  }, [checklist, diagnostic, missionCompleted]);
+
+  const recommendedPath = useMemo(() => {
+    const basePath = {
+      Perfil: [
+        "Ajustar bio e promessa",
+        "Organizar destaques",
+        "Adicionar prova social",
+        "Apontar link para ação",
+      ],
+      Conteúdo: [
+        "Definir objetivo do post",
+        "Criar 3 ideias da semana",
+        "Postar prova + dica + bastidor",
+        "Fechar com CTA leve",
+      ],
+      Vendas: [
+        "Clarear oferta",
+        "Criar CTA direto",
+        "Organizar página ou WhatsApp",
+        "Postar conteúdo com convite",
+      ],
+      Posicionamento: [
+        "Definir diferença da marca",
+        "Mostrar autoridade",
+        "Organizar identidade visual",
+        "Publicar conteúdo de valor",
+      ],
+      Direção: [
+        "Responder diagnóstico",
+        "Completar checklist",
+        "Cumprir missão da semana",
+        "Usar o Assistente FatorZ",
+      ],
+      "Presença digital": [
+        "Arrumar perfil",
+        "Criar prova social",
+        "Postar com consistência",
+        "Levar para venda",
+      ],
+    } as Record<string, string[]>;
+
+    return basePath[diagnosticResult.area] || basePath["Presença digital"];
+  }, [diagnosticResult.area]);
+
+  const currentPathStep = Math.min(
+    Math.floor((diagnosticResult.score / 100) * recommendedPath.length),
+    recommendedPath.length - 1
+  );
+
+
   if (!isAdmin) {
     return (
       <div className="text-white relative overflow-hidden">
@@ -817,6 +965,123 @@ export default function Dashboard({ user, profile }: any) {
               <h2 className="text-4xl font-black text-pink-500">
                 {checklistCompleted}/{checklistItems.length}
               </h2>
+            </div>
+          </section>
+
+          <section className="grid xl:grid-cols-[1.15fr_0.85fr] gap-8 mb-8">
+            <div className="rounded-[40px] border border-white/10 bg-gradient-to-br from-zinc-950 via-black to-zinc-950 p-6 md:p-8 overflow-hidden relative">
+              <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#005cff]/15 blur-3xl" />
+              <div className="absolute -left-24 -bottom-24 h-72 w-72 rounded-full bg-[#ff0096]/15 blur-3xl" />
+
+              <div className="relative z-10">
+                <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                  Meu Caminho FatorZ
+                </p>
+
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 mb-7">
+                  <div>
+                    <h2 className="text-3xl md:text-5xl font-black leading-tight mb-3">
+                      O próximo passo da sua marca.
+                    </h2>
+
+                    <p className="text-zinc-400 max-w-3xl leading-relaxed">
+                      O Hub usa seu diagnóstico para transformar presença digital
+                      em caminho prático: menos bagunça, mais direção.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setDiagnosticOpen(true)}
+                    className="bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black shrink-0"
+                  >
+                    Atualizar diagnóstico
+                  </button>
+                </div>
+
+                <div className="grid md:grid-cols-4 gap-3">
+                  {recommendedPath.map((step, index) => {
+                    const active = index === currentPathStep;
+                    const done = index < currentPathStep;
+
+                    return (
+                      <div
+                        key={step}
+                        className={`rounded-[24px] border p-5 transition ${
+                          active
+                            ? "border-pink-500/60 bg-pink-500/10 shadow-[0_0_35px_rgba(255,0,150,0.12)]"
+                            : done
+                            ? "border-green-400/30 bg-green-500/10"
+                            : "border-white/10 bg-white/[0.035]"
+                        }`}
+                      >
+                        <div
+                          className={`mb-4 flex h-10 w-10 items-center justify-center rounded-full font-black ${
+                            done
+                              ? "bg-green-400 text-black"
+                              : active
+                              ? "bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white"
+                              : "bg-black border border-white/10 text-zinc-500"
+                          }`}
+                        >
+                          {done ? "✓" : index + 1}
+                        </div>
+
+                        <p className="font-black leading-tight">{step}</p>
+
+                        <p className="text-xs text-zinc-500 mt-3 font-bold">
+                          {active
+                            ? "Foco agora"
+                            : done
+                            ? "Base encaminhada"
+                            : "Próximo nível"}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[40px] border border-white/10 bg-zinc-950/85 p-6 md:p-8">
+              <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                Status da presença
+              </p>
+
+              <h2 className="text-3xl font-black mb-6">
+                Sua marca em números.
+              </h2>
+
+              <div className="space-y-5">
+                {presenceScores.map((item) => (
+                  <div key={item.label}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-zinc-300 font-black">{item.label}</p>
+                      <p className="text-pink-400 font-black">{item.value}%</p>
+                    </div>
+
+                    <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                        style={{ width: `${item.value}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-7 rounded-3xl border border-white/10 bg-black/40 p-5">
+                <p className="text-zinc-500 text-sm font-bold mb-2">
+                  Leitura rápida
+                </p>
+
+                <p className="text-zinc-300 font-bold leading-relaxed">
+                  {diagnosticResult.score >= 75
+                    ? "Sua base está forte. Agora foque em consistência e oferta."
+                    : diagnosticResult.score >= 50
+                    ? "Sua marca está em evolução. Falta ajustar os pontos que travam confiança e venda."
+                    : "Sua marca ainda precisa de organização. Comece pelo básico: perfil, prova social e CTA."}
+                </p>
+              </div>
             </div>
           </section>
 
@@ -1102,17 +1367,37 @@ export default function Dashboard({ user, profile }: any) {
                 ideias, legenda, CTA e roteiro para cumprir essa missão.
               </p>
 
-              <button
-                onClick={() =>
-                  setDiagnostic((prev) => ({
-                    ...prev,
-                    maiorDificuldade: "conteudo",
-                  }))
-                }
-                className="w-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-6 py-4 rounded-2xl font-black"
-              >
-                Quero criar conteúdo
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={toggleMissionCompleted}
+                  className={`w-full px-6 py-4 rounded-2xl font-black ${
+                    missionCompleted
+                      ? "bg-green-400 text-black hover:bg-green-300"
+                      : "bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 text-white"
+                  }`}
+                >
+                  {missionCompleted ? "Missão concluída ✓" : "Marcar missão como feita"}
+                </button>
+
+                <button
+                  onClick={copyAssistantPrompt}
+                  className="w-full bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black"
+                >
+                  {copiedPrompt ? "Prompt copiado" : "Copiar pedido para o Assistente"}
+                </button>
+
+                <button
+                  onClick={() =>
+                    setDiagnostic((prev) => ({
+                      ...prev,
+                      maiorDificuldade: "conteudo",
+                    }))
+                  }
+                  className="w-full bg-white/10 border border-white/10 hover:bg-white/15 px-6 py-4 rounded-2xl font-black"
+                >
+                  Quero criar conteúdo
+                </button>
+              </div>
             </div>
           </section>
 
