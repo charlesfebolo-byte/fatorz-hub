@@ -109,11 +109,7 @@ export default function Academy({ user, profile }: any) {
       return;
     }
 
-    if (hasAccess) {
-      loadAcademyData();
-    } else {
-      setLoading(false);
-    }
+    loadAcademyData();
   }, [user, hasAccess]);
 
   async function loadAcademyData() {
@@ -192,18 +188,24 @@ export default function Academy({ user, profile }: any) {
   }
 
   function isLessonCompleted(lessonId: number) {
+    if (!hasAccess) return false;
+
     return progress.some(
       (item) => item.lesson_id === lessonId && item.completed === true
     );
   }
 
   function getCompletedByCourse(courseId: number) {
+    if (!hasAccess) return 0;
+
     return getLessonsByCourse(courseId).filter((lesson) =>
       isLessonCompleted(lesson.id)
     ).length;
   }
 
   function getProgressByCourse(courseId: number) {
+    if (!hasAccess) return 0;
+
     const courseLessons = getLessonsByCourse(courseId);
 
     if (courseLessons.length === 0) return 0;
@@ -234,6 +236,11 @@ export default function Academy({ user, profile }: any) {
   }
 
   async function toggleLessonCompleted(lesson: Lesson) {
+    if (!hasAccess) {
+      navigate("/checkout/academy");
+      return;
+    }
+
     const existing = progress.find((item) => item.lesson_id === lesson.id);
 
     if (existing) {
@@ -290,6 +297,11 @@ export default function Academy({ user, profile }: any) {
   }
 
   function openLink(url: string) {
+    if (!hasAccess) {
+      navigate("/checkout/academy");
+      return;
+    }
+
     window.open(url, "_blank");
   }
 
@@ -358,7 +370,7 @@ export default function Academy({ user, profile }: any) {
     totalLessons === 0 ? 0 : Math.round((totalCompleted / totalLessons) * 100);
 
   const nextLesson = useMemo(() => {
-    if (!selectedLesson) return null;
+    if (!selectedLesson || !hasAccess) return null;
 
     const index = selectedCourseLessons.findIndex(
       (lesson) => lesson.id === selectedLesson.id
@@ -367,7 +379,7 @@ export default function Academy({ user, profile }: any) {
     if (index < 0) return null;
 
     return selectedCourseLessons[index + 1] || null;
-  }, [selectedLesson, selectedCourseLessons]);
+  }, [selectedLesson, selectedCourseLessons, hasAccess]);
 
   if (!user) {
     return (
@@ -385,47 +397,6 @@ export default function Academy({ user, profile }: any) {
     );
   }
 
-  if (!hasAccess) {
-    return (
-      <div className="min-h-screen bg-[#050505] text-white px-4 py-10">
-        <div className="max-w-6xl mx-auto">
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 px-5 py-3 rounded-2xl font-black mb-10"
-          >
-            Voltar ao painel
-          </button>
-
-          <div className="relative overflow-hidden bg-zinc-950 border border-zinc-800 rounded-[40px] p-8 md:p-14">
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/90 to-pink-950/40" />
-
-            <div className="relative z-10">
-              <p className="text-pink-500 font-black uppercase tracking-widest mb-4">
-                Academy bloqueada
-              </p>
-
-              <h1 className="text-5xl md:text-7xl font-black mb-6 max-w-4xl">
-                Acesso premium necessário.
-              </h1>
-
-              <p className="text-zinc-400 text-lg md:text-xl max-w-3xl mb-8">
-                Para assistir às aulas da FatorZ Academy e acessar os materiais
-                extras, assine o acesso mensal.
-              </p>
-
-              <button
-                onClick={() => navigate("/checkout/academy")}
-                className="bg-pink-500 hover:bg-pink-600 px-8 py-5 rounded-2xl font-black text-lg"
-              >
-                Assinar Academy
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center">
@@ -435,15 +406,18 @@ export default function Academy({ user, profile }: any) {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
-      <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black via-black/80 to-transparent">
+    <div className="min-h-screen bg-[#050505] text-white overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_15%_10%,rgba(0,92,255,0.16),transparent_28%),radial-gradient(circle_at_90%_12%,rgba(255,0,150,0.16),transparent_24%),radial-gradient(circle_at_55%_95%,rgba(145,35,255,0.12),transparent_32%)]" />
+      <div className="fixed inset-0 pointer-events-none opacity-40 bg-[linear-gradient(115deg,transparent_0%,rgba(0,92,255,0.08)_35%,transparent_55%,rgba(255,0,150,0.08)_78%,transparent_100%)]" />
+
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black via-black/85 to-transparent">
         <div className="max-w-[1500px] mx-auto px-4 md:px-10 py-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-5">
             <button
               onClick={selectedCourse ? backToCourses : undefined}
-              className="text-pink-500 text-2xl md:text-3xl font-black tracking-tight"
+              className="text-2xl md:text-3xl font-black tracking-tight"
             >
-              FatorZ Academy
+              Fator<span className="text-pink-500">Z</span> Academy
             </button>
 
             <div className="hidden md:flex items-center gap-5 text-sm font-bold text-zinc-300">
@@ -486,77 +460,137 @@ export default function Academy({ user, profile }: any) {
 
             <button
               onClick={() => navigate("/checkout/academy")}
-              className="bg-pink-500 hover:bg-pink-600 px-4 py-3 rounded-xl font-black text-sm"
+              className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-4 py-3 rounded-xl font-black text-sm shadow-[0_0_35px_rgba(255,0,150,0.22)]"
             >
-              Renovar
+              {hasAccess ? "Renovar" : "Desbloquear"}
             </button>
           </div>
         </div>
       </header>
 
       {!selectedCourse && (
-        <main className="pb-16">
-          <section className="relative min-h-[82vh] flex items-end overflow-hidden">
+        <main className="relative z-10 pb-16">
+          <section className="relative min-h-[86vh] flex items-end overflow-hidden">
             {featuredCourse?.cover_url && (
               <img
                 src={featuredCourse.cover_url}
                 alt={featuredCourse.title}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover scale-105"
               />
             )}
-
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/75 to-black/10" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/20 to-transparent" />
 
             {!featuredCourse?.cover_url && (
               <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-black to-pink-950" />
             )}
 
-            <div className="relative z-10 max-w-[1500px] mx-auto w-full px-4 md:px-10 pb-16 pt-32">
-              <p className="text-pink-500 font-black uppercase tracking-[0.35em] mb-4">
-                Treinamento em destaque
-              </p>
+            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/78 to-black/25" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/30 to-black/30" />
+            <div className="absolute -right-32 top-24 w-[650px] h-[650px] rounded-full border border-pink-500/20 shadow-[0_0_120px_rgba(255,0,150,0.25)]" />
+            <div className="absolute -right-14 top-44 w-[460px] h-[460px] rounded-full border border-blue-500/20 shadow-[0_0_120px_rgba(0,92,255,0.22)]" />
 
-              <h1 className="text-5xl md:text-8xl font-black mb-5 max-w-5xl leading-none">
-                {featuredCourse?.title || "FatorZ Academy"}
-              </h1>
+            <div className="relative z-10 max-w-[1500px] mx-auto w-full px-4 md:px-10 pb-14 pt-32">
+              <div className="max-w-5xl">
+                <div className="inline-flex items-center gap-3 bg-black/45 border border-white/10 rounded-full px-4 py-2 mb-5 backdrop-blur-xl">
+                  <span className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-[0_0_20px_rgba(255,0,150,0.9)]" />
+                  <p className="text-zinc-200 font-black uppercase tracking-[0.28em] text-xs">
+                    FatorZ Academy
+                  </p>
+                </div>
 
-              <p className="text-zinc-200 text-lg md:text-2xl max-w-3xl font-medium mb-4">
-                {featuredCourse?.subtitle ||
-                  "Cursos premium para criar presença digital, autoridade e percepção de valor."}
-              </p>
+                <p className="text-pink-500 font-black uppercase tracking-[0.35em] mb-4">
+                  Treinamento em destaque
+                </p>
 
-              <p className="text-zinc-400 max-w-2xl mb-8">
-                {featuredCourse?.description ||
-                  "Escolha um curso, avance pelos módulos e transforme sua marca em uma presença mais forte, estratégica e profissional."}
-              </p>
+                <h1 className="text-5xl md:text-8xl font-black mb-5 max-w-5xl leading-none">
+                  {featuredCourse?.title || "FatorZ Academy"}
+                </h1>
 
-              <div className="flex flex-wrap gap-3">
-                {featuredCourse && (
-                  <button
-                    onClick={() => openCourse(featuredCourse)}
-                    className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-full font-black text-lg"
-                  >
-                    ▶ Assistir agora
-                  </button>
+                <p className="text-zinc-200 text-lg md:text-2xl max-w-3xl font-medium mb-4">
+                  {featuredCourse?.subtitle ||
+                    "Cursos premium para criar presença digital, autoridade e percepção de valor."}
+                </p>
+
+                <p className="text-zinc-400 max-w-2xl mb-8 leading-relaxed">
+                  {featuredCourse?.description ||
+                    "Escolha um curso, avance pelos módulos e transforme sua marca em uma presença mais forte, estratégica e profissional."}
+                </p>
+
+                {!hasAccess && (
+                  <div className="bg-black/45 border border-pink-500/25 rounded-[28px] p-5 mb-7 max-w-3xl backdrop-blur-xl">
+                    <p className="text-white font-black text-xl mb-2">
+                      Veja a grade antes de assinar.
+                    </p>
+                    <p className="text-zinc-400 leading-relaxed">
+                      A vitrine do Academy fica aberta para você conhecer os cursos,
+                      módulos e aulas. O vídeo, materiais e conteúdo completo são
+                      liberados depois da assinatura mensal.
+                    </p>
+                  </div>
                 )}
 
-                <button
-                  onClick={() => {
-                    const section = document.getElementById("cursos");
-                    section?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="bg-white/15 border border-white/10 hover:bg-white/25 px-8 py-4 rounded-full font-black text-lg backdrop-blur"
+                <div className="flex flex-wrap gap-3">
+                  {featuredCourse && (
+                    <button
+                      onClick={() => openCourse(featuredCourse)}
+                      className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-full font-black text-lg"
+                    >
+                      {hasAccess ? "▶ Assistir agora" : "Ver grade do curso"}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      const section = document.getElementById("cursos");
+                      section?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="bg-white/15 border border-white/10 hover:bg-white/25 px-8 py-4 rounded-full font-black text-lg backdrop-blur"
+                  >
+                    Ver cursos
+                  </button>
+
+                  {!hasAccess && (
+                    <button
+                      onClick={() => navigate("/checkout/academy")}
+                      className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-8 py-4 rounded-full font-black text-lg shadow-[0_0_35px_rgba(255,0,150,0.22)]"
+                    >
+                      Desbloquear Academy
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="max-w-[1500px] mx-auto px-4 md:px-10 -mt-10 relative z-20 mb-12">
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[30px] p-6">
+                <p className="text-zinc-500 mb-2 font-bold">Cursos publicados</p>
+                <h2 className="text-4xl font-black">{courses.length}</h2>
+              </div>
+
+              <div className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[30px] p-6">
+                <p className="text-zinc-500 mb-2 font-bold">Aulas na grade</p>
+                <h2 className="text-4xl font-black text-pink-500">
+                  {lessons.length}
+                </h2>
+              </div>
+
+              <div className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[30px] p-6">
+                <p className="text-zinc-500 mb-2 font-bold">Seu acesso</p>
+                <h2
+                  className={`text-3xl font-black ${
+                    hasAccess ? "text-green-400" : "text-pink-500"
+                  }`}
                 >
-                  Ver cursos
-                </button>
+                  {hasAccess ? "Liberado" : "Prévia aberta"}
+                </h2>
               </div>
             </div>
           </section>
 
           <section
             id="cursos"
-            className="max-w-[1500px] mx-auto px-4 md:px-10 -mt-10 relative z-20"
+            className="max-w-[1500px] mx-auto px-4 md:px-10 relative z-20"
           >
             <div className="mb-12">
               <div className="flex items-end justify-between gap-4 mb-5">
@@ -568,6 +602,11 @@ export default function Academy({ user, profile }: any) {
                   <h2 className="text-3xl md:text-5xl font-black">
                     Cursos disponíveis
                   </h2>
+
+                  <p className="text-zinc-400 mt-3 max-w-2xl">
+                    A grade fica visível para apresentar o caminho. O conteúdo
+                    completo é desbloqueado para assinantes.
+                  </p>
                 </div>
               </div>
 
@@ -591,7 +630,7 @@ export default function Academy({ user, profile }: any) {
                       <button
                         key={course.id}
                         onClick={() => openCourse(course)}
-                        className="group snap-start min-w-[280px] md:min-w-[360px] max-w-[360px] text-left bg-zinc-950 border border-zinc-900 hover:border-pink-500 rounded-[26px] overflow-hidden transition duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-pink-500/10"
+                        className="group snap-start min-w-[280px] md:min-w-[380px] max-w-[380px] text-left bg-zinc-950/90 border border-white/10 hover:border-pink-500 rounded-[30px] overflow-hidden transition duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-pink-500/10 backdrop-blur-xl"
                       >
                         <div className="aspect-video bg-black overflow-hidden relative">
                           {course.cover_url ? (
@@ -608,12 +647,18 @@ export default function Academy({ user, profile }: any) {
                             </div>
                           )}
 
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent opacity-90" />
 
-                          <div className="absolute left-4 bottom-4">
-                            <span className="bg-pink-500 text-white px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">
+                          <div className="absolute left-4 bottom-4 flex flex-wrap gap-2">
+                            <span className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">
                               {course.badge || "FatorZ"}
                             </span>
+
+                            {!hasAccess && (
+                              <span className="bg-black/70 border border-white/15 text-white px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">
+                                Prévia
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -635,14 +680,14 @@ export default function Academy({ user, profile }: any) {
                             </span>
 
                             <span className="text-pink-500 font-black text-sm">
-                              {courseProgress}%
+                              {hasAccess ? `${courseProgress}%` : "Bloqueado"}
                             </span>
                           </div>
 
                           <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-pink-500 rounded-full"
-                              style={{ width: `${courseProgress}%` }}
+                              className="h-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] rounded-full"
+                              style={{ width: `${hasAccess ? courseProgress : 8}%` }}
                             />
                           </div>
                         </div>
@@ -658,7 +703,7 @@ export default function Academy({ user, profile }: any) {
             id="materiais"
             className="max-w-[1500px] mx-auto px-4 md:px-10"
           >
-            <div className="bg-zinc-950 border border-zinc-900 rounded-[36px] p-6 md:p-8">
+            <div className="bg-zinc-950/85 border border-white/10 rounded-[36px] p-6 md:p-8 backdrop-blur-xl">
               <div className="mb-8">
                 <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
                   Materiais extras
@@ -698,28 +743,34 @@ export default function Academy({ user, profile }: any) {
                           {categoryLinks.map((link) => (
                             <div
                               key={link.id}
-                              className="min-w-[260px] bg-black border border-zinc-800 rounded-3xl p-6 flex flex-col"
+                              className="min-w-[260px] bg-black border border-zinc-800 rounded-3xl p-6 flex flex-col relative overflow-hidden"
                             >
-                              <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-3">
-                                {link.category || "Geral"}
-                              </p>
-
-                              <h4 className="text-2xl font-black mb-3">
-                                {link.title}
-                              </h4>
-
-                              {link.description && (
-                                <p className="text-zinc-400 mb-6 flex-1 text-sm">
-                                  {link.description}
-                                </p>
+                              {!hasAccess && (
+                                <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] pointer-events-none" />
                               )}
 
-                              <button
-                                onClick={() => openLink(link.url)}
-                                className="bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black mt-auto"
-                              >
-                                Abrir link
-                              </button>
+                              <div className="relative z-10 flex flex-col h-full">
+                                <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-3">
+                                  {link.category || "Geral"}
+                                </p>
+
+                                <h4 className="text-2xl font-black mb-3">
+                                  {link.title}
+                                </h4>
+
+                                {link.description && (
+                                  <p className="text-zinc-400 mb-6 flex-1 text-sm">
+                                    {link.description}
+                                  </p>
+                                )}
+
+                                <button
+                                  onClick={() => openLink(link.url)}
+                                  className="bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black mt-auto"
+                                >
+                                  {hasAccess ? "Abrir link" : "Desbloquear"}
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -734,7 +785,7 @@ export default function Academy({ user, profile }: any) {
       )}
 
       {selectedCourse && (
-        <main className="pt-24 pb-16 relative overflow-hidden">
+        <main className="relative z-10 pt-24 pb-16 overflow-hidden">
           {selectedCourse.cover_url && (
             <img
               src={selectedCourse.cover_url}
@@ -743,7 +794,7 @@ export default function Academy({ user, profile }: any) {
             />
           )}
 
-          <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.08),transparent_25%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.06),transparent_25%)] pointer-events-none" />
+          <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,0,150,0.10),transparent_25%),radial-gradient(circle_at_bottom_left,rgba(0,92,255,0.10),transparent_25%)] pointer-events-none" />
           <div className="fixed inset-0 bg-gradient-to-b from-black via-[#050505]/96 to-black pointer-events-none" />
 
           <section className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 mb-8">
@@ -752,11 +803,11 @@ export default function Academy({ user, profile }: any) {
                 <img
                   src={selectedCourse.cover_url}
                   alt={selectedCourse.title}
-                  className="absolute inset-0 w-full h-full object-cover opacity-30"
+                  className="absolute inset-0 w-full h-full object-cover opacity-35"
                 />
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/85 to-black/30" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/86 to-black/30" />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
 
               <div className="relative z-10 p-6 md:p-10 min-h-[340px] flex flex-col justify-end">
@@ -791,12 +842,14 @@ export default function Academy({ user, profile }: any) {
                   {selectedLesson && (
                     <button
                       onClick={() => {
-                        const section = document.getElementById("player");
+                        const section = document.getElementById(
+                          hasAccess ? "player" : "episodios"
+                        );
                         section?.scrollIntoView({ behavior: "smooth" });
                       }}
                       className="bg-white text-black hover:bg-zinc-200 px-7 py-4 rounded-full font-black text-base md:text-lg transition"
                     >
-                      ▶ Continuar
+                      {hasAccess ? "▶ Continuar" : "Ver grade"}
                     </button>
                   )}
 
@@ -809,6 +862,15 @@ export default function Academy({ user, profile }: any) {
                   >
                     Ver episódios
                   </button>
+
+                  {!hasAccess && (
+                    <button
+                      onClick={() => navigate("/checkout/academy")}
+                      className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-7 py-4 rounded-full font-black text-base md:text-lg transition shadow-[0_0_35px_rgba(255,0,150,0.22)]"
+                    >
+                      Desbloquear conteúdo
+                    </button>
+                  )}
 
                   {selectedCourse.is_paid && (
                     <div className="bg-black/45 border border-white/10 rounded-full px-5 py-4 font-black">
@@ -845,8 +907,16 @@ export default function Academy({ user, profile }: any) {
 
               <div className="bg-white/[0.035] backdrop-blur-xl border border-white/10 rounded-[26px] p-5">
                 <p className="text-zinc-500 mb-2 text-sm">Acesso</p>
-                <h2 className="text-xl md:text-2xl font-black">
-                  {isAdmin ? "Admin" : formatDate(profile?.academy_expires_at)}
+                <h2
+                  className={`text-xl md:text-2xl font-black ${
+                    hasAccess ? "text-white" : "text-pink-500"
+                  }`}
+                >
+                  {isAdmin
+                    ? "Admin"
+                    : hasAccess
+                    ? formatDate(profile?.academy_expires_at)
+                    : "Bloqueado"}
                 </h2>
               </div>
             </div>
@@ -859,14 +929,14 @@ export default function Academy({ user, profile }: any) {
             <div className="relative overflow-hidden rounded-[42px] border border-white/10 bg-gradient-to-br from-white/[0.07] via-white/[0.035] to-white/[0.015] backdrop-blur-2xl p-4 md:p-6 shadow-[0_30px_120px_rgba(0,0,0,0.65)]">
               <div className="absolute -top-40 -right-40 w-96 h-96 bg-pink-500/15 rounded-full blur-3xl" />
               <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-              <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.08),transparent_30%)]" />
+              <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(255,0,150,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(0,92,255,0.08),transparent_30%)]" />
 
               {selectedLesson ? (
                 <div className="relative z-10">
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-5 mb-6">
                     <div>
                       <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-3">
-                        Agora assistindo
+                        {hasAccess ? "Agora assistindo" : "Prévia da aula"}
                       </p>
 
                       <h2 className="text-3xl md:text-5xl font-black leading-tight max-w-4xl">
@@ -884,115 +954,180 @@ export default function Academy({ user, profile }: any) {
 
                         <span
                           className={`border px-4 py-2 rounded-full text-xs md:text-sm font-black ${
-                            isLessonCompleted(selectedLesson.id)
+                            hasAccess && isLessonCompleted(selectedLesson.id)
                               ? "bg-green-500/15 border-green-400/30 text-green-300"
-                              : "bg-pink-500/10 border-pink-400/20 text-pink-300"
+                              : hasAccess
+                              ? "bg-pink-500/10 border-pink-400/20 text-pink-300"
+                              : "bg-white/10 border-white/10 text-zinc-300"
                           }`}
                         >
-                          {isLessonCompleted(selectedLesson.id)
-                            ? "Concluída"
-                            : "Em andamento"}
+                          {hasAccess
+                            ? isLessonCompleted(selectedLesson.id)
+                              ? "Concluída"
+                              : "Em andamento"
+                            : "Conteúdo bloqueado"}
                         </span>
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => toggleLessonCompleted(selectedLesson)}
-                      className={`shrink-0 px-6 py-4 rounded-full font-black transition shadow-lg ${
-                        isLessonCompleted(selectedLesson.id)
-                          ? "bg-green-500 text-black hover:bg-green-400"
-                          : "bg-white text-black hover:bg-zinc-200"
-                      }`}
-                    >
-                      {isLessonCompleted(selectedLesson.id)
-                        ? "Concluída"
-                        : "Marcar concluída"}
-                    </button>
-                  </div>
-
-                  <div className="relative rounded-[34px] p-2 bg-gradient-to-br from-white/10 via-white/5 to-transparent border border-white/10 mb-7 shadow-[0_25px_70px_rgba(0,0,0,0.65)]">
-                    <div className="aspect-video bg-black rounded-[28px] overflow-hidden border border-white/10">
-                      <iframe
-                        src={selectedLesson.video_url}
-                        title={selectedLesson.lesson_title}
-                        className="w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid lg:grid-cols-[1fr_280px] gap-6">
-                    <div className="rounded-[34px] border border-white/10 bg-black/35 p-6 md:p-8">
-                      <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-4">
-                        Conteúdo da aula
-                      </p>
-
-                      <h3 className="text-3xl md:text-5xl font-black leading-tight mb-6 break-words">
-                        {selectedLesson.lesson_title}
-                      </h3>
-
-                      {selectedLesson.description ? (
-                        <div className="text-zinc-300 text-[15px] md:text-base leading-8 whitespace-pre-line break-words">
-                          {beautifyLessonText(selectedLesson.description)}
-                        </div>
-                      ) : (
-                        <p className="text-zinc-500">
-                          Sem descrição para esta aula.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="rounded-[34px] border border-white/10 bg-black/40 p-5 h-fit">
-                      <p className="text-zinc-500 text-xs uppercase tracking-[0.28em] font-black mb-4">
-                        Navegação
-                      </p>
-
-                      {nextLesson ? (
-                        <button
-                          onClick={() => selectLesson(nextLesson)}
-                          className="w-full bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black transition mb-3"
-                        >
-                          Próxima aula →
-                        </button>
-                      ) : (
-                        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 mb-3">
-                          <p className="text-zinc-400 text-sm font-bold">
-                            Você chegou ao fim deste curso.
-                          </p>
-                        </div>
-                      )}
-
+                    {hasAccess ? (
                       <button
-                        onClick={() => {
-                          const section = document.getElementById("episodios");
-                          section?.scrollIntoView({ behavior: "smooth" });
-                        }}
-                        className="w-full bg-white/10 border border-white/10 hover:bg-white/15 px-5 py-4 rounded-2xl font-black transition"
+                        onClick={() => toggleLessonCompleted(selectedLesson)}
+                        className={`shrink-0 px-6 py-4 rounded-full font-black transition shadow-lg ${
+                          isLessonCompleted(selectedLesson.id)
+                            ? "bg-green-500 text-black hover:bg-green-400"
+                            : "bg-white text-black hover:bg-zinc-200"
+                        }`}
                       >
-                        Ver episódios
+                        {isLessonCompleted(selectedLesson.id)
+                          ? "Concluída"
+                          : "Marcar concluída"}
                       </button>
+                    ) : (
+                      <button
+                        onClick={() => navigate("/checkout/academy")}
+                        className="shrink-0 px-6 py-4 rounded-full font-black transition bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 shadow-[0_0_35px_rgba(255,0,150,0.22)]"
+                      >
+                        Assinar para assistir
+                      </button>
+                    )}
+                  </div>
 
-                      <div className="mt-5 pt-5 border-t border-white/10">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-zinc-500 text-sm font-bold">
-                            Progresso
-                          </span>
-
-                          <span className="text-pink-400 text-sm font-black">
-                            {progressPercentage}%
-                          </span>
-                        </div>
-
-                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-pink-500 to-fuchsia-500 rounded-full"
-                            style={{ width: `${progressPercentage}%` }}
+                  {hasAccess ? (
+                    <>
+                      <div className="relative rounded-[34px] p-2 bg-gradient-to-br from-white/10 via-white/5 to-transparent border border-white/10 mb-7 shadow-[0_25px_70px_rgba(0,0,0,0.65)]">
+                        <div className="aspect-video bg-black rounded-[28px] overflow-hidden border border-white/10">
+                          <iframe
+                            src={selectedLesson.video_url}
+                            title={selectedLesson.lesson_title}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
                           />
                         </div>
                       </div>
+
+                      <div className="grid lg:grid-cols-[1fr_280px] gap-6">
+                        <div className="rounded-[34px] border border-white/10 bg-black/35 p-6 md:p-8">
+                          <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-4">
+                            Conteúdo da aula
+                          </p>
+
+                          <h3 className="text-3xl md:text-5xl font-black leading-tight mb-6 break-words">
+                            {selectedLesson.lesson_title}
+                          </h3>
+
+                          {selectedLesson.description ? (
+                            <div className="text-zinc-300 text-[15px] md:text-base leading-8 whitespace-pre-line break-words">
+                              {beautifyLessonText(selectedLesson.description)}
+                            </div>
+                          ) : (
+                            <p className="text-zinc-500">
+                              Sem descrição para esta aula.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="rounded-[34px] border border-white/10 bg-black/40 p-5 h-fit">
+                          <p className="text-zinc-500 text-xs uppercase tracking-[0.28em] font-black mb-4">
+                            Navegação
+                          </p>
+
+                          {nextLesson ? (
+                            <button
+                              onClick={() => selectLesson(nextLesson)}
+                              className="w-full bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black transition mb-3"
+                            >
+                              Próxima aula →
+                            </button>
+                          ) : (
+                            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 mb-3">
+                              <p className="text-zinc-400 text-sm font-bold">
+                                Você chegou ao fim deste curso.
+                              </p>
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              const section = document.getElementById("episodios");
+                              section?.scrollIntoView({ behavior: "smooth" });
+                            }}
+                            className="w-full bg-white/10 border border-white/10 hover:bg-white/15 px-5 py-4 rounded-2xl font-black transition"
+                          >
+                            Ver episódios
+                          </button>
+
+                          <div className="mt-5 pt-5 border-t border-white/10">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-zinc-500 text-sm font-bold">
+                                Progresso
+                              </span>
+
+                              <span className="text-pink-400 text-sm font-black">
+                                {progressPercentage}%
+                              </span>
+                            </div>
+
+                            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] rounded-full"
+                                style={{ width: `${progressPercentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="relative overflow-hidden rounded-[34px] border border-pink-500/25 bg-black/45 p-7 md:p-10 shadow-[0_25px_70px_rgba(0,0,0,0.65)]">
+                      <div className="absolute -right-20 -top-20 w-72 h-72 bg-pink-500/15 rounded-full blur-3xl" />
+                      <div className="absolute -left-20 -bottom-20 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl" />
+
+                      <div className="relative z-10 grid lg:grid-cols-[1fr_260px] gap-8 items-center">
+                        <div>
+                          <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-4">
+                            Conteúdo premium
+                          </p>
+
+                          <h3 className="text-3xl md:text-5xl font-black leading-tight mb-5">
+                            A grade está liberada. A aula completa fica bloqueada.
+                          </h3>
+
+                          <p className="text-zinc-400 leading-8 max-w-3xl mb-6">
+                            Você pode conhecer o curso, ver os módulos e escolher as
+                            aulas. Para assistir ao vídeo, acessar materiais, prompts
+                            e tarefas completas, assine a FatorZ Academy.
+                          </p>
+
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              onClick={() => navigate("/checkout/academy")}
+                              className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-7 py-4 rounded-2xl font-black"
+                            >
+                              Desbloquear Academy
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                const section = document.getElementById("episodios");
+                                section?.scrollIntoView({ behavior: "smooth" });
+                              }}
+                              className="bg-white/10 border border-white/10 hover:bg-white/15 px-7 py-4 rounded-2xl font-black"
+                            >
+                              Ver outras aulas
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="hidden lg:flex items-center justify-center">
+                          <div className="w-48 h-48 rounded-full border border-pink-500/40 flex items-center justify-center shadow-[0_0_80px_rgba(255,0,150,0.20)]">
+                            <span className="text-7xl">🔒</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <div className="relative z-10 p-10 text-center">
@@ -1027,6 +1162,15 @@ export default function Academy({ user, profile }: any) {
                     {selectedCourseLessons.length}
                   </span>
                 </div>
+
+                {!hasAccess && (
+                  <div className="bg-black/45 border border-pink-500/20 rounded-2xl p-4 mb-5">
+                    <p className="text-zinc-300 text-sm font-bold">
+                      Prévia liberada: escolha as aulas e veja a estrutura. O
+                      conteúdo completo abre após a assinatura.
+                    </p>
+                  </div>
+                )}
 
                 <div className="relative mb-5">
                   <input
@@ -1070,8 +1214,7 @@ export default function Academy({ user, profile }: any) {
                           {openModules[moduleTitle] && (
                             <div className="px-3 pb-3 space-y-2">
                               {moduleLessons.map((lesson, index) => {
-                                const active =
-                                  selectedLesson?.id === lesson.id;
+                                const active = selectedLesson?.id === lesson.id;
                                 const completed = isLessonCompleted(lesson.id);
 
                                 return (
@@ -1080,7 +1223,7 @@ export default function Academy({ user, profile }: any) {
                                     onClick={() => selectLesson(lesson)}
                                     className={`group w-full text-left rounded-[24px] p-4 border transition-all duration-200 ${
                                       active
-                                        ? "bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white border-pink-300 shadow-[0_12px_35px_rgba(236,72,153,0.28)]"
+                                        ? "bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white border-pink-300 shadow-[0_12px_35px_rgba(236,72,153,0.28)]"
                                         : "bg-white/[0.035] border-white/5 hover:bg-white/[0.075] text-zinc-300"
                                     }`}
                                   >
@@ -1092,7 +1235,7 @@ export default function Academy({ user, profile }: any) {
                                             : "bg-black/50 border border-white/10 text-zinc-400 group-hover:text-white"
                                         }`}
                                       >
-                                        {index + 1}
+                                        {hasAccess ? index + 1 : "🔒"}
                                       </div>
 
                                       <div className="flex-1 min-w-0">
@@ -1101,25 +1244,28 @@ export default function Academy({ user, profile }: any) {
                                             {lesson.lesson_title}
                                           </p>
 
-                                          {completed && (
+                                          {hasAccess && completed && (
                                             <span className="shrink-0 bg-green-500 text-black px-2 py-1 rounded-full text-[10px] font-black uppercase">
                                               OK
+                                            </span>
+                                          )}
+
+                                          {!hasAccess && (
+                                            <span className="shrink-0 bg-black/45 border border-white/10 text-zinc-300 px-2 py-1 rounded-full text-[10px] font-black uppercase">
+                                              Premium
                                             </span>
                                           )}
                                         </div>
 
                                         <div
                                           className={`mt-2 flex items-center gap-2 text-xs ${
-                                            active
-                                              ? "text-white/80"
-                                              : "text-zinc-500"
+                                            active ? "text-white/80" : "text-zinc-500"
                                           }`}
                                         >
                                           <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
 
                                           <span>
-                                            Aula #
-                                            {lesson.order_index || lesson.id}
+                                            Aula #{lesson.order_index || lesson.id}
                                           </span>
                                         </div>
                                       </div>
