@@ -64,7 +64,7 @@ export default function Landing() {
       ];
     }
 
-    return academyLessons.slice(0, 3).map((lesson) => lesson.lesson_title);
+    return academyLessons.slice(0, 4).map((lesson) => lesson.lesson_title);
   }, [academyLessons]);
 
   useEffect(() => {
@@ -91,6 +91,7 @@ export default function Landing() {
     }
 
     const firstCourse = coursesData[0];
+
     setAcademyCourse(firstCourse);
 
     const { data: lessonsData, error: lessonsError } = await supabase
@@ -191,17 +192,20 @@ export default function Landing() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-white overflow-x-hidden pb-28 md:pb-0">
-      <header className="sticky top-0 z-50 bg-[#09090B]/95 backdrop-blur border-b border-zinc-800">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 md:py-5 flex items-center justify-between gap-3">
+    <div className="min-h-screen bg-[#050506] text-white overflow-x-hidden pb-28 md:pb-0">
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_12%_8%,rgba(0,92,255,0.18),transparent_28%),radial-gradient(circle_at_88%_12%,rgba(255,0,150,0.14),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(145,35,255,0.12),transparent_34%)]" />
+      <div className="fixed inset-0 pointer-events-none opacity-30 bg-[linear-gradient(115deg,transparent_0%,rgba(0,92,255,0.08)_32%,transparent_56%,rgba(255,0,150,0.08)_80%,transparent_100%)]" />
+
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/75 backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 md:px-8">
           <button
             onClick={() => navigate("/")}
-            className="text-2xl md:text-3xl font-black text-white shrink-0"
+            className="text-2xl md:text-3xl font-black tracking-tight text-white shrink-0"
           >
             Fator<span className="text-pink-500">Z</span>
           </button>
 
-          <nav className="hidden lg:flex items-center gap-8 text-zinc-400 font-bold">
+          <nav className="hidden lg:flex items-center gap-8 text-sm font-black text-zinc-400">
             <button onClick={scrollToPlans} className="hover:text-white">
               Planos
             </button>
@@ -228,14 +232,14 @@ export default function Landing() {
           <div className="flex items-center gap-2 md:gap-3">
             <button
               onClick={() => navigate("/login")}
-              className="bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-white px-4 md:px-6 py-3 rounded-2xl font-black text-sm md:text-base"
+              className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:bg-white/10 md:px-6"
             >
               Entrar
             </button>
 
             <button
               onClick={openInstagram}
-              className="hidden sm:block bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 px-5 md:px-6 py-3 rounded-2xl font-black text-sm md:text-base"
+              className="hidden rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-3 text-sm font-black text-white transition hover:opacity-90 sm:block md:px-6"
             >
               @fatorzhouse
             </button>
@@ -243,147 +247,285 @@ export default function Landing() {
         </div>
       </header>
 
-      <main>
-        <section className="max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-24 pb-16 md:pb-24">
-          <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-10 lg:gap-16 items-center">
+      <main className="relative z-10">
+        <section className="mx-auto max-w-7xl px-4 pb-16 pt-14 md:px-8 md:pb-24 md:pt-24">
+          <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
             <div>
-              <p className="text-pink-500 font-black uppercase tracking-widest mb-5 text-sm md:text-base">
-                Marketing, IA e presença digital
-              </p>
+              <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-pink-500 shadow-[0_0_18px_rgba(255,0,150,0.9)]" />
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-zinc-300">
+                  Marketing, IA e presença digital
+                </p>
+              </div>
 
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.95] mb-7">
-                Sua marca com presença de verdade.
+              <h1 className="mb-7 max-w-4xl text-5xl font-black leading-[0.92] tracking-tight md:text-7xl lg:text-8xl">
+                Sua marca precisa parecer pronta para ser escolhida.
               </h1>
 
-              <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mb-8 leading-relaxed">
-                A FatorZ cria conteúdo, sites, landing pages, estratégia digital
-                e uma estrutura completa para transformar sua presença online em
-                resultado.
+              <p className="mb-8 max-w-2xl text-lg leading-relaxed text-zinc-400 md:text-xl">
+                A FatorZ organiza conteúdo, posicionamento, landing pages e
+                estrutura digital para sua marca sair do improviso e ganhar
+                presença com direção.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row">
                 <button
                   onClick={scrollToPlans}
-                  className="bg-pink-500 hover:bg-pink-600 px-8 py-5 rounded-2xl font-black text-lg"
+                  className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-8 py-5 text-lg font-black text-white shadow-[0_0_35px_rgba(255,0,150,0.20)] transition hover:opacity-90"
                 >
-                  Ver planos
+                  Ver soluções
                 </button>
 
                 <button
                   onClick={() => navigate("/login")}
-                  className="bg-white text-black hover:bg-zinc-200 px-8 py-5 rounded-2xl font-black text-lg"
+                  className="rounded-2xl bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-zinc-200"
                 >
                   Entrar no Hub
                 </button>
 
                 <button
                   onClick={openInstagram}
-                  className="bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 px-8 py-5 rounded-2xl font-black text-lg"
+                  className="rounded-2xl border border-white/10 bg-white/[0.045] px-8 py-5 text-lg font-black text-white transition hover:bg-white/10"
                 >
                   Ver Instagram
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 md:gap-5 mt-10 max-w-2xl">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 md:p-5">
-                  <h3 className="text-2xl md:text-3xl font-black">Conteúdo</h3>
-                  <p className="text-zinc-500 text-sm mt-2">Posts e reels</p>
-                </div>
+              <div className="mt-10 grid max-w-3xl grid-cols-3 gap-3 md:gap-5">
+                {[
+                  ["Conteúdo", "Posts, Reels e calendário"],
+                  ["Sites", "Landing pages e páginas"],
+                  ["IA", "Processo, prompts e escala"],
+                ].map(([title, description]) => (
+                  <div
+                    key={title}
+                    className="rounded-3xl border border-white/10 bg-white/[0.045] p-4 backdrop-blur md:p-5"
+                  >
+                    <h3 className="text-2xl font-black md:text-3xl">
+                      {title}
+                    </h3>
 
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 md:p-5">
-                  <h3 className="text-2xl md:text-3xl font-black">Sites</h3>
-                  <p className="text-zinc-500 text-sm mt-2">Páginas e vendas</p>
-                </div>
-
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 md:p-5">
-                  <h3 className="text-2xl md:text-3xl font-black">IA</h3>
-                  <p className="text-zinc-500 text-sm mt-2">Estratégia</p>
-                </div>
+                    <p className="mt-2 text-sm text-zinc-500">{description}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-[40px] p-6 md:p-8 shadow-2xl">
-              <div className="bg-black border border-zinc-800 rounded-[32px] p-6 md:p-8 mb-5">
-                <p className="text-pink-500 font-black uppercase tracking-widest mb-4">
-                  Siga a FatorZ
-                </p>
+            <div className="relative">
+              <div className="absolute -right-14 -top-14 h-64 w-64 rounded-full bg-[#ff0096]/20 blur-3xl" />
+              <div className="absolute -bottom-14 -left-14 h-64 w-64 rounded-full bg-[#005cff]/20 blur-3xl" />
 
-                <h2 className="text-3xl md:text-5xl font-black mb-4">
-                  Bastidores, projetos e resultados.
-                </h2>
+              <div className="relative overflow-hidden rounded-[42px] border border-white/10 bg-white/[0.055] p-5 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-2xl md:p-7">
+                <div className="rounded-[34px] border border-white/10 bg-black/75 p-6 md:p-8">
+                  <div className="mb-6 flex items-start justify-between gap-4">
+                    <div>
+                      <p className="mb-3 text-xs font-black uppercase tracking-[0.35em] text-pink-500">
+                        Central FatorZ
+                      </p>
 
-                <p className="text-zinc-400 mb-6">
-                  Acompanhe os trabalhos, novidades e conteúdos da FatorZ no
-                  Instagram oficial.
-                </p>
+                      <h2 className="max-w-md text-4xl font-black leading-none md:text-5xl">
+                        Presença que vira percepção de valor.
+                      </h2>
+                    </div>
 
-                <button
-                  onClick={openInstagram}
-                  className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 px-6 py-4 rounded-2xl font-black"
-                >
-                  Seguir @fatorzhouse
-                </button>
-              </div>
+                    <div className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-pink-500/30 bg-pink-500/10 text-2xl font-black text-pink-400 md:flex">
+                      FZ
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-black border border-zinc-800 rounded-3xl p-5">
-                  <p className="text-zinc-500 text-sm mb-1">Instagram</p>
-                  <h3 className="text-2xl md:text-3xl font-black">
-                    @fatorzhouse
-                  </h3>
+                  <p className="mb-7 max-w-lg text-zinc-400 leading-relaxed">
+                    Não é só postar bonito. É organizar a mensagem, provar valor
+                    e conduzir o cliente para o próximo passo.
+                  </p>
+
+                  <div className="grid gap-3">
+                    {[
+                      ["Diagnóstico", "entender o gargalo da marca"],
+                      ["Conteúdo", "criar posts com função"],
+                      ["Oferta", "levar atenção para venda"],
+                    ].map(([title, description]) => (
+                      <div
+                        key={title}
+                        className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.045] p-4"
+                      >
+                        <div>
+                          <h3 className="font-black">{title}</h3>
+                          <p className="text-sm text-zinc-500">
+                            {description}
+                          </p>
+                        </div>
+
+                        <span className="h-2.5 w-2.5 rounded-full bg-pink-500 shadow-[0_0_18px_rgba(255,0,150,0.9)]" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="bg-black border border-zinc-800 rounded-3xl p-5">
-                  <p className="text-zinc-500 text-sm mb-1">Entregas</p>
-                  <h3 className="text-3xl font-black text-green-400">Hub</h3>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <button
+                    onClick={openInstagram}
+                    className="rounded-3xl border border-white/10 bg-black/70 p-5 text-left transition hover:border-pink-500/50"
+                  >
+                    <p className="mb-1 text-sm font-bold text-zinc-500">
+                      Instagram
+                    </p>
+                    <h3 className="break-all text-2xl font-black text-white md:text-3xl">
+                      @fatorzhouse
+                    </h3>
+                  </button>
+
+                  <button
+                    onClick={() => navigate("/dashboard")}
+                    className="rounded-3xl border border-white/10 bg-black/70 p-5 text-left transition hover:border-[#005cff]/60"
+                  >
+                    <p className="mb-1 text-sm font-bold text-zinc-500">
+                      Plataforma
+                    </p>
+                    <h3 className="text-3xl font-black text-green-400">Hub</h3>
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="max-w-7xl mx-auto px-4 md:px-8 pb-20">
-          <div className="bg-gradient-to-r from-pink-500 to-purple-700 rounded-[40px] p-8 md:p-12 overflow-hidden relative">
-            <div className="max-w-3xl relative z-10">
-              <p className="font-black uppercase tracking-widest mb-4 text-white/80">
-                Instagram oficial
+        <section className="mx-auto max-w-7xl px-4 pb-20 md:px-8">
+          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="rounded-[40px] border border-white/10 bg-zinc-950/85 p-8 md:p-10">
+              <p className="mb-3 text-pink-500 font-black uppercase tracking-widest">
+                O que muda
               </p>
 
-              <h2 className="text-4xl md:text-6xl font-black mb-5">
-                Veja a FatorZ em ação.
+              <h2 className="mb-5 text-4xl font-black leading-tight md:text-6xl">
+                A FatorZ não entrega só peça. Entrega direção.
               </h2>
 
-              <p className="text-white/80 text-lg md:text-xl mb-8 leading-relaxed">
-                Acompanhe bastidores, divulgações, conteúdos, clientes e
-                novidades da agência pelo Instagram{" "}
-                <span className="font-black text-white">@fatorzhouse</span>.
+              <p className="text-lg leading-relaxed text-zinc-400">
+                Seu digital precisa ter função: chamar atenção, gerar confiança,
+                explicar valor e facilitar a decisão do cliente.
               </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {[
+                [
+                  "Perfil com clareza",
+                  "Bio, destaques, prova social e link alinhados com a venda.",
+                ],
+                [
+                  "Conteúdo com intenção",
+                  "Cada post tem um papel: atrair, educar, provar ou vender.",
+                ],
+                [
+                  "Páginas que organizam",
+                  "Landing pages e estruturas que reduzem dúvida e aumentam confiança.",
+                ],
+                [
+                  "Academy e Hub",
+                  "Ferramentas para acompanhar evolução, missões e aprendizados.",
+                ],
+              ].map(([title, description]) => (
+                <div
+                  key={title}
+                  className="rounded-[32px] border border-white/10 bg-white/[0.045] p-6"
+                >
+                  <h3 className="mb-3 text-2xl font-black">{title}</h3>
+                  <p className="leading-relaxed text-zinc-400">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 pb-20 md:px-8">
+          <div className="relative overflow-hidden rounded-[42px] border border-white/10 bg-gradient-to-br from-black via-zinc-950 to-black p-6 md:p-10">
+            <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#ff0096]/20 blur-3xl" />
+            <div className="absolute -left-24 -bottom-24 h-80 w-80 rounded-full bg-[#005cff]/20 blur-3xl" />
+
+            <div className="relative z-10 grid items-center gap-8 lg:grid-cols-[1fr_420px]">
+              <div>
+                <p className="mb-3 text-pink-500 font-black uppercase tracking-widest">
+                  Instagram oficial
+                </p>
+
+                <h2 className="mb-5 max-w-3xl text-4xl font-black leading-tight md:text-6xl">
+                  Acompanhe bastidores, evolução e conteúdos da FatorZ.
+                </h2>
+
+                <p className="mb-8 max-w-2xl text-lg leading-relaxed text-zinc-400">
+                  O Instagram é onde mostramos a construção da marca, conteúdos,
+                  lançamentos, ideias e provas do que estamos criando no digital.
+                </p>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    onClick={openInstagram}
+                    className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-8 py-5 text-lg font-black text-white transition hover:opacity-90"
+                  >
+                    Abrir @fatorzhouse
+                  </button>
+
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="rounded-2xl bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-zinc-200"
+                  >
+                    Entrar no Hub
+                  </button>
+                </div>
+              </div>
 
               <button
                 onClick={openInstagram}
-                className="bg-white text-black hover:bg-zinc-200 px-8 py-5 rounded-2xl font-black text-lg"
+                className="group rounded-[34px] border border-white/10 bg-white/[0.04] p-6 text-left transition hover:border-pink-500/60"
               >
-                Abrir Instagram da FatorZ
-              </button>
-            </div>
+                <div className="mb-8 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-zinc-500">
+                      Perfil oficial
+                    </p>
+                    <h3 className="mt-1 break-all text-3xl font-black md:text-4xl">
+                      @fatorzhouse
+                    </h3>
+                  </div>
 
-            <div className="hidden lg:block absolute -right-10 -bottom-16 text-[220px] font-black text-white/10 leading-none">
-              @
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] font-black">
+                    @
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {["Bastidores", "Conteúdos", "Projetos", "Academy"].map(
+                    (item) => (
+                      <div
+                        key={item}
+                        className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3"
+                      >
+                        <span className="font-black">{item}</span>
+                        <span className="text-pink-400">→</span>
+                      </div>
+                    )
+                  )}
+                </div>
+
+                <p className="mt-6 text-sm font-bold text-zinc-500">
+                  Clique para abrir o Instagram em uma nova aba.
+                </p>
+              </button>
             </div>
           </div>
         </section>
 
-        <section id="planos" className="max-w-7xl mx-auto px-4 md:px-8 pb-20">
+        <section id="planos" className="mx-auto max-w-7xl px-4 pb-20 md:px-8">
           <div className="mb-10">
-            <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
-              Produtos
+            <p className="mb-3 text-pink-500 font-black uppercase tracking-widest">
+              Soluções
             </p>
 
-            <h2 className="text-4xl md:text-6xl font-black mb-4">
-              Escolha o plano ideal.
+            <h2 className="mb-4 text-4xl font-black md:text-6xl">
+              Escolha o próximo passo.
             </h2>
 
-            <p className="text-zinc-400 text-lg max-w-3xl">
+            <p className="max-w-3xl text-lg text-zinc-400">
               Planos mensais, serviços avulsos, sites, landing pages e acesso ao
               FatorZ Academy.
             </p>
@@ -397,11 +539,11 @@ export default function Landing() {
 
               return (
                 <section key={category}>
-                  <h3 className="text-2xl md:text-3xl font-black mb-6">
+                  <h3 className="mb-6 text-2xl font-black md:text-3xl">
                     {category}
                   </h3>
 
-                  <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                     {categoryProducts.map((product) => {
                       const isAcademy = product.id === "academy";
 
@@ -409,107 +551,109 @@ export default function Landing() {
                         return (
                           <div
                             key={product.id}
-                            className="group relative overflow-hidden rounded-[36px] border border-pink-500/40 bg-black text-white shadow-2xl shadow-pink-500/10 md:col-span-2 xl:col-span-2 min-h-[620px]"
+                            className="group relative min-h-[620px] overflow-hidden rounded-[38px] border border-pink-500/35 bg-black text-white shadow-2xl shadow-pink-500/10 md:col-span-2 xl:col-span-2"
                           >
                             {academyCourse?.cover_url ? (
                               <img
                                 src={academyCourse.cover_url}
                                 alt={academyCourse.title}
-                                className="absolute inset-0 w-full h-full object-cover opacity-55 group-hover:scale-105 transition duration-700"
+                                className="absolute inset-0 h-full w-full object-cover opacity-50 transition duration-700 group-hover:scale-105"
                               />
                             ) : (
-                              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(236,72,153,0.32),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(37,99,235,0.24),transparent_30%),linear-gradient(135deg,#020617,#050505,#180018)]" />
+                              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,0,150,0.25),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(0,92,255,0.24),transparent_30%),linear-gradient(135deg,#020617,#050505,#180018)]" />
                             )}
 
                             <div className="absolute inset-0 bg-gradient-to-r from-black via-black/88 to-black/35" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
-                            <div className="absolute -right-24 -top-24 w-72 h-72 rounded-full border border-pink-500/40 shadow-[0_0_80px_rgba(236,72,153,0.35)]" />
-                            <div className="absolute -left-24 bottom-10 w-72 h-72 rounded-full border border-blue-500/35 shadow-[0_0_80px_rgba(37,99,235,0.25)]" />
+                            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border border-pink-500/40 shadow-[0_0_80px_rgba(255,0,150,0.35)]" />
+                            <div className="absolute -left-24 bottom-10 h-72 w-72 rounded-full border border-blue-500/35 shadow-[0_0_80px_rgba(0,92,255,0.25)]" />
 
-                            <div className="relative z-10 p-6 md:p-8 h-full flex flex-col">
-                              <div className="flex flex-wrap items-center gap-3 mb-6">
+                            <div className="relative z-10 flex h-full flex-col p-6 md:p-8">
+                              <div className="mb-6 flex flex-wrap items-center gap-3">
                                 {product.highlight && (
-                                  <div className="bg-white text-black px-4 py-2 rounded-xl font-black text-sm w-fit">
+                                  <div className="w-fit rounded-xl bg-white px-4 py-2 text-sm font-black text-black">
                                     Destaque
                                   </div>
                                 )}
 
-                                <div className="bg-pink-500/15 border border-pink-500/40 text-pink-300 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-[0.25em]">
+                                <div className="rounded-xl border border-pink-500/40 bg-pink-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.25em] text-pink-300">
                                   Academy
                                 </div>
 
-                                <div className="bg-blue-500/15 border border-blue-500/40 text-blue-300 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-[0.25em]">
-                                  Prévia liberada
+                                <div className="rounded-xl border border-blue-500/40 bg-blue-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+                                  Prévia aberta
                                 </div>
                               </div>
 
                               <div className="max-w-3xl">
-                                <p className="text-pink-400 font-black uppercase tracking-widest text-sm mb-4">
+                                <p className="mb-4 text-sm font-black uppercase tracking-widest text-pink-400">
                                   {product.category}
                                 </p>
 
-                                <h4 className="text-4xl md:text-6xl font-black leading-none mb-4">
+                                <h4 className="mb-4 text-4xl font-black leading-none md:text-6xl">
                                   {academyCourse?.title || product.name}
                                 </h4>
 
-                                <p className="text-zinc-200 text-lg md:text-xl leading-relaxed max-w-2xl mb-5">
+                                <p className="mb-5 max-w-2xl text-lg leading-relaxed text-zinc-200 md:text-xl">
                                   {academyCourse?.subtitle ||
                                     "Entre na área de aprendizado da FatorZ e veja o caminho para criar presença, conteúdo e direção usando IA."}
                                 </p>
 
-                                <p className="text-zinc-400 leading-relaxed max-w-2xl mb-7">
+                                <p className="mb-7 max-w-2xl leading-relaxed text-zinc-400">
                                   {product.description}
                                 </p>
                               </div>
 
-                              <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-5 my-3">
-                                <div className="bg-white/[0.06] border border-white/10 rounded-[28px] p-6 backdrop-blur">
-                                  <p className="text-zinc-400 font-bold mb-2">
+                              <div className="my-3 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+                                <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-6 backdrop-blur">
+                                  <p className="mb-2 font-bold text-zinc-400">
                                     Acesso mensal
                                   </p>
 
-                                  <h5 className="text-5xl font-black mb-4">
+                                  <h5 className="mb-4 text-5xl font-black">
                                     {product.price}
                                   </h5>
 
-                                  <p className="text-zinc-400 text-sm leading-relaxed">
+                                  <p className="text-sm leading-relaxed text-zinc-400">
                                     A vitrine do Academy fica visível. As aulas,
-                                    materiais e tarefas completas são
-                                    desbloqueadas com assinatura ativa.
+                                    materiais e tarefas completas são liberadas
+                                    com assinatura ativa.
                                   </p>
                                 </div>
 
-                                <div className="bg-white/[0.06] border border-white/10 rounded-[28px] p-6 backdrop-blur">
-                                  <p className="text-pink-400 font-black uppercase tracking-widest text-xs mb-4">
-                                    Spoiler do que tem dentro
+                                <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-6 backdrop-blur">
+                                  <p className="mb-4 text-xs font-black uppercase tracking-widest text-pink-400">
+                                    Spoiler do conteúdo
                                   </p>
 
                                   <div className="space-y-3">
-                                    {academyPreviewLessons.map((lesson, index) => (
-                                      <div
-                                        key={`${lesson}-${index}`}
-                                        className="flex items-center gap-3"
-                                      >
-                                        <span className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 flex items-center justify-center font-black text-sm shrink-0">
-                                          {index + 1}
-                                        </span>
+                                    {academyPreviewLessons.map(
+                                      (lesson, index) => (
+                                        <div
+                                          key={`${lesson}-${index}`}
+                                          className="flex items-center gap-3"
+                                        >
+                                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-sm font-black">
+                                            {index + 1}
+                                          </span>
 
-                                        <p className="text-zinc-100 font-bold">
-                                          {lesson}
-                                        </p>
-                                      </div>
-                                    ))}
+                                          <p className="font-bold text-zinc-100">
+                                            {lesson}
+                                          </p>
+                                        </div>
+                                      )
+                                    )}
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="grid sm:grid-cols-2 gap-3 mb-8 mt-5">
+                              <div className="mb-8 mt-5 grid gap-3 sm:grid-cols-2">
                                 {product.features.map((feature) => (
                                   <div
                                     key={feature}
-                                    className="flex gap-3 bg-black/35 border border-white/10 rounded-2xl p-4 backdrop-blur"
+                                    className="flex gap-3 rounded-2xl border border-white/10 bg-black/35 p-4 backdrop-blur"
                                   >
-                                    <span className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-600 to-pink-500 flex items-center justify-center text-sm font-black shrink-0">
+                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#005cff] to-[#ff0096] text-sm font-black">
                                       ✓
                                     </span>
 
@@ -518,10 +662,10 @@ export default function Landing() {
                                 ))}
                               </div>
 
-                              <div className="mt-auto flex flex-col sm:flex-row gap-3">
+                              <div className="mt-auto flex flex-col gap-3 sm:flex-row">
                                 <button
                                   onClick={() => navigate("/academy")}
-                                  className="bg-white text-black hover:bg-zinc-200 px-7 py-4 rounded-2xl font-black text-base transition"
+                                  className="rounded-2xl bg-white px-7 py-4 text-base font-black text-black transition hover:bg-zinc-200"
                                 >
                                   Ver grade do Academy
                                 </button>
@@ -529,7 +673,7 @@ export default function Landing() {
                                 <button
                                   onClick={() => handleBuy(product)}
                                   disabled={buyingId === product.id}
-                                  className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 hover:opacity-90 text-white px-7 py-4 rounded-2xl font-black text-base transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                  className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-7 py-4 text-base font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {buyingId === product.id
                                     ? "Abrindo..."
@@ -544,20 +688,20 @@ export default function Landing() {
                       return (
                         <div
                           key={product.id}
-                          className={`rounded-[32px] p-6 border flex flex-col ${
+                          className={`group flex flex-col rounded-[34px] border p-6 transition hover:-translate-y-1 ${
                             product.highlight
-                              ? "bg-pink-500 text-white border-pink-400"
-                              : "bg-zinc-900 text-white border-zinc-800"
+                              ? "border-pink-500/60 bg-gradient-to-br from-[#ff0096] via-[#9123ff] to-[#005cff] text-white shadow-[0_0_45px_rgba(255,0,150,0.18)]"
+                              : "border-white/10 bg-white/[0.045] text-white hover:border-pink-500/50"
                           }`}
                         >
                           {product.highlight && (
-                            <div className="bg-white text-black px-4 py-2 rounded-xl font-black text-sm w-fit mb-5">
+                            <div className="mb-5 w-fit rounded-xl bg-white px-4 py-2 text-sm font-black text-black">
                               Destaque
                             </div>
                           )}
 
                           <p
-                            className={`font-black uppercase tracking-widest text-sm mb-3 ${
+                            className={`mb-3 text-sm font-black uppercase tracking-widest ${
                               product.highlight
                                 ? "text-white/80"
                                 : "text-pink-500"
@@ -566,29 +710,29 @@ export default function Landing() {
                             {product.category}
                           </p>
 
-                          <h4 className="text-3xl font-black mb-3">
+                          <h4 className="mb-3 text-3xl font-black">
                             {product.name}
                           </h4>
 
                           <p
                             className={`mb-5 leading-relaxed ${
                               product.highlight
-                                ? "text-white/80"
+                                ? "text-white/85"
                                 : "text-zinc-400"
                             }`}
                           >
                             {product.description}
                           </p>
 
-                          <h5 className="text-4xl font-black mb-6">
+                          <h5 className="mb-6 text-4xl font-black">
                             {product.price}
                           </h5>
 
-                          <div className="space-y-3 mb-8 flex-1">
+                          <div className="mb-8 flex-1 space-y-3">
                             {product.features.map((feature) => (
                               <div key={feature} className="flex gap-3">
                                 <span
-                                  className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${
+                                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-sm font-black ${
                                     product.highlight
                                       ? "bg-white text-pink-500"
                                       : "bg-pink-500 text-white"
@@ -613,11 +757,11 @@ export default function Landing() {
                           <button
                             onClick={() => handleBuy(product)}
                             disabled={buyingId === product.id}
-                            className={`w-full px-6 py-4 rounded-2xl font-black transition ${
+                            className={`w-full rounded-2xl px-6 py-4 font-black transition ${
                               product.highlight
                                 ? "bg-white text-black hover:bg-zinc-200"
-                                : "bg-pink-500 hover:bg-pink-600 text-white"
-                            } disabled:opacity-60 disabled:cursor-not-allowed`}
+                                : "bg-white text-black hover:bg-zinc-200"
+                            } disabled:cursor-not-allowed disabled:opacity-60`}
                           >
                             {buyingId === product.id
                               ? "Abrindo..."
@@ -633,21 +777,21 @@ export default function Landing() {
           </div>
         </section>
 
-        <footer className="border-t border-zinc-800">
-          <div className="max-w-7xl mx-auto px-4 md:px-8 py-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <footer className="border-t border-white/10">
+          <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 px-4 py-10 md:flex-row md:items-center md:px-8">
             <div>
               <h2 className="text-3xl font-black">
                 Fator<span className="text-pink-500">Z</span>
               </h2>
 
-              <p className="text-zinc-500 mt-2">
+              <p className="mt-2 text-zinc-500">
                 Marketing, IA, conteúdo e presença digital.
               </p>
             </div>
 
             <button
               onClick={openInstagram}
-              className="bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 px-6 py-4 rounded-2xl font-black"
+              className="rounded-2xl border border-white/10 bg-white/[0.045] px-6 py-4 font-black transition hover:bg-white/10"
             >
               Instagram: @fatorzhouse
             </button>
@@ -655,25 +799,25 @@ export default function Landing() {
         </footer>
       </main>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-zinc-950/95 backdrop-blur border-t border-zinc-800 p-3">
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-zinc-950/95 p-3 backdrop-blur md:hidden">
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => navigate("/login")}
-            className="bg-white text-black px-3 py-4 rounded-2xl font-black text-sm"
+            className="rounded-2xl bg-white px-3 py-4 text-sm font-black text-black"
           >
             Entrar
           </button>
 
           <button
             onClick={openInstagram}
-            className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-3 py-4 rounded-2xl font-black text-sm"
+            className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-3 py-4 text-sm font-black text-white"
           >
             Insta
           </button>
 
           <button
             onClick={scrollToPlans}
-            className="bg-pink-500 text-white px-3 py-4 rounded-2xl font-black text-sm"
+            className="rounded-2xl bg-pink-500 px-3 py-4 text-sm font-black text-white"
           >
             Planos
           </button>
