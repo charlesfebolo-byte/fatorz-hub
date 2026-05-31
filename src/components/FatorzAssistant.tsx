@@ -24,6 +24,11 @@ type AssistantResponse = {
   error?: string | null;
 };
 
+type FatorzAssistantEvent = CustomEvent<{
+  prompt?: string;
+  autoSend?: boolean;
+}>;
+
 const STARTER_MESSAGES: ChatMessage[] = [
   {
     role: "assistant",
@@ -133,6 +138,35 @@ export default function FatorzAssistant({ user, profile }: any) {
       textareaRef.current.focus();
     }
   }, [open]);
+
+  useEffect(() => {
+    function handleOpenAssistant(event: Event) {
+      const customEvent = event as FatorzAssistantEvent;
+      const prompt = customEvent.detail?.prompt?.trim() || "";
+      const autoSend = customEvent.detail?.autoSend === true;
+
+      setOpen(true);
+      setMinimized(false);
+
+      if (prompt) {
+        setInput(prompt);
+
+        window.setTimeout(() => {
+          textareaRef.current?.focus();
+
+          if (autoSend) {
+            sendMessage(prompt);
+          }
+        }, 120);
+      }
+    }
+
+    window.addEventListener("fatorz:open-assistant", handleOpenAssistant);
+
+    return () => {
+      window.removeEventListener("fatorz:open-assistant", handleOpenAssistant);
+    };
+  }, [loading, isLogged, messages, profile, user, location.pathname, hasAcademy]);
 
   function addAssistantMessage(content: string) {
     setMessages((prev): ChatMessage[] => [

@@ -349,7 +349,6 @@ export default function Dashboard({ user, profile }: any) {
   );
 
   const [diagnosticOpen, setDiagnosticOpen] = useState(false);
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [completedMissions, setCompletedMissions] = useState<Record<string, boolean>>(
     getCompletedMissionsInitialState
   );
@@ -803,17 +802,15 @@ export default function Dashboard({ user, profile }: any) {
     });
   }
 
-  async function copyAssistantPrompt() {
-    try {
-      await navigator.clipboard.writeText(assistantPrompt);
-      setCopiedPrompt(true);
-
-      window.setTimeout(() => {
-        setCopiedPrompt(false);
-      }, 2200);
-    } catch {
-      alert("Não consegui copiar. Você pode selecionar o texto manualmente.");
-    }
+  function openAssistantWithPrompt() {
+    window.dispatchEvent(
+      new CustomEvent("fatorz:open-assistant", {
+        detail: {
+          prompt: assistantPrompt,
+          autoSend: false,
+        },
+      })
+    );
   }
 
 
@@ -1602,10 +1599,10 @@ export default function Dashboard({ user, profile }: any) {
                 </button>
 
                 <button
-                  onClick={copyAssistantPrompt}
+                  onClick={openAssistantWithPrompt}
                   className="w-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-6 py-4 rounded-2xl font-black"
                 >
-                  {copiedPrompt ? "Prompt copiado" : "Copiar pedido para o Assistente"}
+                  Abrir Assistente com essa missão
                 </button>
               </div>
             </div>
@@ -1720,10 +1717,10 @@ export default function Dashboard({ user, profile }: any) {
                 </button>
 
                 <button
-                  onClick={copyAssistantPrompt}
+                  onClick={openAssistantWithPrompt}
                   className="w-full bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black"
                 >
-                  {copiedPrompt ? "Prompt copiado" : "Copiar pedido para o Assistente"}
+                  Gerar conteúdo com Assistente
                 </button>
 
                 <button
@@ -1787,7 +1784,7 @@ export default function Dashboard({ user, profile }: any) {
                 legendas, roteiros, CTAs e tirar dúvidas do Hub.
               </p>
 
-              <div className="rounded-2xl border border-white/10 bg-black/45 p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/45 p-4 mb-4">
                 <p className="font-black text-white">
                   Sugestão de pedido:
                 </p>
@@ -1797,6 +1794,13 @@ export default function Dashboard({ user, profile }: any) {
                   parecer forçado.”
                 </p>
               </div>
+
+              <button
+                onClick={openAssistantWithPrompt}
+                className="w-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-6 py-4 rounded-2xl font-black"
+              >
+                Abrir Assistente com meu plano
+              </button>
             </div>
 
             <div className="rounded-[38px] border border-white/10 bg-zinc-950 p-7">
@@ -2088,10 +2092,10 @@ export default function Dashboard({ user, profile }: any) {
                       </div>
 
                       <button
-                        onClick={copyAssistantPrompt}
+                        onClick={openAssistantWithPrompt}
                         className="w-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-6 py-4 rounded-2xl font-black mb-3"
                       >
-                        {copiedPrompt ? "Prompt copiado" : "Copiar pedido para o Assistente"}
+                        Abrir Assistente com essa missão
                       </button>
 
                       <p className="text-zinc-500 text-xs leading-relaxed">
