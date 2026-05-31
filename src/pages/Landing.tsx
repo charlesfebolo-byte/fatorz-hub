@@ -218,6 +218,13 @@ export default function Landing() {
             </button>
 
             <button
+              onClick={() => navigate("/mural")}
+              className="hover:text-white"
+            >
+              Mural
+            </button>
+
+            <button
               onClick={() => navigate("/minhas-entregas")}
               className="hover:text-white"
             >
@@ -238,8 +245,15 @@ export default function Landing() {
             </button>
 
             <button
+              onClick={() => navigate("/mural")}
+              className="hidden rounded-2xl border border-pink-500/25 bg-pink-500/10 px-5 py-3 text-sm font-black text-white transition hover:bg-pink-500/20 sm:block md:px-6"
+            >
+              Mural
+            </button>
+
+            <button
               onClick={openInstagram}
-              className="hidden rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-3 text-sm font-black text-white transition hover:opacity-90 sm:block md:px-6"
+              className="hidden rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-3 text-sm font-black text-white transition hover:opacity-90 lg:block md:px-6"
             >
               @fatorzhouse
             </button>
@@ -800,24 +814,31 @@ export default function Landing() {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-zinc-950/95 p-3 backdrop-blur md:hidden">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           <button
             onClick={() => navigate("/login")}
-            className="rounded-2xl bg-white px-3 py-4 text-sm font-black text-black"
+            className="rounded-2xl bg-white px-2 py-4 text-xs font-black text-black"
           >
             Entrar
           </button>
 
           <button
+            onClick={() => navigate("/mural")}
+            className="rounded-2xl border border-pink-500/30 bg-pink-500/10 px-2 py-4 text-xs font-black text-white"
+          >
+            Mural
+          </button>
+
+          <button
             onClick={openInstagram}
-            className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-3 py-4 text-sm font-black text-white"
+            className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-2 py-4 text-xs font-black text-white"
           >
             Insta
           </button>
 
           <button
             onClick={scrollToPlans}
-            className="rounded-2xl bg-pink-500 px-3 py-4 text-sm font-black text-white"
+            className="rounded-2xl bg-pink-500 px-2 py-4 text-xs font-black text-white"
           >
             Planos
           </button>

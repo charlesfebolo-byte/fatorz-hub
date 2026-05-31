@@ -9,6 +9,7 @@ import Clients from "./pages/Clients";
 import Finance from "./pages/Finance";
 import Projects from "./pages/Projects";
 import Settings from "./pages/Settings";
+import Mural from "./pages/Mural";
 import Academy from "./pages/Academy";
 import MyDeliveries from "./pages/MyDeliveries";
 import AdminCourses from "./pages/AdminCourses";
@@ -271,7 +272,18 @@ export default function App() {
           element={
             <ProtectedRoute user={user} profile={profile}>
               <DashboardLayout profile={profile}>
-                <Settings />
+                <Settings user={user} profile={profile} />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/mural"
+          element={
+            <ProtectedRoute user={user} profile={profile}>
+              <DashboardLayout profile={profile}>
+                <Mural user={user} profile={profile} />
               </DashboardLayout>
             </ProtectedRoute>
           }

@@ -10,10 +10,10 @@ export default function Sidebar({ profile }: any) {
   const isAdmin = profile?.role === "admin";
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `block p-3 rounded-xl transition font-bold ${
+    `block px-4 py-3 rounded-2xl transition font-black ${
       isActive
-        ? "bg-purple-600 text-white"
-        : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
+        ? "bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-lg shadow-pink-500/10"
+        : "text-zinc-400 hover:bg-white/[0.06] hover:text-white"
     }`;
 
   async function logout() {
@@ -45,6 +45,10 @@ export default function Sidebar({ profile }: any) {
 
         <NavLink to="/academy" className={linkClass} onClick={closeMobileMenu}>
           Academy
+        </NavLink>
+
+        <NavLink to="/mural" className={linkClass} onClick={closeMobileMenu}>
+          Mural
         </NavLink>
 
         <NavLink

@@ -1,166 +1,39 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-type Profile = {
-  id: string;
-  email: string | null;
-  nome: string | null;
-  instagram: string | null;
-  whatsapp: string | null;
-  role: string | null;
-  academy_expires_at: string | null;
-  created_at: string | null;
+type SettingsProps = {
+  user: any;
+  profile: any;
 };
 
-type Subscription = {
-  id: number;
-  created_at: string;
-  user_email: string | null;
-  product_id: string | null;
-  payment_id: string | null;
-  status: string | null;
-  expires_at: string | null;
-};
-
-export default function Settings() {
+export default function Settings({ user, profile }: SettingsProps) {
   const navigate = useNavigate();
 
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-
-  const [nome, setNome] = useState("");
-  const [instagram, setInstagram] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-
-  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState(profile?.nome || profile?.name || "");
+  const [whatsapp, setWhatsapp] = useState(profile?.whatsapp || "");
+  const [instagram, setInstagram] = useState(profile?.instagram || "");
   const [saving, setSaving] = useState(false);
-  const [sendingPasswordEmail, setSendingPasswordEmail] = useState(false);
+  const [message, setMessage] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
-  useEffect(() => {
-    loadAccount();
-  }, []);
+  const isAdmin = profile?.role === "admin";
+  const academyActive =
+    !!profile?.academy_expires_at &&
+    new Date(profile.academy_expires_at).getTime() > new Date().getTime();
 
-  async function loadAccount() {
-    setLoading(true);
+  const accountType = isAdmin ? "Administrador" : "Gratuita";
+  const academyStatus = academyActive ? "Liberada" : "Bloqueada";
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError) {
-      console.log("Erro ao buscar usuário:", userError);
-      setLoading(false);
-      return;
-    }
-
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-
-    setUser(user);
-
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.log("Erro ao carregar perfil:", profileError);
-    }
-
-    setProfile(profileData || null);
-    setNome(profileData?.nome || "");
-    setInstagram(profileData?.instagram || "");
-    setWhatsapp(profileData?.whatsapp || "");
-
-    const { data: subscriptionsData, error: subscriptionsError } =
-      await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_email", user.email)
-        .eq("product_id", "academy")
-        .order("created_at", { ascending: false });
-
-    if (subscriptionsError) {
-      console.log("Erro ao carregar assinaturas:", subscriptionsError);
-    }
-
-    setSubscriptions(subscriptionsData || []);
-    setLoading(false);
-  }
-
-  async function saveProfile() {
-    if (!user?.id) return;
-
-    setSaving(true);
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        nome: nome.trim(),
-        instagram: instagram.trim(),
-        whatsapp: whatsapp.trim(),
-      })
-      .eq("id", user.id);
-
-    setSaving(false);
-
-    if (error) {
-      console.log("Erro ao salvar perfil:", error);
-      alert("Erro ao salvar alterações.");
-      return;
-    }
-
-    alert("Conta atualizada com sucesso!");
-    loadAccount();
-  }
-
-  async function sendPasswordReset() {
-    if (!user?.email) return;
-
-    const confirmSend = confirm(
-      `Enviar email de redefinição de senha para ${user.email}?`
-    );
-
-    if (!confirmSend) return;
-
-    setSendingPasswordEmail(true);
-
-    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: window.location.origin + "/login",
-    });
-
-    setSendingPasswordEmail(false);
-
-    if (error) {
-      console.log("Erro ao enviar redefinição de senha:", error);
-      alert("Erro ao enviar email de redefinição de senha.");
-      return;
-    }
-
-    alert("Email de redefinição enviado.");
-  }
-
-  async function logout() {
-    const confirmLogout = confirm("Tem certeza que quer sair da conta?");
-
-    if (!confirmLogout) return;
-
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      console.log("Erro ao sair:", error);
-      alert("Erro ao sair.");
-      return;
-    }
-
-    navigate("/login");
-  }
+  const profileCompletion = useMemo(() => {
+    let score = 30;
+    if (name.trim()) score += 25;
+    if (whatsapp.trim()) score += 20;
+    if (instagram.trim()) score += 15;
+    if (user?.email) score += 10;
+    return Math.min(score, 100);
+  }, [name, whatsapp, instagram, user?.email]);
 
   function formatDate(date: string | null | undefined) {
     if (!date) return "—";
@@ -172,326 +45,336 @@ export default function Settings() {
     });
   }
 
-  function formatDateTime(date: string | null | undefined) {
-    if (!date) return "—";
+  async function saveProfile() {
+    if (!user?.id) return;
 
-    return new Date(date).toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    setSaving(true);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        nome: name.trim(),
+        whatsapp: whatsapp.trim(),
+        instagram: instagram.trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    setSaving(false);
+
+    if (error) {
+      console.log("Erro ao salvar perfil:", error);
+      setMessage(
+        "Não consegui salvar. Se aparecer erro de coluna, precisamos criar whatsapp/instagram na tabela profiles."
+      );
+      return;
+    }
+
+    setMessage("Perfil atualizado com sucesso.");
+  }
+
+  async function resetPassword() {
+    if (!user?.email) {
+      alert("Não encontrei o e-mail da conta.");
+      return;
+    }
+
+    setResetLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: window.location.origin + "/login",
     });
+
+    setResetLoading(false);
+
+    if (error) {
+      console.log("Erro ao enviar redefinição:", error);
+      alert("Não consegui enviar o e-mail de redefinição.");
+      return;
+    }
+
+    alert("Enviamos um e-mail para redefinir sua senha.");
   }
 
-  const academyActive =
-    !!profile?.academy_expires_at &&
-    new Date(profile.academy_expires_at).getTime() > new Date().getTime();
+  async function logout() {
+    const confirmLogout = confirm("Tem certeza que quer sair da conta?");
 
-  const isAdmin = profile?.role === "admin";
-  const lastSubscription = subscriptions[0];
+    if (!confirmLogout) return;
 
-  if (loading) {
-    return (
-      <div className="text-white w-full">
-        <h1 className="text-4xl font-black mb-4">Minha conta</h1>
-        <p className="text-zinc-400">Carregando informações da conta...</p>
-      </div>
-    );
+    setLogoutLoading(true);
+
+    const { error } = await supabase.auth.signOut();
+
+    setLogoutLoading(false);
+
+    if (error) {
+      console.log("Erro ao sair:", error);
+      alert("Erro ao sair da conta.");
+      return;
+    }
+
+    navigate("/login");
   }
+
+  const quickActions = [
+    {
+      title: "Academy",
+      description: academyActive
+        ? "Acesse suas aulas e continue evoluindo."
+        : "Sua Academy ainda não está liberada.",
+      button: academyActive ? "Abrir Academy" : "Ver produtos",
+      action: () => navigate(academyActive ? "/academy" : "/"),
+    },
+    {
+      title: "Mural",
+      description: "Veja avisos, novidades e atualizações da FatorZ.",
+      button: "Abrir mural",
+      action: () => navigate("/mural"),
+    },
+    {
+      title: "Entregas",
+      description: "Acompanhe materiais, pedidos e arquivos enviados.",
+      button: "Minhas entregas",
+      action: () => navigate("/minhas-entregas"),
+    },
+  ];
 
   return (
-    <div className="text-white w-full">
-      <section className="mb-10">
-        <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
-          Minha conta
-        </p>
+    <div className="max-w-7xl mx-auto text-white">
+      <section className="relative overflow-hidden rounded-[42px] border border-white/10 bg-black p-6 md:p-10 mb-8">
+        <div className="absolute -top-32 -right-28 h-80 w-80 rounded-full bg-[#005cff]/25 blur-3xl" />
+        <div className="absolute -bottom-36 -left-24 h-80 w-80 rounded-full bg-[#ff0096]/20 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(145,35,255,0.18),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.06),transparent_35%)]" />
 
-        <h1 className="text-4xl font-black mb-2">
-          Configurações da conta
-        </h1>
-
-        <p className="text-zinc-400 max-w-3xl">
-          Edite seus dados básicos, veja seu status de acesso e gerencie
-          opções simples da sua conta.
-        </p>
-      </section>
-
-      <section className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-8">
-        <div className="space-y-8">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-[32px] p-8">
-            <h2 className="text-2xl font-black mb-6">Dados do perfil</h2>
-
-            <div className="grid md:grid-cols-2 gap-5 mb-5">
-              <div>
-                <label className="block text-zinc-400 font-bold mb-2">
-                  Nome
-                </label>
-
-                <input
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  placeholder="Seu nome"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl p-4 outline-none focus:border-pink-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 font-bold mb-2">
-                  WhatsApp
-                </label>
-
-                <input
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                  placeholder="Ex: 51999999999"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl p-4 outline-none focus:border-pink-500"
-                />
-              </div>
+        <div className="relative grid xl:grid-cols-[1.1fr_420px] gap-8 items-stretch">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-pink-500/25 bg-pink-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.25em] text-pink-300 mb-6">
+              Conta FatorZ
             </div>
 
-            <div className="grid md:grid-cols-2 gap-5 mb-6">
-              <div>
-                <label className="block text-zinc-400 font-bold mb-2">
-                  Instagram
-                </label>
+            <h1 className="text-4xl md:text-6xl font-black leading-tight mb-4">
+              Configurações com cara de{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]">
+                plataforma premium.
+              </span>
+            </h1>
 
-                <input
-                  value={instagram}
-                  onChange={(e) => setInstagram(e.target.value)}
-                  placeholder="@seuinstagram"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl p-4 outline-none focus:border-pink-500"
+            <p className="text-zinc-400 text-lg leading-relaxed max-w-3xl">
+              Ajuste seus dados, acompanhe o status da sua conta e mantenha seu
+              acesso organizado dentro do Hub FatorZ.
+            </p>
+
+            <div className="grid md:grid-cols-3 gap-3 mt-8">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+                <p className="text-xs text-zinc-500 font-black uppercase tracking-widest">
+                  Tipo de conta
+                </p>
+                <p className="text-2xl font-black mt-2">{accountType}</p>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+                <p className="text-xs text-zinc-500 font-black uppercase tracking-widest">
+                  Academy
+                </p>
+                <p
+                  className={`text-2xl font-black mt-2 ${
+                    academyActive ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {academyStatus}
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+                <p className="text-xs text-zinc-500 font-black uppercase tracking-widest">
+                  Perfil
+                </p>
+                <p className="text-2xl font-black mt-2">
+                  {profileCompletion}%
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[34px] border border-white/10 bg-zinc-950/90 p-6 flex flex-col justify-between">
+            <div>
+              <p className="text-pink-400 font-black uppercase tracking-widest text-xs mb-3">
+                Resumo
+              </p>
+
+              <div className="h-3 w-full rounded-full bg-white/10 overflow-hidden mb-6">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                  style={{ width: `${profileCompletion}%` }}
                 />
               </div>
 
-              <div>
-                <label className="block text-zinc-400 font-bold mb-2">
-                  Email da conta
-                </label>
+              <div className="space-y-3">
+                <div className="rounded-3xl bg-black border border-white/10 p-5">
+                  <p className="text-zinc-500 text-sm">E-mail da conta</p>
+                  <p className="text-white font-black mt-1 break-all">
+                    {user?.email || "—"}
+                  </p>
+                </div>
 
-                <input
-                  value={user?.email || ""}
-                  disabled
-                  className="w-full bg-black border border-zinc-800 text-zinc-500 rounded-2xl p-4 outline-none cursor-not-allowed"
-                />
+                <div className="rounded-3xl bg-black border border-white/10 p-5">
+                  <p className="text-zinc-500 text-sm">Vencimento Academy</p>
+                  <p className="text-white font-black mt-1">
+                    {formatDate(profile?.academy_expires_at)}
+                  </p>
+                </div>
               </div>
             </div>
 
             <button
+              onClick={() => navigate("/mural")}
+              className="mt-5 w-full bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black transition"
+            >
+              Ver novidades no Mural
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid xl:grid-cols-[1fr_420px] gap-8">
+        <div className="rounded-[40px] border border-white/10 bg-zinc-950/85 p-6 md:p-8">
+          <div className="mb-8">
+            <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+              Dados do perfil
+            </p>
+
+            <h2 className="text-3xl md:text-4xl font-black">
+              Informações principais.
+            </h2>
+
+            <p className="text-zinc-400 mt-3">
+              Esses dados ajudam a FatorZ entender sua conta, organizar suporte
+              e deixar sua experiência mais personalizada.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-5">
+            <label className="block">
+              <span className="text-sm text-zinc-400 font-black">Nome</span>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Seu nome"
+                className="mt-2 w-full rounded-3xl border border-white/10 bg-black px-5 py-4 text-white outline-none focus:border-pink-500"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm text-zinc-400 font-black">WhatsApp</span>
+              <input
+                value={whatsapp}
+                onChange={(event) => setWhatsapp(event.target.value)}
+                placeholder="Ex: 51999999999"
+                className="mt-2 w-full rounded-3xl border border-white/10 bg-black px-5 py-4 text-white outline-none focus:border-pink-500"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm text-zinc-400 font-black">Instagram</span>
+              <input
+                value={instagram}
+                onChange={(event) => setInstagram(event.target.value)}
+                placeholder="@seuinstagram"
+                className="mt-2 w-full rounded-3xl border border-white/10 bg-black px-5 py-4 text-white outline-none focus:border-pink-500"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm text-zinc-400 font-black">
+                E-mail da conta
+              </span>
+              <input
+                value={user?.email || ""}
+                disabled
+                className="mt-2 w-full rounded-3xl border border-white/10 bg-black/60 px-5 py-4 text-zinc-500 outline-none"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-4 mt-7">
+            <button
               onClick={saveProfile}
               disabled={saving}
-              className={`px-8 py-4 rounded-2xl font-black transition ${
-                saving
-                  ? "bg-zinc-700 cursor-not-allowed"
-                  : "bg-pink-500 hover:bg-pink-600"
-              }`}
+              className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 disabled:opacity-60 px-7 py-4 rounded-2xl font-black transition"
             >
               {saving ? "Salvando..." : "Salvar alterações"}
             </button>
-          </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-[32px] p-8">
-            <h2 className="text-2xl font-black mb-6">Segurança</h2>
-
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="bg-black border border-zinc-800 rounded-3xl p-6">
-                <h3 className="text-xl font-black mb-3">Senha</h3>
-
-                <p className="text-zinc-400 mb-5">
-                  Envie um email para redefinir sua senha de acesso.
-                </p>
-
-                <button
-                  onClick={sendPasswordReset}
-                  disabled={sendingPasswordEmail}
-                  className={`w-full px-6 py-4 rounded-2xl font-black transition ${
-                    sendingPasswordEmail
-                      ? "bg-zinc-700 cursor-not-allowed"
-                      : "bg-zinc-800 hover:bg-zinc-700"
-                  }`}
-                >
-                  {sendingPasswordEmail
-                    ? "Enviando..."
-                    : "Redefinir senha"}
-                </button>
-              </div>
-
-              <div className="bg-black border border-zinc-800 rounded-3xl p-6">
-                <h3 className="text-xl font-black mb-3">Sessão</h3>
-
-                <p className="text-zinc-400 mb-5">
-                  Saia da sua conta neste dispositivo.
-                </p>
-
-                <button
-                  onClick={logout}
-                  className="w-full bg-red-600 hover:bg-red-700 px-6 py-4 rounded-2xl font-black transition"
-                >
-                  Sair da conta
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-[32px] p-8">
-            <h2 className="text-2xl font-black mb-6">Histórico Academy</h2>
-
-            {subscriptions.length === 0 ? (
-              <div className="bg-black border border-zinc-800 rounded-3xl p-6">
-                <p className="text-zinc-400">
-                  Nenhuma assinatura Academy encontrada para sua conta.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {subscriptions.slice(0, 5).map((subscription) => {
-                  const active =
-                    subscription.status === "approved" &&
-                    subscription.expires_at &&
-                    new Date(subscription.expires_at).getTime() >
-                      new Date().getTime();
-
-                  return (
-                    <div
-                      key={subscription.id}
-                      className="bg-black border border-zinc-800 rounded-3xl p-5"
-                    >
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                        <div>
-                          <h3 className="font-black">FatorZ Academy</h3>
-
-                          <p className="text-zinc-500 text-sm">
-                            Criado em {formatDateTime(subscription.created_at)}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          <span
-                            className={`px-4 py-2 rounded-xl font-black text-sm ${
-                              subscription.status === "approved"
-                                ? "bg-green-500/20 text-green-400"
-                                : subscription.status === "pending"
-                                ? "bg-yellow-500/20 text-yellow-400"
-                                : "bg-red-500/20 text-red-400"
-                            }`}
-                          >
-                            {subscription.status || "sem status"}
-                          </span>
-
-                          <span
-                            className={`px-4 py-2 rounded-xl font-black text-sm ${
-                              active
-                                ? "bg-pink-500/20 text-pink-400"
-                                : "bg-zinc-800 text-zinc-400"
-                            }`}
-                          >
-                            {active ? "Ativo" : "Sem acesso"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-                          <p className="text-zinc-500 text-sm mb-1">
-                            Vencimento
-                          </p>
-
-                          <p className="font-bold">
-                            {formatDate(subscription.expires_at)}
-                          </p>
-                        </div>
-
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-                          <p className="text-zinc-500 text-sm mb-1">
-                            Pagamento
-                          </p>
-
-                          <p className="font-bold break-all">
-                            {subscription.payment_id || "—"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            {message && (
+              <p className="text-sm text-zinc-400 font-bold">{message}</p>
             )}
           </div>
         </div>
 
-        <aside className="space-y-8">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-[32px] p-8">
-            <h2 className="text-2xl font-black mb-6">Resumo</h2>
+        <div className="space-y-5">
+          {quickActions.map((item) => (
+            <div
+              key={item.title}
+              className="rounded-[32px] border border-white/10 bg-black p-6"
+            >
+              <h3 className="text-2xl font-black">{item.title}</h3>
+              <p className="text-zinc-400 mt-2 leading-relaxed">
+                {item.description}
+              </p>
 
-            <div className="space-y-4">
-              <div className="bg-black border border-zinc-800 rounded-3xl p-5">
-                <p className="text-zinc-500 mb-1">Tipo de conta</p>
-
-                <h3 className="text-3xl font-black">
-                  {isAdmin
-                    ? "Admin"
-                    : profile?.role === "premium"
-                    ? "Premium"
-                    : "Gratuita"}
-                </h3>
-              </div>
-
-              <div className="bg-black border border-zinc-800 rounded-3xl p-5">
-                <p className="text-zinc-500 mb-1">Academy</p>
-
-                <h3
-                  className={`text-3xl font-black ${
-                    isAdmin || academyActive
-                      ? "text-green-400"
-                      : "text-red-400"
-                  }`}
-                >
-                  {isAdmin ? "Liberado" : academyActive ? "Ativo" : "Bloqueado"}
-                </h3>
-              </div>
-
-              <div className="bg-black border border-zinc-800 rounded-3xl p-5">
-                <p className="text-zinc-500 mb-1">Vencimento</p>
-
-                <h3 className="text-3xl font-black">
-                  {isAdmin ? "Admin" : formatDate(profile?.academy_expires_at)}
-                </h3>
-              </div>
-
-              <div className="bg-black border border-zinc-800 rounded-3xl p-5">
-                <p className="text-zinc-500 mb-1">Última assinatura</p>
-
-                <h3 className="text-xl font-black">
-                  {lastSubscription?.status || "Nenhuma"}
-                </h3>
-
-                {lastSubscription && (
-                  <p className="text-zinc-500 text-sm mt-1">
-                    {formatDateTime(lastSubscription.created_at)}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-3">
               <button
-                onClick={() => navigate("/academy")}
-                className="w-full bg-pink-500 hover:bg-pink-600 px-6 py-4 rounded-2xl font-black transition"
+                onClick={item.action}
+                className="mt-5 w-full bg-white text-black hover:bg-zinc-200 px-5 py-4 rounded-2xl font-black transition"
               >
-                Abrir Academy
+                {item.button}
               </button>
-
-              {!academyActive && !isAdmin && (
-                <button
-                  onClick={() => navigate("/checkout/academy")}
-                  className="w-full bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black transition"
-                >
-                  Assinar Academy
-                </button>
-              )}
             </div>
-          </div>
-        </aside>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid lg:grid-cols-2 gap-8 mt-8">
+        <div className="rounded-[36px] border border-white/10 bg-black p-6 md:p-8">
+          <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+            Segurança
+          </p>
+
+          <h2 className="text-3xl font-black mb-4">Senha</h2>
+
+          <p className="text-zinc-400 leading-relaxed mb-6">
+            Envie um e-mail para redefinir sua senha de acesso com segurança.
+          </p>
+
+          <button
+            onClick={resetPassword}
+            disabled={resetLoading}
+            className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60 px-6 py-4 rounded-2xl font-black transition"
+          >
+            {resetLoading ? "Enviando..." : "Redefinir senha"}
+          </button>
+        </div>
+
+        <div className="rounded-[36px] border border-red-500/20 bg-red-950/10 p-6 md:p-8">
+          <p className="text-red-400 font-black uppercase tracking-widest mb-3">
+            Sessão
+          </p>
+
+          <h2 className="text-3xl font-black mb-4">Sair da conta</h2>
+
+          <p className="text-zinc-400 leading-relaxed mb-6">
+            Encerre sua sessão neste dispositivo. Você poderá entrar novamente
+            usando seu e-mail e senha.
+          </p>
+
+          <button
+            onClick={logout}
+            disabled={logoutLoading}
+            className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-60 px-6 py-4 rounded-2xl font-black transition"
+          >
+            {logoutLoading ? "Saindo..." : "Sair da conta"}
+          </button>
+        </div>
       </section>
     </div>
   );
