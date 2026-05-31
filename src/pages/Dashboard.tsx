@@ -76,6 +76,26 @@ type Payment = {
   notes: string | null;
 };
 
+type ProgressHistoryItem = {
+  id: string;
+  date: string;
+  title: string;
+  description: string;
+  type: "diagnostic" | "checklist" | "mission" | "status";
+};
+
+type UserProgressRow = {
+  user_id: string;
+  diagnostic: DiagnosticState | null;
+  checklist: Record<string, boolean> | null;
+  completed_missions: Record<string, boolean> | null;
+  progress_score: number | null;
+  current_area: string | null;
+  current_status: string | null;
+  history: ProgressHistoryItem[] | null;
+  updated_at: string | null;
+};
+
 const checklistItems = [
   {
     id: "bio",
@@ -262,6 +282,52 @@ function getCurrentWeeklyMission() {
   return weeklyMissions[week % weeklyMissions.length];
 }
 
+function getProgressStatus(score: number) {
+  if (score >= 80) return "Pronta para vender";
+  if (score >= 60) return "Em evolução";
+  if (score >= 35) return "Em construção";
+  return "Iniciante";
+}
+
+function formatHistoryDate(date: string) {
+  return new Date(date).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
+function makeHistoryItem(
+  id: string,
+  title: string,
+  description: string,
+  type: ProgressHistoryItem["type"]
+): ProgressHistoryItem {
+  return {
+    id,
+    date: new Date().toISOString(),
+    title,
+    description,
+    type,
+  };
+}
+
+function mergeHistory(
+  currentHistory: ProgressHistoryItem[],
+  items: ProgressHistoryItem[]
+) {
+  const map = new Map<string, ProgressHistoryItem>();
+
+  [...items, ...currentHistory].forEach((item) => {
+    if (!map.has(item.id)) {
+      map.set(item.id, item);
+    }
+  });
+
+  return Array.from(map.values())
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 12);
+}
+
 export default function Dashboard({ user, profile }: any) {
   const navigate = useNavigate();
 
@@ -288,6 +354,12 @@ export default function Dashboard({ user, profile }: any) {
     getCompletedMissionsInitialState
   );
 
+  const [progressLoaded, setProgressLoaded] = useState(false);
+  const [progressSaving, setProgressSaving] = useState(false);
+  const [progressHistory, setProgressHistory] = useState<ProgressHistoryItem[]>(
+    []
+  );
+
   const isAdmin = profile?.role === "admin";
 
   useEffect(() => {
@@ -297,6 +369,49 @@ export default function Dashboard({ user, profile }: any) {
       setLoading(false);
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (!user?.id || isAdmin) return;
+
+    loadUserProgress();
+  }, [user?.id, isAdmin]);
+
+  async function loadUserProgress() {
+    const { data, error } = await supabase
+      .from("user_progress")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.log("Erro ao carregar progresso do usuário:", error);
+      setProgressLoaded(true);
+      return;
+    }
+
+    const progressData = data as UserProgressRow | null;
+
+    if (progressData?.diagnostic) {
+      setDiagnostic((prev) => ({
+        ...prev,
+        ...progressData.diagnostic,
+      }));
+    }
+
+    if (progressData?.checklist) {
+      setChecklist(progressData.checklist);
+    }
+
+    if (progressData?.completed_missions) {
+      setCompletedMissions(progressData.completed_missions);
+    }
+
+    if (progressData?.history) {
+      setProgressHistory(progressData.history);
+    }
+
+    setProgressLoaded(true);
+  }
 
   async function loadAdminData() {
     setLoading(true);
@@ -825,6 +940,117 @@ export default function Dashboard({ user, profile }: any) {
   );
 
 
+  const currentStatus = getProgressStatus(diagnosticResult.score);
+
+  const generatedHistory = useMemo(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const items: ProgressHistoryItem[] = [];
+
+    const diagnosticAnswers = Object.values(diagnostic).filter(Boolean).length;
+
+    if (diagnosticAnswers >= 2) {
+      items.push(
+        makeHistoryItem(
+          `${todayKey}-diagnostic-${diagnosticResult.area}`,
+          "Diagnóstico feito",
+          `Gargalo atual: ${diagnosticResult.area}. Clareza digital: ${diagnosticResult.score}%.`,
+          "diagnostic"
+        )
+      );
+    }
+
+    if (checklistCompleted > 0) {
+      items.push(
+        makeHistoryItem(
+          `${todayKey}-checklist-${checklistCompleted}`,
+          `Checklist ${checklistCompleted}/${checklistItems.length} completo`,
+          `Sua presença digital está ${checklistPercentage}% organizada no checklist.`,
+          "checklist"
+        )
+      );
+    }
+
+    if (missionCompleted) {
+      items.push(
+        makeHistoryItem(
+          `${todayKey}-mission-${diagnosticResult.area}`,
+          "Missão da semana concluída",
+          weeklyMission.action,
+          "mission"
+        )
+      );
+    }
+
+    items.push(
+      makeHistoryItem(
+        `${todayKey}-status-${currentStatus}`,
+        `Status: ${currentStatus}`,
+        `Sua marca está no estágio "${currentStatus}" dentro do Hub FatorZ.`,
+        "status"
+      )
+    );
+
+    return items;
+  }, [
+    checklistCompleted,
+    checklistPercentage,
+    currentStatus,
+    diagnostic,
+    diagnosticResult.area,
+    diagnosticResult.score,
+    missionCompleted,
+    weeklyMission.action,
+  ]);
+
+  const visibleHistory = useMemo(() => {
+    return mergeHistory(progressHistory, generatedHistory);
+  }, [generatedHistory, progressHistory]);
+
+  useEffect(() => {
+    if (!user?.id || isAdmin || !progressLoaded) return;
+
+    const timer = window.setTimeout(async () => {
+      setProgressSaving(true);
+
+      const nextHistory = mergeHistory(progressHistory, generatedHistory);
+
+      const { error } = await supabase.from("user_progress").upsert({
+        user_id: user.id,
+        diagnostic,
+        checklist,
+        completed_missions: completedMissions,
+        progress_score: diagnosticResult.score,
+        current_area: diagnosticResult.area,
+        current_status: currentStatus,
+        history: nextHistory,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        console.log("Erro ao salvar progresso do usuário:", error);
+      } else {
+        setProgressHistory(nextHistory);
+      }
+
+      setProgressSaving(false);
+    }, 900);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    checklist,
+    completedMissions,
+    currentStatus,
+    diagnostic,
+    diagnosticResult.area,
+    diagnosticResult.score,
+    generatedHistory,
+    isAdmin,
+    progressHistory,
+    progressLoaded,
+    user?.id,
+  ]);
+
+
   if (!isAdmin) {
     return (
       <div className="text-white relative overflow-hidden">
@@ -1081,6 +1307,120 @@ export default function Dashboard({ user, profile }: any) {
                     ? "Sua marca está em evolução. Falta ajustar os pontos que travam confiança e venda."
                     : "Sua marca ainda precisa de organização. Comece pelo básico: perfil, prova social e CTA."}
                 </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="grid xl:grid-cols-[0.85fr_1.15fr] gap-8 mb-8">
+            <div className="rounded-[40px] border border-white/10 bg-gradient-to-br from-black via-zinc-950 to-pink-950/20 p-6 md:p-8">
+              <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                Evolução da marca
+              </p>
+
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-3xl md:text-4xl font-black mb-2">
+                    {currentStatus}
+                  </h2>
+
+                  <p className="text-zinc-400 leading-relaxed">
+                    Esse status é calculado pelo diagnóstico, checklist, missão
+                    da semana e clareza da sua estrutura digital.
+                  </p>
+                </div>
+
+                <div className="shrink-0 rounded-3xl border border-white/10 bg-white/[0.045] px-5 py-4 text-right">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                    Score
+                  </p>
+                  <p className="text-4xl font-black text-pink-500">
+                    {diagnosticResult.score}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-3 w-full overflow-hidden rounded-full bg-white/10 mb-6">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                  style={{ width: `${diagnosticResult.score}%` }}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {["Iniciante", "Em construção", "Em evolução", "Pronta para vender"].map(
+                  (status) => (
+                    <div
+                      key={status}
+                      className={`rounded-2xl border px-4 py-3 text-sm font-black ${
+                        currentStatus === status
+                          ? "border-pink-500/60 bg-pink-500/10 text-white"
+                          : "border-white/10 bg-black/35 text-zinc-500"
+                      }`}
+                    >
+                      {status}
+                    </div>
+                  )
+                )}
+              </div>
+
+              <p className="text-xs text-zinc-600 mt-5 font-bold">
+                {progressSaving
+                  ? "Salvando evolução no Supabase..."
+                  : progressLoaded
+                  ? "Progresso salvo no Supabase."
+                  : "Carregando progresso salvo..."}
+              </p>
+            </div>
+
+            <div className="rounded-[40px] border border-white/10 bg-zinc-950/85 p-6 md:p-8">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+                <div>
+                  <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                    Histórico de evolução
+                  </p>
+
+                  <h2 className="text-3xl md:text-4xl font-black">
+                    O que já avançou.
+                  </h2>
+                </div>
+
+                <button
+                  onClick={() => setDiagnosticOpen(true)}
+                  className="bg-white text-black hover:bg-zinc-200 px-5 py-3 rounded-2xl font-black"
+                >
+                  Atualizar dados
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {visibleHistory.length === 0 ? (
+                  <div className="rounded-3xl border border-white/10 bg-black/35 p-5">
+                    <p className="text-zinc-400">
+                      Responda o diagnóstico, marque itens do checklist ou
+                      conclua uma missão para criar seu histórico.
+                    </p>
+                  </div>
+                ) : (
+                  visibleHistory.slice(0, 6).map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex gap-4 rounded-3xl border border-white/10 bg-black/35 p-5"
+                    >
+                      <div className="shrink-0 rounded-2xl border border-pink-500/30 bg-pink-500/10 px-3 py-2 text-center">
+                        <p className="text-sm font-black text-pink-400">
+                          {formatHistoryDate(item.date)}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h3 className="font-black text-white">{item.title}</h3>
+                        <p className="text-zinc-400 mt-1 leading-relaxed">
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </section>
