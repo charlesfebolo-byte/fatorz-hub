@@ -75,7 +75,6 @@ type Payment = {
   payment_method: string | null;
   notes: string | null;
 };
-;
 
 const checklistItems = [
   {
@@ -143,6 +142,82 @@ const weeklyMissions = [
   },
 ];
 
+type DiagnosticState = {
+  nicho: string;
+  objetivo: string;
+  maiorDificuldade: string;
+  frequencia: string;
+  estrutura: string;
+  provaSocial: string;
+  linkVenda: string;
+  clarezaOferta: string;
+};
+
+function getDiagnosticInitialState(): DiagnosticState {
+  const empty: DiagnosticState = {
+    nicho: "",
+    objetivo: "",
+    maiorDificuldade: "",
+    frequencia: "",
+    estrutura: "",
+    provaSocial: "",
+    linkVenda: "",
+    clarezaOferta: "",
+  };
+
+  if (typeof window === "undefined") return empty;
+
+  try {
+    const saved = window.localStorage.getItem("fatorz_brand_diagnostic");
+    return saved ? { ...empty, ...JSON.parse(saved) } : empty;
+  } catch {
+    return empty;
+  }
+}
+
+function getMissionByArea(area: string) {
+  if (area === "Conteúdo") {
+    return {
+      title: "Crie 3 conteúdos com função",
+      description:
+        "Sua missão é publicar um conteúdo para atrair, um para gerar confiança e um para levar a pessoa para o próximo passo.",
+      action: "Criar 1 Reels curto, 1 story de bastidor e 1 post com CTA leve.",
+    };
+  }
+
+  if (area === "Perfil") {
+    return {
+      title: "Arrume a vitrine do perfil",
+      description:
+        "Antes de postar mais, deixe claro quem você ajuda, o que você entrega e como o cliente fala com você.",
+      action:
+        "Revisar bio, link principal, destaques e pelo menos uma prova social visível.",
+    };
+  }
+
+  if (area === "Vendas") {
+    return {
+      title: "Crie um caminho de venda simples",
+      description:
+        "A atenção precisa virar ação. Sua missão é deixar a oferta e o próximo passo mais claros.",
+      action:
+        "Criar uma oferta simples, escrever um CTA direto e apontar para WhatsApp ou landing page.",
+    };
+  }
+
+  if (area === "Posicionamento") {
+    return {
+      title: "Mostre por que sua marca vale mais",
+      description:
+        "Seu conteúdo precisa deixar claro o valor, a diferença e a confiança da sua marca.",
+      action:
+        "Publicar um conteúdo de autoridade explicando um erro comum do seu público.",
+    };
+  }
+
+  return getCurrentWeeklyMission();
+}
+
 function getChecklistInitialState() {
   if (typeof window === "undefined") return {};
 
@@ -181,12 +256,12 @@ export default function Dashboard({ user, profile }: any) {
     getChecklistInitialState
   );
 
-  const [diagnostic, setDiagnostic] = useState({
-    objetivo: "",
-    maiorDificuldade: "",
-    frequencia: "",
-    estrutura: "",
-  });
+  const [diagnostic, setDiagnostic] = useState<DiagnosticState>(
+    getDiagnosticInitialState
+  );
+
+  const [diagnosticOpen, setDiagnosticOpen] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   const isAdmin = profile?.role === "admin";
 
@@ -447,6 +522,14 @@ export default function Dashboard({ user, profile }: any) {
     }
   }, [checklist]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem("fatorz_brand_diagnostic", JSON.stringify(diagnostic));
+    } catch {
+      // Mantém funcionando mesmo se o navegador bloquear localStorage.
+    }
+  }, [diagnostic]);
+
   function toggleChecklistItem(id: string) {
     setChecklist((prev) => ({
       ...prev,
@@ -464,13 +547,38 @@ export default function Dashboard({ user, profile }: any) {
   const diagnosticResult = useMemo(() => {
     const answers = Object.values(diagnostic).filter(Boolean).length;
 
+    let score = 20;
+
+    if (diagnostic.nicho) score += 8;
+    if (diagnostic.objetivo) score += 10;
+    if (diagnostic.maiorDificuldade) score += 12;
+
+    if (diagnostic.frequencia === "constante") score += 16;
+    if (diagnostic.frequencia === "semanal") score += 11;
+    if (diagnostic.frequencia === "as-vezes") score += 6;
+
+    if (diagnostic.estrutura === "sim") score += 16;
+    if (diagnostic.estrutura === "quase") score += 11;
+    if (diagnostic.estrutura === "mais-ou-menos") score += 6;
+
+    if (diagnostic.provaSocial === "sim") score += 10;
+    if (diagnostic.provaSocial === "pouca") score += 5;
+
+    if (diagnostic.linkVenda === "sim") score += 10;
+    if (diagnostic.linkVenda === "confuso") score += 4;
+
+    if (diagnostic.clarezaOferta === "sim") score += 12;
+    if (diagnostic.clarezaOferta === "mais-ou-menos") score += 6;
+
+    score = Math.min(score, 100);
+
     if (answers < 2) {
       return {
         title: "Comece pelo diagnóstico",
         area: "Direção",
         description:
           "Responda pelo menos duas perguntas para o Hub indicar o próximo passo da sua marca.",
-        recommendation: "Preencha o diagnóstico rápido abaixo.",
+        recommendation: "Abra o diagnóstico completo e responda as perguntas principais.",
         score: 25,
       };
     }
@@ -483,7 +591,7 @@ export default function Dashboard({ user, profile }: any) {
           "Sua marca precisa de ideias mais claras, consistentes e com função: atrair, gerar confiança e vender.",
         recommendation:
           "Use o Assistente FatorZ para criar ideias, legendas e roteiros. Depois cumpra a missão da semana.",
-        score: 58,
+        score,
       };
     }
 
@@ -494,8 +602,8 @@ export default function Dashboard({ user, profile }: any) {
         description:
           "Antes de vender, o perfil precisa passar confiança em poucos segundos: bio, destaques, prova social e link.",
         recommendation:
-          "Complete o checklist de presença digital e revise sua bio, destaques e provas.",
-        score: 51,
+          "Complete o checklist de presença digital e revise sua bio, destaques, link e provas.",
+        score,
       };
     }
 
@@ -507,7 +615,7 @@ export default function Dashboard({ user, profile }: any) {
           "Talvez o problema não seja só postagem. Pode faltar uma oferta clara, CTA melhor e uma página que conduza o cliente.",
         recommendation:
           "Revise sua oferta, CTA e considere usar uma landing page para organizar a venda.",
-        score: 63,
+        score,
       };
     }
 
@@ -519,7 +627,7 @@ export default function Dashboard({ user, profile }: any) {
           "Quando a marca não comunica bem o valor, o público compara só por preço e demora para confiar.",
         recommendation:
           "Defina uma promessa clara, organize a comunicação visual e publique conteúdos de autoridade.",
-        score: 56,
+        score,
       };
     }
 
@@ -530,11 +638,44 @@ export default function Dashboard({ user, profile }: any) {
         "O próximo passo é organizar o básico: perfil, conteúdo, prova social e uma rotina simples de postagem.",
       recommendation:
         "Comece pelo checklist e use o Assistente FatorZ para transformar isso em posts práticos.",
-      score: 45,
+      score,
     };
   }, [diagnostic]);
 
-  const weeklyMission = getCurrentWeeklyMission();
+  const weeklyMission = getMissionByArea(diagnosticResult.area);
+
+  const assistantPrompt = useMemo(() => {
+    return `Sou do nicho ${diagnostic.nicho || "[coloque seu nicho]"}. Meu objetivo é ${
+      diagnostic.objetivo || "[atrair, vender ou gerar confiança]"
+    }. Meu maior gargalo hoje é ${diagnosticResult.area}. Crie um plano simples com 3 ideias de conteúdo, 1 roteiro de Reels, 1 legenda e 1 CTA para cumprir esta missão: ${weeklyMission.action}`;
+  }, [diagnostic, diagnosticResult.area, weeklyMission.action]);
+
+  function resetDiagnostic() {
+    setDiagnostic({
+      nicho: "",
+      objetivo: "",
+      maiorDificuldade: "",
+      frequencia: "",
+      estrutura: "",
+      provaSocial: "",
+      linkVenda: "",
+      clarezaOferta: "",
+    });
+  }
+
+  async function copyAssistantPrompt() {
+    try {
+      await navigator.clipboard.writeText(assistantPrompt);
+      setCopiedPrompt(true);
+
+      window.setTimeout(() => {
+        setCopiedPrompt(false);
+      }, 2200);
+    } catch {
+      alert("Não consegui copiar. Você pode selecionar o texto manualmente.");
+    }
+  }
+
 
   if (!isAdmin) {
     return (
@@ -568,10 +709,7 @@ export default function Dashboard({ user, profile }: any) {
 
                 <div className="flex flex-wrap gap-3">
                   <button
-                    onClick={() => {
-                      const section = document.getElementById("diagnostico");
-                      section?.scrollIntoView({ behavior: "smooth" });
-                    }}
+                    onClick={() => setDiagnosticOpen(true)}
                     className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-7 py-4 rounded-2xl font-black shadow-[0_0_35px_rgba(255,0,150,0.25)]"
                   >
                     Fazer diagnóstico
@@ -695,12 +833,45 @@ export default function Dashboard({ user, profile }: any) {
                 Onde sua marca mais precisa evoluir?
               </h2>
 
-              <p className="text-zinc-400 max-w-3xl mb-8 leading-relaxed">
+              <p className="text-zinc-400 max-w-3xl mb-6 leading-relaxed">
                 Responda de forma simples. O Hub usa isso para te mostrar o
                 próximo passo mais inteligente.
               </p>
 
+              <div className="flex flex-wrap gap-3 mb-8">
+                <button
+                  onClick={() => setDiagnosticOpen(true)}
+                  className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-6 py-4 rounded-2xl font-black"
+                >
+                  Abrir diagnóstico completo
+                </button>
+
+                <button
+                  onClick={resetDiagnostic}
+                  className="bg-white/10 border border-white/10 hover:bg-white/15 px-6 py-4 rounded-2xl font-black"
+                >
+                  Limpar respostas
+                </button>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-5">
+                <label className="block">
+                  <span className="text-sm font-black text-zinc-300">
+                    Qual seu nicho?
+                  </span>
+                  <input
+                    value={diagnostic.nicho}
+                    onChange={(event) =>
+                      setDiagnostic((prev) => ({
+                        ...prev,
+                        nicho: event.target.value,
+                      }))
+                    }
+                    placeholder="Ex: barbearia, loja, estética, delivery..."
+                    className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                  />
+                </label>
+
                 <label className="block">
                   <span className="text-sm font-black text-zinc-300">
                     Qual seu objetivo principal?
@@ -814,15 +985,24 @@ export default function Dashboard({ user, profile }: any) {
                 </p>
               </div>
 
-              <button
-                onClick={() => {
-                  const section = document.getElementById("checklist");
-                  section?.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="w-full bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black"
-              >
-                Ir para o checklist
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    const section = document.getElementById("checklist");
+                    section?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="w-full bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black"
+                >
+                  Ir para o checklist
+                </button>
+
+                <button
+                  onClick={copyAssistantPrompt}
+                  className="w-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-6 py-4 rounded-2xl font-black"
+                >
+                  {copiedPrompt ? "Prompt copiado" : "Copiar pedido para o Assistente"}
+                </button>
+              </div>
             </div>
           </section>
 
@@ -1014,6 +1194,291 @@ export default function Dashboard({ user, profile }: any) {
               </button>
             </div>
           </section>
+
+          {diagnosticOpen && (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center px-4 py-6">
+              <div
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                onClick={() => setDiagnosticOpen(false)}
+              />
+
+              <div className="relative z-10 w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-[42px] border border-white/10 bg-[#050508] p-5 md:p-8 shadow-[0_40px_160px_rgba(0,0,0,0.85)]">
+                <div className="absolute -right-28 -top-28 h-80 w-80 rounded-full bg-pink-500/20 blur-3xl" />
+                <div className="absolute -left-28 -bottom-28 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
+
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between gap-5 mb-8">
+                    <div>
+                      <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                        Diagnóstico completo
+                      </p>
+
+                      <h2 className="text-3xl md:text-5xl font-black leading-tight">
+                        Descubra o próximo passo da sua marca.
+                      </h2>
+
+                      <p className="text-zinc-400 mt-4 max-w-3xl leading-relaxed">
+                        Responda sem complicar. O Hub vai transformar isso em uma
+                        leitura simples, uma missão da semana e um pedido pronto
+                        para usar no Assistente FatorZ.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setDiagnosticOpen(false)}
+                      className="shrink-0 bg-white/10 border border-white/10 hover:bg-white/15 w-12 h-12 rounded-2xl font-black"
+                    >
+                      X
+                    </button>
+                  </div>
+
+                  <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+                    <div className="rounded-[34px] border border-white/10 bg-white/[0.035] p-5 md:p-6">
+                      <div className="grid md:grid-cols-2 gap-5">
+                        <label className="block">
+                          <span className="text-sm font-black text-zinc-300">
+                            Qual seu nicho?
+                          </span>
+                          <input
+                            value={diagnostic.nicho}
+                            onChange={(event) =>
+                              setDiagnostic((prev) => ({
+                                ...prev,
+                                nicho: event.target.value,
+                              }))
+                            }
+                            placeholder="Ex: barbearia, loja, estética..."
+                            className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm font-black text-zinc-300">
+                            Qual seu objetivo principal?
+                          </span>
+                          <select
+                            value={diagnostic.objetivo}
+                            onChange={(event) =>
+                              setDiagnostic((prev) => ({
+                                ...prev,
+                                objetivo: event.target.value,
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                          >
+                            <option value="">Escolha uma opção</option>
+                            <option value="atrair">Atrair mais pessoas</option>
+                            <option value="confianca">Gerar mais confiança</option>
+                            <option value="vender">Vender melhor</option>
+                            <option value="organizar">Organizar minha presença</option>
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm font-black text-zinc-300">
+                            Qual é sua maior dificuldade?
+                          </span>
+                          <select
+                            value={diagnostic.maiorDificuldade}
+                            onChange={(event) =>
+                              setDiagnostic((prev) => ({
+                                ...prev,
+                                maiorDificuldade: event.target.value,
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                          >
+                            <option value="">Escolha uma opção</option>
+                            <option value="conteudo">Criar conteúdo</option>
+                            <option value="perfil">Organizar o perfil</option>
+                            <option value="posicionamento">Posicionamento</option>
+                            <option value="vendas">Transformar atenção em venda</option>
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm font-black text-zinc-300">
+                            Com que frequência você posta?
+                          </span>
+                          <select
+                            value={diagnostic.frequencia}
+                            onChange={(event) =>
+                              setDiagnostic((prev) => ({
+                                ...prev,
+                                frequencia: event.target.value,
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                          >
+                            <option value="">Escolha uma opção</option>
+                            <option value="quase-nunca">Quase nunca</option>
+                            <option value="as-vezes">Às vezes</option>
+                            <option value="semanal">Toda semana</option>
+                            <option value="constante">Com constância</option>
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm font-black text-zinc-300">
+                            Seu perfil já parece profissional?
+                          </span>
+                          <select
+                            value={diagnostic.estrutura}
+                            onChange={(event) =>
+                              setDiagnostic((prev) => ({
+                                ...prev,
+                                estrutura: event.target.value,
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                          >
+                            <option value="">Escolha uma opção</option>
+                            <option value="nao">Ainda não</option>
+                            <option value="mais-ou-menos">Mais ou menos</option>
+                            <option value="quase">Quase pronto</option>
+                            <option value="sim">Sim, mas quero melhorar</option>
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm font-black text-zinc-300">
+                            Você já tem prova social visível?
+                          </span>
+                          <select
+                            value={diagnostic.provaSocial}
+                            onChange={(event) =>
+                              setDiagnostic((prev) => ({
+                                ...prev,
+                                provaSocial: event.target.value,
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                          >
+                            <option value="">Escolha uma opção</option>
+                            <option value="nao">Ainda não</option>
+                            <option value="pouca">Tenho pouca</option>
+                            <option value="sim">Tenho feedbacks/resultados</option>
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm font-black text-zinc-300">
+                            Seu link leva para uma ação clara?
+                          </span>
+                          <select
+                            value={diagnostic.linkVenda}
+                            onChange={(event) =>
+                              setDiagnostic((prev) => ({
+                                ...prev,
+                                linkVenda: event.target.value,
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                          >
+                            <option value="">Escolha uma opção</option>
+                            <option value="nao">Não tenho link</option>
+                            <option value="confuso">Tenho, mas está confuso</option>
+                            <option value="sim">Sim, leva para ação certa</option>
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm font-black text-zinc-300">
+                            Sua oferta está clara?
+                          </span>
+                          <select
+                            value={diagnostic.clarezaOferta}
+                            onChange={(event) =>
+                              setDiagnostic((prev) => ({
+                                ...prev,
+                                clarezaOferta: event.target.value,
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-pink-500"
+                          >
+                            <option value="">Escolha uma opção</option>
+                            <option value="nao">Não está clara</option>
+                            <option value="mais-ou-menos">Mais ou menos</option>
+                            <option value="sim">Sim, está clara</option>
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3 mt-6">
+                        <button
+                          onClick={resetDiagnostic}
+                          className="bg-white/10 border border-white/10 hover:bg-white/15 px-6 py-4 rounded-2xl font-black"
+                        >
+                          Limpar respostas
+                        </button>
+
+                        <button
+                          onClick={() => setDiagnosticOpen(false)}
+                          className="bg-white text-black hover:bg-zinc-200 px-6 py-4 rounded-2xl font-black"
+                        >
+                          Salvar diagnóstico
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[34px] border border-pink-500/20 bg-gradient-to-br from-black via-zinc-950 to-pink-950/25 p-5 md:p-6 h-fit">
+                      <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
+                        Resultado ao vivo
+                      </p>
+
+                      <div className="mb-5">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-bold text-zinc-400">
+                            Clareza digital
+                          </span>
+                          <span className="text-sm font-black text-pink-400">
+                            {diagnosticResult.score}%
+                          </span>
+                        </div>
+
+                        <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                            style={{ width: `${diagnosticResult.score}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <h3 className="text-3xl font-black mb-4">
+                        {diagnosticResult.title}
+                      </h3>
+
+                      <p className="text-zinc-400 leading-relaxed mb-5">
+                        {diagnosticResult.description}
+                      </p>
+
+                      <div className="rounded-3xl bg-black/50 border border-white/10 p-5 mb-5">
+                        <p className="text-zinc-500 text-sm font-bold mb-2">
+                          Missão recomendada
+                        </p>
+
+                        <p className="text-white font-black leading-relaxed">
+                          {weeklyMission.action}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={copyAssistantPrompt}
+                        className="w-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-6 py-4 rounded-2xl font-black mb-3"
+                      >
+                        {copiedPrompt ? "Prompt copiado" : "Copiar pedido para o Assistente"}
+                      </button>
+
+                      <p className="text-zinc-500 text-xs leading-relaxed">
+                        Depois de copiar, cole no botão flutuante do Assistente
+                        FatorZ para gerar conteúdo, legenda, roteiro e CTA.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
