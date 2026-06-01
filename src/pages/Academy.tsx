@@ -47,6 +47,21 @@ type AcademyLink = {
   is_active: boolean | null;
 };
 
+type CoursePurchase = {
+  id: number;
+  created_at: string;
+  user_id: string | null;
+  user_email: string | null;
+  course_id: number | null;
+  course_title: string | null;
+  payment_id: string | null;
+  payment_url: string | null;
+  status: string | null;
+  access_type: string | null;
+  approved_at: string | null;
+  notes: string | null;
+};
+
 function beautifyLessonText(text: string | null | undefined) {
   if (!text) return "";
 
@@ -80,6 +95,30 @@ function formatMoneyFromCents(cents: number | null | undefined) {
   });
 }
 
+function formatDate(value: string | null | undefined) {
+  if (!value) return "—";
+
+  return new Date(value).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function getStaffRole(profile: any) {
+  if (profile?.staff_role) return profile.staff_role;
+  if (profile?.role === "admin") return "ceo_fatorz";
+  return "none";
+}
+
+function isAcademyTeam(profile: any) {
+  return [
+    "ceo_fatorz",
+    "diretor_operacional",
+    "mentor_academy",
+  ].includes(getStaffRole(profile));
+}
+
 export default function Academy({ user, profile }: any) {
   const navigate = useNavigate();
 
@@ -87,6 +126,7 @@ export default function Academy({ user, profile }: any) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [progress, setProgress] = useState<LessonProgress[]>([]);
   const [links, setLinks] = useState<AcademyLink[]>([]);
+  const [purchases, setPurchases] = useState<CoursePurchase[]>([]);
 
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -95,13 +135,7 @@ export default function Academy({ user, profile }: any) {
   const [search, setSearch] = useState("");
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
 
-  const isAdmin = profile?.role === "admin";
-
-  const academyActive =
-    !!profile?.academy_expires_at &&
-    new Date(profile.academy_expires_at).getTime() > new Date().getTime();
-
-  const hasAccess = isAdmin || academyActive || profile?.role === "premium";
+  const isTeam = isAcademyTeam(profile);
 
   useEffect(() => {
     if (!user) {
@@ -110,37 +144,48 @@ export default function Academy({ user, profile }: any) {
     }
 
     loadAcademyData();
-  }, [user, hasAccess]);
+  }, [user?.id]);
 
   async function loadAcademyData() {
     setLoading(true);
 
-    const [coursesResponse, lessonsResponse, progressResponse, linksResponse] =
-      await Promise.all([
-        supabase
-          .from("courses")
-          .select("*")
-          .eq("is_active", true)
-          .order("order_index", { ascending: true })
-          .order("created_at", { ascending: true }),
+    const [
+      coursesResponse,
+      lessonsResponse,
+      progressResponse,
+      linksResponse,
+      purchasesResponse,
+    ] = await Promise.all([
+      supabase
+        .from("courses")
+        .select("*")
+        .eq("is_active", true)
+        .order("order_index", { ascending: true })
+        .order("created_at", { ascending: true }),
 
-        supabase
-          .from("lessons")
-          .select("*")
-          .order("course_id", { ascending: true })
-          .order("module_title", { ascending: true })
-          .order("order_index", { ascending: true })
-          .order("created_at", { ascending: true }),
+      supabase
+        .from("lessons")
+        .select("*")
+        .order("course_id", { ascending: true })
+        .order("module_title", { ascending: true })
+        .order("order_index", { ascending: true })
+        .order("created_at", { ascending: true }),
 
-        supabase.from("lesson_progress").select("*").eq("user_id", user.id),
+      supabase.from("lesson_progress").select("*").eq("user_id", user.id),
 
-        supabase
-          .from("academy_links")
-          .select("*")
-          .eq("is_active", true)
-          .order("order_index", { ascending: true })
-          .order("created_at", { ascending: false }),
-      ]);
+      supabase
+        .from("academy_links")
+        .select("*")
+        .eq("is_active", true)
+        .order("order_index", { ascending: true })
+        .order("created_at", { ascending: false }),
+
+      supabase
+        .from("course_purchases")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+    ]);
 
     setLoading(false);
 
@@ -164,15 +209,21 @@ export default function Academy({ user, profile }: any) {
       console.log("Erro links:", linksResponse.error);
     }
 
+    if (purchasesResponse.error) {
+      console.log("Erro purchases:", purchasesResponse.error);
+    }
+
     const coursesData = coursesResponse.data || [];
     const lessonsData = lessonsResponse.data || [];
     const progressData = progressResponse.data || [];
     const linksData = linksResponse.data || [];
+    const purchasesData = purchasesResponse.data || [];
 
     setCourses(coursesData);
     setLessons(lessonsData);
     setProgress(progressData);
     setLinks(linksData);
+    setPurchases(purchasesData);
 
     const modulesState: Record<string, boolean> = {};
 
@@ -181,22 +232,66 @@ export default function Academy({ user, profile }: any) {
     });
 
     setOpenModules(modulesState);
+
+    const lastCourseId = localStorage.getItem("fatorz_last_course_id");
+    const lastCourse = coursesData.find(
+      (course: Course) => String(course.id) === String(lastCourseId)
+    );
+
+    setSelectedCourse(lastCourse || coursesData[0] || null);
   }
 
   function getLessonsByCourse(courseId: number) {
     return lessons.filter((lesson) => lesson.course_id === courseId);
   }
 
-  function isLessonCompleted(lessonId: number) {
-    if (!hasAccess) return false;
+  function hasCourseAccess(courseId: number | null | undefined) {
+    if (!courseId) return false;
+    if (isTeam) return true;
 
+    return purchases.some(
+      (purchase) =>
+        Number(purchase.course_id) === Number(courseId) &&
+        purchase.status === "approved"
+    );
+  }
+
+  function hasPendingPurchase(courseId: number | null | undefined) {
+    if (!courseId) return false;
+
+    return purchases.some(
+      (purchase) =>
+        Number(purchase.course_id) === Number(courseId) &&
+        purchase.status === "pending"
+    );
+  }
+
+  function getPurchaseByCourse(courseId: number | null | undefined) {
+    if (!courseId) return null;
+
+    return (
+      purchases.find(
+        (purchase) =>
+          Number(purchase.course_id) === Number(courseId) &&
+          purchase.status === "approved"
+      ) ||
+      purchases.find(
+        (purchase) =>
+          Number(purchase.course_id) === Number(courseId) &&
+          purchase.status === "pending"
+      ) ||
+      null
+    );
+  }
+
+  function isLessonCompleted(lessonId: number) {
     return progress.some(
       (item) => item.lesson_id === lessonId && item.completed === true
     );
   }
 
   function getCompletedByCourse(courseId: number) {
-    if (!hasAccess) return 0;
+    if (!hasCourseAccess(courseId)) return 0;
 
     return getLessonsByCourse(courseId).filter((lesson) =>
       isLessonCompleted(lesson.id)
@@ -204,7 +299,7 @@ export default function Academy({ user, profile }: any) {
   }
 
   function getProgressByCourse(courseId: number) {
-    if (!hasAccess) return 0;
+    if (!hasCourseAccess(courseId)) return 0;
 
     const courseLessons = getLessonsByCourse(courseId);
 
@@ -217,16 +312,22 @@ export default function Academy({ user, profile }: any) {
 
   function openCourse(course: Course) {
     const courseLessons = getLessonsByCourse(course.id);
+    const access = hasCourseAccess(course.id);
 
     setSelectedCourse(course);
-    setSelectedLesson(courseLessons[0] || null);
+    setSelectedLesson(access ? courseLessons[0] || null : null);
     setSearch("");
 
     localStorage.setItem("fatorz_last_course_id", String(course.id));
 
-    if (courseLessons[0]) {
+    if (access && courseLessons[0]) {
       localStorage.setItem("fatorz_last_lesson_id", String(courseLessons[0].id));
     }
+
+    setTimeout(() => {
+      const section = document.getElementById("curso-selecionado");
+      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
   }
 
   function backToCourses() {
@@ -236,8 +337,8 @@ export default function Academy({ user, profile }: any) {
   }
 
   async function toggleLessonCompleted(lesson: Lesson) {
-    if (!hasAccess) {
-      navigate("/checkout/academy");
+    if (!hasCourseAccess(lesson.course_id)) {
+      navigate(`/checkout/academy?courseId=${lesson.course_id}`);
       return;
     }
 
@@ -276,6 +377,11 @@ export default function Academy({ user, profile }: any) {
   }
 
   function selectLesson(lesson: Lesson) {
+    if (!hasCourseAccess(lesson.course_id)) {
+      navigate(`/checkout/academy?courseId=${lesson.course_id}`);
+      return;
+    }
+
     setSelectedLesson(lesson);
     localStorage.setItem("fatorz_last_lesson_id", String(lesson.id));
 
@@ -290,22 +396,9 @@ export default function Academy({ user, profile }: any) {
     }));
   }
 
-  function formatDate(date: string | null | undefined) {
-    if (!date) return "—";
-
-    return new Date(date).toLocaleDateString("pt-BR");
-  }
-
   function openLink(url: string) {
-    if (!hasAccess) {
-      navigate("/checkout/academy");
-      return;
-    }
-
     window.open(url, "_blank");
   }
-
-  const featuredCourse = courses[0] || null;
 
   const selectedCourseLessons = useMemo(() => {
     if (!selectedCourse) return [];
@@ -357,20 +450,27 @@ export default function Academy({ user, profile }: any) {
     return grouped;
   }, [links]);
 
-  const totalLessons = selectedCourse
-    ? selectedCourseLessons.length
-    : lessons.length;
+  const totalLessons = selectedCourse ? selectedCourseLessons.length : lessons.length;
 
   const totalCompleted = selectedCourse
-    ? selectedCourseLessons.filter((lesson) => isLessonCompleted(lesson.id))
-        .length
+    ? selectedCourseLessons.filter((lesson) => isLessonCompleted(lesson.id)).length
     : lessons.filter((lesson) => isLessonCompleted(lesson.id)).length;
 
+  const selectedCourseAccess = selectedCourse
+    ? hasCourseAccess(selectedCourse.id)
+    : false;
+
+  const selectedCoursePending = selectedCourse
+    ? hasPendingPurchase(selectedCourse.id)
+    : false;
+
   const progressPercentage =
-    totalLessons === 0 ? 0 : Math.round((totalCompleted / totalLessons) * 100);
+    !selectedCourseAccess || totalLessons === 0
+      ? 0
+      : Math.round((totalCompleted / totalLessons) * 100);
 
   const nextLesson = useMemo(() => {
-    if (!selectedLesson || !hasAccess) return null;
+    if (!selectedLesson || !selectedCourseAccess) return null;
 
     const index = selectedCourseLessons.findIndex(
       (lesson) => lesson.id === selectedLesson.id
@@ -379,7 +479,15 @@ export default function Academy({ user, profile }: any) {
     if (index < 0) return null;
 
     return selectedCourseLessons[index + 1] || null;
-  }, [selectedLesson, selectedCourseLessons, hasAccess]);
+  }, [selectedLesson, selectedCourseLessons, selectedCourseAccess]);
+
+  const approvedCoursesCount = courses.filter((course) =>
+    hasCourseAccess(course.id)
+  ).length;
+
+  const pendingCoursesCount = courses.filter((course) =>
+    hasPendingPurchase(course.id)
+  ).length;
 
   if (!user) {
     return (
@@ -412,879 +520,602 @@ export default function Academy({ user, profile }: any) {
 
       <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black via-black/85 to-transparent">
         <div className="max-w-[1500px] mx-auto px-4 md:px-10 py-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-5">
+          <button
+            onClick={selectedCourse ? backToCourses : undefined}
+            className="text-2xl md:text-3xl font-black tracking-tight"
+          >
+            Fator<span className="text-pink-500">Z</span> Academy
+          </button>
+
+          <div className="hidden md:flex items-center gap-5 text-sm font-bold text-zinc-300">
             <button
-              onClick={selectedCourse ? backToCourses : undefined}
-              className="text-2xl md:text-3xl font-black tracking-tight"
+              onClick={() => {
+                setSelectedCourse(null);
+                setSelectedLesson(null);
+              }}
+              className="hover:text-white transition"
             >
-              Fator<span className="text-pink-500">Z</span> Academy
+              Cursos
             </button>
 
-            <div className="hidden md:flex items-center gap-5 text-sm font-bold text-zinc-300">
-              <button
-                onClick={backToCourses}
-                className="hover:text-white transition"
-              >
-                Início
-              </button>
+            <button
+              onClick={() => {
+                const section = document.getElementById("links");
+                section?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="hover:text-white transition"
+            >
+              Links úteis
+            </button>
 
+            {isTeam && (
               <button
-                onClick={() => {
-                  const section = document.getElementById("cursos");
-                  section?.scrollIntoView({ behavior: "smooth" });
-                }}
+                onClick={() => navigate("/admin/cursos")}
                 className="hover:text-white transition"
               >
-                Cursos
+                Admin
               </button>
-
-              <button
-                onClick={() => {
-                  const section = document.getElementById("materiais");
-                  section?.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="hover:text-white transition"
-              >
-                Materiais
-              </button>
-            </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="hidden sm:block bg-white/10 border border-white/10 hover:bg-white/20 px-4 py-3 rounded-xl font-black text-sm"
-            >
-              Painel
-            </button>
-
-            <button
-              onClick={() => navigate("/checkout/academy")}
-              className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-4 py-3 rounded-xl font-black text-sm shadow-[0_0_35px_rgba(255,0,150,0.22)]"
-            >
-              {hasAccess ? "Renovar" : "Desbloquear"}
-            </button>
-          </div>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:bg-white/10"
+          >
+            Hub
+          </button>
         </div>
       </header>
 
-      {!selectedCourse && (
-        <main className="relative z-10 pb-16">
-          <section className="relative min-h-[86vh] flex items-end overflow-hidden">
-            {featuredCourse?.cover_url && (
-              <img
-                src={featuredCourse.cover_url}
-                alt={featuredCourse.title}
-                className="absolute inset-0 w-full h-full object-cover scale-105"
-              />
-            )}
+      <main className="relative z-10 pt-28">
+        {!selectedCourse && (
+          <>
+            <section className="max-w-[1500px] mx-auto px-4 md:px-10 pb-10">
+              <div className="relative overflow-hidden rounded-[46px] border border-white/10 bg-black p-6 md:p-12">
+                <div className="absolute -top-24 -right-24 h-80 w-80 rounded-full bg-[#ff0096]/15 blur-3xl" />
+                <div className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-[#005cff]/15 blur-3xl" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(145,35,255,0.18),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.06),transparent_32%)]" />
 
-            {!featuredCourse?.cover_url && (
-              <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-black to-pink-950" />
-            )}
-
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/78 to-black/25" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/30 to-black/30" />
-            <div className="absolute -right-32 top-24 w-[650px] h-[650px] rounded-full border border-pink-500/20 shadow-[0_0_120px_rgba(255,0,150,0.25)]" />
-            <div className="absolute -right-14 top-44 w-[460px] h-[460px] rounded-full border border-blue-500/20 shadow-[0_0_120px_rgba(0,92,255,0.22)]" />
-
-            <div className="relative z-10 max-w-[1500px] mx-auto w-full px-4 md:px-10 pb-14 pt-32">
-              <div className="max-w-5xl">
-                <div className="inline-flex items-center gap-3 bg-black/45 border border-white/10 rounded-full px-4 py-2 mb-5 backdrop-blur-xl">
-                  <span className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-[0_0_20px_rgba(255,0,150,0.9)]" />
-                  <p className="text-zinc-200 font-black uppercase tracking-[0.28em] text-xs">
-                    FatorZ Academy
-                  </p>
-                </div>
-
-                <p className="text-pink-500 font-black uppercase tracking-[0.35em] mb-4">
-                  Treinamento em destaque
-                </p>
-
-                <h1 className="text-5xl md:text-8xl font-black mb-5 max-w-5xl leading-none">
-                  {featuredCourse?.title || "FatorZ Academy"}
-                </h1>
-
-                <p className="text-zinc-200 text-lg md:text-2xl max-w-3xl font-medium mb-4">
-                  {featuredCourse?.subtitle ||
-                    "Cursos premium para criar presença digital, autoridade e percepção de valor."}
-                </p>
-
-                <p className="text-zinc-400 max-w-2xl mb-8 leading-relaxed">
-                  {featuredCourse?.description ||
-                    "Escolha um curso, avance pelos módulos e transforme sua marca em uma presença mais forte, estratégica e profissional."}
-                </p>
-
-                {!hasAccess && (
-                  <div className="bg-black/45 border border-pink-500/25 rounded-[28px] p-5 mb-7 max-w-3xl backdrop-blur-xl">
-                    <p className="text-white font-black text-xl mb-2">
-                      Veja a grade antes de assinar.
+                <div className="relative grid gap-8 lg:grid-cols-[1.1fr_360px] lg:items-end">
+                  <div>
+                    <p className="text-pink-500 font-black uppercase tracking-[0.28em] text-sm mb-4">
+                      Cursos vitalícios
                     </p>
-                    <p className="text-zinc-400 leading-relaxed">
-                      A vitrine do Academy fica aberta para você conhecer os cursos,
-                      módulos e aulas. O vídeo, materiais e conteúdo completo são
-                      liberados depois da assinatura mensal.
+
+                    <h1 className="text-5xl md:text-7xl font-black leading-[0.92] tracking-tight mb-6">
+                      Aprenda a construir presença digital com direção.
+                    </h1>
+
+                    <p className="max-w-3xl text-zinc-400 text-lg md:text-xl leading-relaxed">
+                      Na FatorZ Academy, cada curso pode ser visto publicamente,
+                      mas as aulas são liberadas apenas para quem comprou aquele
+                      curso. Sem mensalidade. Sem vencimento. Acesso vitalício
+                      por curso.
                     </p>
                   </div>
-                )}
 
-                <div className="flex flex-wrap gap-3">
-                  {featuredCourse && (
-                    <button
-                      onClick={() => openCourse(featuredCourse)}
-                      className="bg-white text-black hover:bg-zinc-200 px-8 py-4 rounded-full font-black text-lg"
-                    >
-                      {hasAccess ? "▶ Assistir agora" : "Ver grade do curso"}
-                    </button>
-                  )}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+                      <p className="text-xs uppercase tracking-widest font-black text-zinc-500">
+                        Cursos
+                      </p>
+                      <h2 className="mt-2 text-4xl font-black">{courses.length}</h2>
+                    </div>
 
-                  <button
-                    onClick={() => {
-                      const section = document.getElementById("cursos");
-                      section?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className="bg-white/15 border border-white/10 hover:bg-white/25 px-8 py-4 rounded-full font-black text-lg backdrop-blur"
-                  >
-                    Ver cursos
-                  </button>
+                    <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+                      <p className="text-xs uppercase tracking-widest font-black text-zinc-500">
+                        Liberados
+                      </p>
+                      <h2 className="mt-2 text-4xl font-black text-emerald-300">
+                        {approvedCoursesCount}
+                      </h2>
+                    </div>
 
-                  {!hasAccess && (
-                    <button
-                      onClick={() => navigate("/checkout/academy")}
-                      className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-8 py-4 rounded-full font-black text-lg shadow-[0_0_35px_rgba(255,0,150,0.22)]"
-                    >
-                      Desbloquear Academy
-                    </button>
-                  )}
+                    <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+                      <p className="text-xs uppercase tracking-widest font-black text-zinc-500">
+                        Pendentes
+                      </p>
+                      <h2 className="mt-2 text-4xl font-black text-orange-300">
+                        {pendingCoursesCount}
+                      </h2>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section className="max-w-[1500px] mx-auto px-4 md:px-10 -mt-10 relative z-20 mb-12">
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[30px] p-6">
-                <p className="text-zinc-500 mb-2 font-bold">Cursos publicados</p>
-                <h2 className="text-4xl font-black">{courses.length}</h2>
-              </div>
+            <section id="cursos" className="max-w-[1500px] mx-auto px-4 md:px-10 pb-14">
+              <div className="mb-8">
+                <p className="text-pink-500 font-black uppercase tracking-[0.28em] text-sm mb-3">
+                  Catálogo Academy
+                </p>
 
-              <div className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[30px] p-6">
-                <p className="text-zinc-500 mb-2 font-bold">Aulas na grade</p>
-                <h2 className="text-4xl font-black text-pink-500">
-                  {lessons.length}
+                <h2 className="text-4xl md:text-6xl font-black">
+                  Cursos disponíveis
                 </h2>
+
+                <p className="mt-4 max-w-3xl text-zinc-400 text-lg leading-relaxed">
+                  Veja a capa, explicação e valor de cada curso. Para acessar as
+                  aulas, compre o curso e aguarde a liberação vitalícia no seu
+                  perfil.
+                </p>
               </div>
 
-              <div className="bg-black/55 backdrop-blur-xl border border-white/10 rounded-[30px] p-6">
-                <p className="text-zinc-500 mb-2 font-bold">Seu acesso</p>
-                <h2
-                  className={`text-3xl font-black ${
-                    hasAccess ? "text-green-400" : "text-pink-500"
-                  }`}
-                >
-                  {hasAccess ? "Liberado" : "Prévia aberta"}
-                </h2>
-              </div>
-            </div>
-          </section>
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {courses.map((course) => {
+                  const courseLessons = getLessonsByCourse(course.id);
+                  const access = hasCourseAccess(course.id);
+                  const pending = hasPendingPurchase(course.id);
+                  const purchase = getPurchaseByCourse(course.id);
+                  const courseProgress = getProgressByCourse(course.id);
 
-          <section
-            id="cursos"
-            className="max-w-[1500px] mx-auto px-4 md:px-10 relative z-20"
-          >
-            <div className="mb-12">
-              <div className="flex items-end justify-between gap-4 mb-5">
-                <div>
-                  <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-2">
-                    Continue aprendendo
-                  </p>
-
-                  <h2 className="text-3xl md:text-5xl font-black">
-                    Cursos disponíveis
-                  </h2>
-
-                  <p className="text-zinc-400 mt-3 max-w-2xl">
-                    A grade fica visível para apresentar o caminho. O conteúdo
-                    completo é desbloqueado para assinantes.
-                  </p>
-                </div>
-              </div>
-
-              {courses.length === 0 ? (
-                <div className="bg-zinc-950 border border-zinc-800 rounded-[32px] p-8">
-                  <h3 className="text-3xl font-black mb-3">
-                    Nenhum curso publicado.
-                  </h3>
-
-                  <p className="text-zinc-400">
-                    Assim que os cursos forem cadastrados, eles aparecerão aqui.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex gap-5 overflow-x-auto pb-5 snap-x">
-                  {courses.map((course) => {
-                    const courseLessons = getLessonsByCourse(course.id);
-                    const courseProgress = getProgressByCourse(course.id);
-
-                    return (
+                  return (
+                    <article
+                      key={course.id}
+                      className={`overflow-hidden rounded-[36px] border transition hover:-translate-y-1 ${
+                        access
+                          ? "border-emerald-400/35 bg-emerald-500/[0.045]"
+                          : pending
+                          ? "border-orange-400/35 bg-orange-500/[0.045]"
+                          : "border-white/10 bg-white/[0.045] hover:border-pink-500/30"
+                      }`}
+                    >
                       <button
-                        key={course.id}
                         onClick={() => openCourse(course)}
-                        className="group snap-start min-w-[280px] md:min-w-[380px] max-w-[380px] text-left bg-zinc-950/90 border border-white/10 hover:border-pink-500 rounded-[30px] overflow-hidden transition duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-pink-500/10 backdrop-blur-xl"
+                        className="w-full text-left"
                       >
-                        <div className="aspect-video bg-black overflow-hidden relative">
-                          {course.cover_url ? (
+                        {course.cover_url ? (
+                          <div className="h-56 w-full overflow-hidden bg-zinc-900">
                             <img
                               src={course.cover_url}
                               alt={course.title}
-                              className="w-full h-full object-cover group-hover:scale-110 transition duration-700"
+                              className="h-full w-full object-cover transition duration-500 hover:scale-105"
                             />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-950 via-black to-pink-950">
-                              <span className="text-zinc-500 font-black">
-                                Sem capa
+                          </div>
+                        ) : (
+                          <div className="h-56 w-full bg-[radial-gradient(circle_at_center,rgba(255,0,150,0.24),transparent_38%),linear-gradient(135deg,rgba(0,92,255,0.16),rgba(145,35,255,0.12),rgba(255,0,150,0.16))]" />
+                        )}
+
+                        <div className="p-6">
+                          <div className="mb-4 flex flex-wrap gap-2">
+                            {course.badge && (
+                              <span className="rounded-full border border-pink-500/25 bg-pink-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-pink-300">
+                                {course.badge}
                               </span>
-                            </div>
-                          )}
+                            )}
 
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent opacity-90" />
+                            {access && (
+                              <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-emerald-300">
+                                Liberado
+                              </span>
+                            )}
 
-                          <div className="absolute left-4 bottom-4 flex flex-wrap gap-2">
-                            <span className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">
-                              {course.badge || "FatorZ"}
-                            </span>
-
-                            {!hasAccess && (
-                              <span className="bg-black/70 border border-white/15 text-white px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">
-                                Prévia
+                            {pending && (
+                              <span className="rounded-full border border-orange-400/25 bg-orange-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-orange-300">
+                                Pendente
                               </span>
                             )}
                           </div>
-                        </div>
 
-                        <div className="p-5">
-                          <h3 className="text-2xl font-black mb-2">
-                            {course.title}
-                          </h3>
+                          <h3 className="text-2xl font-black">{course.title}</h3>
 
-                          {course.subtitle && (
-                            <p className="text-zinc-400 text-sm mb-5">
-                              {course.subtitle}
+                          <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                            {course.subtitle ||
+                              course.description ||
+                              "Curso FatorZ Academy com acesso vitalício."}
+                          </p>
+
+                          <div className="mt-5 grid grid-cols-3 gap-3">
+                            <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                              <p className="text-[11px] uppercase tracking-widest font-black text-zinc-500">
+                                Aulas
+                              </p>
+                              <p className="mt-1 text-xl font-black">
+                                {courseLessons.length}
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                              <p className="text-[11px] uppercase tracking-widest font-black text-zinc-500">
+                                Valor
+                              </p>
+                              <p className="mt-1 text-sm font-black">
+                                {course.is_paid
+                                  ? formatMoneyFromCents(course.price_cents)
+                                  : "Grátis"}
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                              <p className="text-[11px] uppercase tracking-widest font-black text-zinc-500">
+                                Progresso
+                              </p>
+                              <p className="mt-1 text-xl font-black">
+                                {courseProgress}%
+                              </p>
+                            </div>
+                          </div>
+
+                          {purchase?.approved_at && (
+                            <p className="mt-4 text-xs font-bold text-emerald-300">
+                              Liberado em {formatDate(purchase.approved_at)}
                             </p>
                           )}
-
-                          <div className="flex items-center justify-between gap-3 mb-3">
-                            <span className="text-zinc-500 font-bold text-sm">
-                              {courseLessons.length} aula
-                              {courseLessons.length !== 1 ? "s" : ""}
-                            </span>
-
-                            <span className="text-pink-500 font-black text-sm">
-                              {hasAccess ? `${courseProgress}%` : "Bloqueado"}
-                            </span>
-                          </div>
-
-                          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] rounded-full"
-                              style={{ width: `${hasAccess ? courseProgress : 8}%` }}
-                            />
-                          </div>
                         </div>
                       </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </section>
 
-          <section
-            id="materiais"
-            className="max-w-[1500px] mx-auto px-4 md:px-10"
-          >
-            <div className="bg-zinc-950/85 border border-white/10 rounded-[36px] p-6 md:p-8 backdrop-blur-xl">
-              <div className="mb-8">
-                <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
-                  Materiais extras
-                </p>
-
-                <h2 className="text-3xl md:text-5xl font-black mb-4">
-                  Links úteis da Academy
-                </h2>
-
-                <p className="text-zinc-400 max-w-3xl">
-                  Ferramentas, prompts, sites, materiais de apoio e recursos
-                  importantes para acelerar seus estudos.
-                </p>
-              </div>
-
-              {links.length === 0 ? (
-                <div className="bg-black border border-zinc-800 rounded-3xl p-8">
-                  <h3 className="text-2xl font-black mb-2">
-                    Nenhum link útil publicado ainda.
-                  </h3>
-
-                  <p className="text-zinc-400">
-                    Quando novos materiais forem adicionados, eles aparecerão
-                    aqui.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  {Object.entries(groupedLinks).map(
-                    ([category, categoryLinks]) => (
-                      <div key={category}>
-                        <h3 className="text-2xl font-black mb-4">
-                          {category}
-                        </h3>
-
-                        <div className="flex gap-5 overflow-x-auto pb-4">
-                          {categoryLinks.map((link) => (
-                            <div
-                              key={link.id}
-                              className="min-w-[260px] bg-black border border-zinc-800 rounded-3xl p-6 flex flex-col relative overflow-hidden"
-                            >
-                              {!hasAccess && (
-                                <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] pointer-events-none" />
-                              )}
-
-                              <div className="relative z-10 flex flex-col h-full">
-                                <p className="text-pink-500 font-black uppercase tracking-widest text-xs mb-3">
-                                  {link.category || "Geral"}
-                                </p>
-
-                                <h4 className="text-2xl font-black mb-3">
-                                  {link.title}
-                                </h4>
-
-                                {link.description && (
-                                  <p className="text-zinc-400 mb-6 flex-1 text-sm">
-                                    {link.description}
-                                  </p>
-                                )}
-
-                                <button
-                                  onClick={() => openLink(link.url)}
-                                  className="bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black mt-auto"
-                                >
-                                  {hasAccess ? "Abrir link" : "Desbloquear"}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                      <div className="px-6 pb-6">
+                        {access ? (
+                          <button
+                            onClick={() => openCourse(course)}
+                            className="w-full rounded-2xl bg-emerald-500 px-5 py-4 font-black text-black transition hover:opacity-90"
+                          >
+                            Assistir aulas
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              navigate(`/checkout/academy?courseId=${course.id}`)
+                            }
+                            className="w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-4 font-black text-white transition hover:opacity-90"
+                          >
+                            {pending
+                              ? "Ver compra pendente"
+                              : "Comprar acesso vitalício"}
+                          </button>
+                        )}
                       </div>
-                    )
-                  )}
-                </div>
-              )}
-            </div>
-          </section>
-        </main>
-      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          </>
+        )}
 
-      {selectedCourse && (
-        <main className="relative z-10 pt-24 pb-16 overflow-hidden">
-          {selectedCourse.cover_url && (
-            <img
-              src={selectedCourse.cover_url}
-              alt={selectedCourse.title}
-              className="fixed inset-0 w-full h-full object-cover opacity-[0.13] blur-3xl scale-110 pointer-events-none"
-            />
-          )}
+        {selectedCourse && (
+          <section
+            id="curso-selecionado"
+            className="max-w-[1500px] mx-auto px-4 md:px-10 pb-16"
+          >
+            <button
+              onClick={backToCourses}
+              className="mb-6 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 font-black text-zinc-300 transition hover:bg-white/[0.08] hover:text-white"
+            >
+              ← Voltar para cursos
+            </button>
 
-          <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,0,150,0.10),transparent_25%),radial-gradient(circle_at_bottom_left,rgba(0,92,255,0.10),transparent_25%)] pointer-events-none" />
-          <div className="fixed inset-0 bg-gradient-to-b from-black via-[#050505]/96 to-black pointer-events-none" />
-
-          <section className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 mb-8">
-            <div className="relative overflow-hidden rounded-[38px] border border-white/10 bg-white/[0.035] backdrop-blur-2xl shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
-              {selectedCourse.cover_url && (
-                <img
-                  src={selectedCourse.cover_url}
-                  alt={selectedCourse.title}
-                  className="absolute inset-0 w-full h-full object-cover opacity-35"
-                />
-              )}
-
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/86 to-black/30" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-
-              <div className="relative z-10 p-6 md:p-10 min-h-[340px] flex flex-col justify-end">
-                <button
-                  onClick={backToCourses}
-                  className="w-fit bg-white/10 border border-white/10 hover:bg-white/15 px-5 py-3 rounded-full font-black mb-8 backdrop-blur transition"
-                >
-                  ← Voltar para cursos
-                </button>
-
-                <p className="text-pink-500 font-black uppercase tracking-[0.35em] text-xs md:text-sm mb-3">
-                  {selectedCourse.badge || "FatorZ Academy"}
-                </p>
-
-                <h1 className="text-4xl md:text-7xl font-black leading-none mb-4 max-w-5xl">
-                  {selectedCourse.title}
-                </h1>
-
-                {selectedCourse.subtitle && (
-                  <p className="text-zinc-200 text-lg md:text-2xl max-w-4xl font-medium mb-4">
-                    {selectedCourse.subtitle}
-                  </p>
-                )}
-
-                {selectedCourse.description && (
-                  <p className="text-zinc-400 max-w-3xl mb-8 leading-relaxed whitespace-pre-line">
-                    {selectedCourse.description}
-                  </p>
-                )}
-
-                <div className="flex flex-wrap gap-3">
-                  {selectedLesson && (
-                    <button
-                      onClick={() => {
-                        const section = document.getElementById(
-                          hasAccess ? "player" : "episodios"
-                        );
-                        section?.scrollIntoView({ behavior: "smooth" });
-                      }}
-                      className="bg-white text-black hover:bg-zinc-200 px-7 py-4 rounded-full font-black text-base md:text-lg transition"
-                    >
-                      {hasAccess ? "▶ Continuar" : "Ver grade"}
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      const section = document.getElementById("episodios");
-                      section?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className="bg-white/10 border border-white/10 hover:bg-white/15 px-7 py-4 rounded-full font-black text-base md:text-lg backdrop-blur transition"
-                  >
-                    Ver episódios
-                  </button>
-
-                  {!hasAccess && (
-                    <button
-                      onClick={() => navigate("/checkout/academy")}
-                      className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-7 py-4 rounded-full font-black text-base md:text-lg transition shadow-[0_0_35px_rgba(255,0,150,0.22)]"
-                    >
-                      Desbloquear conteúdo
-                    </button>
-                  )}
-
-                  {selectedCourse.is_paid && (
-                    <div className="bg-black/45 border border-white/10 rounded-full px-5 py-4 font-black">
-                      {formatMoneyFromCents(selectedCourse.price_cents)}
+            <div className="grid gap-8 xl:grid-cols-[1fr_420px]">
+              <div>
+                <div className="relative overflow-hidden rounded-[42px] border border-white/10 bg-black mb-8">
+                  {selectedCourse.cover_url && (
+                    <div className="h-72 md:h-96 overflow-hidden bg-zinc-900">
+                      <img
+                        src={selectedCourse.cover_url}
+                        alt={selectedCourse.title}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
                   )}
+
+                  <div className="p-6 md:p-10">
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {selectedCourse.badge && (
+                        <span className="rounded-full border border-pink-500/25 bg-pink-500/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-pink-300">
+                          {selectedCourse.badge}
+                        </span>
+                      )}
+
+                      {selectedCourseAccess ? (
+                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-emerald-300">
+                          Acesso vitalício liberado
+                        </span>
+                      ) : selectedCoursePending ? (
+                        <span className="rounded-full border border-orange-400/25 bg-orange-500/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-orange-300">
+                          Compra pendente
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-black uppercase tracking-widest text-zinc-300">
+                          Curso público
+                        </span>
+                      )}
+                    </div>
+
+                    <h1 className="text-4xl md:text-6xl font-black leading-tight">
+                      {selectedCourse.title}
+                    </h1>
+
+                    <p className="mt-5 max-w-4xl text-zinc-400 text-lg leading-relaxed">
+                      {selectedCourse.description ||
+                        selectedCourse.subtitle ||
+                        "Curso da FatorZ Academy com acesso vitalício após compra aprovada."}
+                    </p>
+
+                    <div className="mt-8 grid gap-4 md:grid-cols-4">
+                      <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+                        <p className="text-xs uppercase tracking-widest font-black text-zinc-500">
+                          Aulas
+                        </p>
+                        <p className="mt-2 text-3xl font-black">
+                          {selectedCourseLessons.length}
+                        </p>
+                      </div>
+
+                      <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+                        <p className="text-xs uppercase tracking-widest font-black text-zinc-500">
+                          Valor
+                        </p>
+                        <p className="mt-2 text-xl font-black">
+                          {selectedCourse.is_paid
+                            ? formatMoneyFromCents(selectedCourse.price_cents)
+                            : "Grátis"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+                        <p className="text-xs uppercase tracking-widest font-black text-zinc-500">
+                          Progresso
+                        </p>
+                        <p className="mt-2 text-3xl font-black">
+                          {progressPercentage}%
+                        </p>
+                      </div>
+
+                      <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+                        <p className="text-xs uppercase tracking-widest font-black text-zinc-500">
+                          Acesso
+                        </p>
+                        <p
+                          className={`mt-2 text-xl font-black ${
+                            selectedCourseAccess
+                              ? "text-emerald-300"
+                              : selectedCoursePending
+                              ? "text-orange-300"
+                              : "text-zinc-300"
+                          }`}
+                        >
+                          {selectedCourseAccess
+                            ? "Liberado"
+                            : selectedCoursePending
+                            ? "Pendente"
+                            : "Bloqueado"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {!selectedCourseAccess && (
+                      <div className="mt-8 rounded-[28px] border border-pink-500/20 bg-pink-500/10 p-6">
+                        <h2 className="text-2xl font-black mb-3">
+                          As aulas deste curso estão bloqueadas.
+                        </h2>
+
+                        <p className="text-zinc-300 leading-relaxed mb-5">
+                          Você pode ver a capa, descrição e estrutura do curso,
+                          mas para assistir as aulas precisa comprar o acesso
+                          vitalício deste curso.
+                        </p>
+
+                        <button
+                          onClick={() =>
+                            navigate(`/checkout/academy?courseId=${selectedCourse.id}`)
+                          }
+                          className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white transition hover:opacity-90"
+                        >
+                          {selectedCoursePending
+                            ? "Ver compra pendente"
+                            : "Comprar acesso vitalício"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          </section>
 
-          <section className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 mb-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/[0.035] backdrop-blur-xl border border-white/10 rounded-[26px] p-5">
-                <p className="text-zinc-500 mb-2 text-sm">Aulas</p>
-                <h2 className="text-3xl md:text-4xl font-black">
-                  {totalLessons}
-                </h2>
-              </div>
+                {selectedCourseAccess && selectedLesson && (
+                  <section
+                    id="player"
+                    className="rounded-[42px] border border-white/10 bg-black overflow-hidden mb-8"
+                  >
+                    <div className="aspect-video bg-zinc-950">
+                      <iframe
+                        src={selectedLesson.video_url}
+                        title={selectedLesson.lesson_title}
+                        className="h-full w-full"
+                        allowFullScreen
+                      />
+                    </div>
 
-              <div className="bg-white/[0.035] backdrop-blur-xl border border-white/10 rounded-[26px] p-5">
-                <p className="text-zinc-500 mb-2 text-sm">Concluídas</p>
-                <h2 className="text-3xl md:text-4xl font-black text-green-400">
-                  {totalCompleted}
-                </h2>
-              </div>
-
-              <div className="bg-white/[0.035] backdrop-blur-xl border border-white/10 rounded-[26px] p-5">
-                <p className="text-zinc-500 mb-2 text-sm">Progresso</p>
-                <h2 className="text-3xl md:text-4xl font-black text-pink-500">
-                  {progressPercentage}%
-                </h2>
-              </div>
-
-              <div className="bg-white/[0.035] backdrop-blur-xl border border-white/10 rounded-[26px] p-5">
-                <p className="text-zinc-500 mb-2 text-sm">Acesso</p>
-                <h2
-                  className={`text-xl md:text-2xl font-black ${
-                    hasAccess ? "text-white" : "text-pink-500"
-                  }`}
-                >
-                  {isAdmin
-                    ? "Admin"
-                    : hasAccess
-                    ? formatDate(profile?.academy_expires_at)
-                    : "Bloqueado"}
-                </h2>
-              </div>
-            </div>
-          </section>
-
-          <section
-            id="player"
-            className="relative z-10 max-w-[1500px] mx-auto px-4 md:px-10 grid xl:grid-cols-[1fr_420px] gap-8 mb-10"
-          >
-            <div className="relative overflow-hidden rounded-[42px] border border-white/10 bg-gradient-to-br from-white/[0.07] via-white/[0.035] to-white/[0.015] backdrop-blur-2xl p-4 md:p-6 shadow-[0_30px_120px_rgba(0,0,0,0.65)]">
-              <div className="absolute -top-40 -right-40 w-96 h-96 bg-pink-500/15 rounded-full blur-3xl" />
-              <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-              <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(255,0,150,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(0,92,255,0.08),transparent_30%)]" />
-
-              {selectedLesson ? (
-                <div className="relative z-10">
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-5 mb-6">
-                    <div>
-                      <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-3">
-                        {hasAccess ? "Agora assistindo" : "Prévia da aula"}
+                    <div className="p-6 md:p-8">
+                      <p className="text-pink-500 font-black uppercase tracking-[0.22em] text-xs mb-3">
+                        {selectedLesson.module_title}
                       </p>
 
-                      <h2 className="text-3xl md:text-5xl font-black leading-tight max-w-4xl">
+                      <h2 className="text-3xl md:text-4xl font-black mb-4">
                         {selectedLesson.lesson_title}
                       </h2>
 
-                      <div className="flex flex-wrap gap-2 mt-4">
-                        <span className="bg-black/45 border border-white/10 px-4 py-2 rounded-full text-xs md:text-sm font-black text-zinc-300">
-                          {selectedLesson.module_title}
-                        </span>
+                      {selectedLesson.description && (
+                        <div className="whitespace-pre-line text-zinc-300 leading-relaxed">
+                          {beautifyLessonText(selectedLesson.description)}
+                        </div>
+                      )}
 
-                        <span className="bg-black/45 border border-white/10 px-4 py-2 rounded-full text-xs md:text-sm font-black text-zinc-300">
-                          Aula #{selectedLesson.order_index || selectedLesson.id}
-                        </span>
-
-                        <span
-                          className={`border px-4 py-2 rounded-full text-xs md:text-sm font-black ${
-                            hasAccess && isLessonCompleted(selectedLesson.id)
-                              ? "bg-green-500/15 border-green-400/30 text-green-300"
-                              : hasAccess
-                              ? "bg-pink-500/10 border-pink-400/20 text-pink-300"
-                              : "bg-white/10 border-white/10 text-zinc-300"
+                      <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                        <button
+                          onClick={() => toggleLessonCompleted(selectedLesson)}
+                          className={`rounded-2xl px-6 py-4 font-black transition ${
+                            isLessonCompleted(selectedLesson.id)
+                              ? "bg-emerald-500 text-black hover:opacity-90"
+                              : "bg-white text-black hover:bg-zinc-200"
                           }`}
                         >
-                          {hasAccess
-                            ? isLessonCompleted(selectedLesson.id)
-                              ? "Concluída"
-                              : "Em andamento"
-                            : "Conteúdo bloqueado"}
-                        </span>
-                      </div>
-                    </div>
+                          {isLessonCompleted(selectedLesson.id)
+                            ? "Aula concluída"
+                            : "Marcar como concluída"}
+                        </button>
 
-                    {hasAccess ? (
-                      <button
-                        onClick={() => toggleLessonCompleted(selectedLesson)}
-                        className={`shrink-0 px-6 py-4 rounded-full font-black transition shadow-lg ${
-                          isLessonCompleted(selectedLesson.id)
-                            ? "bg-green-500 text-black hover:bg-green-400"
-                            : "bg-white text-black hover:bg-zinc-200"
-                        }`}
-                      >
-                        {isLessonCompleted(selectedLesson.id)
-                          ? "Concluída"
-                          : "Marcar concluída"}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => navigate("/checkout/academy")}
-                        className="shrink-0 px-6 py-4 rounded-full font-black transition bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 shadow-[0_0_35px_rgba(255,0,150,0.22)]"
-                      >
-                        Assinar para assistir
-                      </button>
-                    )}
-                  </div>
-
-                  {hasAccess ? (
-                    <>
-                      <div className="relative rounded-[34px] p-2 bg-gradient-to-br from-white/10 via-white/5 to-transparent border border-white/10 mb-7 shadow-[0_25px_70px_rgba(0,0,0,0.65)]">
-                        <div className="aspect-video bg-black rounded-[28px] overflow-hidden border border-white/10">
-                          <iframe
-                            src={selectedLesson.video_url}
-                            title={selectedLesson.lesson_title}
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid lg:grid-cols-[1fr_280px] gap-6">
-                        <div className="rounded-[34px] border border-white/10 bg-black/35 p-6 md:p-8">
-                          <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-4">
-                            Conteúdo da aula
-                          </p>
-
-                          <h3 className="text-3xl md:text-5xl font-black leading-tight mb-6 break-words">
-                            {selectedLesson.lesson_title}
-                          </h3>
-
-                          {selectedLesson.description ? (
-                            <div className="text-zinc-300 text-[15px] md:text-base leading-8 whitespace-pre-line break-words">
-                              {beautifyLessonText(selectedLesson.description)}
-                            </div>
-                          ) : (
-                            <p className="text-zinc-500">
-                              Sem descrição para esta aula.
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="rounded-[34px] border border-white/10 bg-black/40 p-5 h-fit">
-                          <p className="text-zinc-500 text-xs uppercase tracking-[0.28em] font-black mb-4">
-                            Navegação
-                          </p>
-
-                          {nextLesson ? (
-                            <button
-                              onClick={() => selectLesson(nextLesson)}
-                              className="w-full bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black transition mb-3"
-                            >
-                              Próxima aula →
-                            </button>
-                          ) : (
-                            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 mb-3">
-                              <p className="text-zinc-400 text-sm font-bold">
-                                Você chegou ao fim deste curso.
-                              </p>
-                            </div>
-                          )}
-
+                        {nextLesson && (
                           <button
-                            onClick={() => {
-                              const section = document.getElementById("episodios");
-                              section?.scrollIntoView({ behavior: "smooth" });
-                            }}
-                            className="w-full bg-white/10 border border-white/10 hover:bg-white/15 px-5 py-4 rounded-2xl font-black transition"
+                            onClick={() => selectLesson(nextLesson)}
+                            className="rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-4 font-black text-white transition hover:bg-white/[0.08]"
                           >
-                            Ver episódios
+                            Próxima aula
                           </button>
-
-                          <div className="mt-5 pt-5 border-t border-white/10">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-zinc-500 text-sm font-bold">
-                                Progresso
-                              </span>
-
-                              <span className="text-pink-400 text-sm font-black">
-                                {progressPercentage}%
-                              </span>
-                            </div>
-
-                            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] rounded-full"
-                                style={{ width: `${progressPercentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="relative overflow-hidden rounded-[34px] border border-pink-500/25 bg-black/45 p-7 md:p-10 shadow-[0_25px_70px_rgba(0,0,0,0.65)]">
-                      <div className="absolute -right-20 -top-20 w-72 h-72 bg-pink-500/15 rounded-full blur-3xl" />
-                      <div className="absolute -left-20 -bottom-20 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl" />
-
-                      <div className="relative z-10 grid lg:grid-cols-[1fr_260px] gap-8 items-center">
-                        <div>
-                          <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-4">
-                            Conteúdo premium
-                          </p>
-
-                          <h3 className="text-3xl md:text-5xl font-black leading-tight mb-5">
-                            A grade está liberada. A aula completa fica bloqueada.
-                          </h3>
-
-                          <p className="text-zinc-400 leading-8 max-w-3xl mb-6">
-                            Você pode conhecer o curso, ver os módulos e escolher as
-                            aulas. Para assistir ao vídeo, acessar materiais, prompts
-                            e tarefas completas, assine a FatorZ Academy.
-                          </p>
-
-                          <div className="flex flex-wrap gap-3">
-                            <button
-                              onClick={() => navigate("/checkout/academy")}
-                              className="bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] hover:opacity-90 px-7 py-4 rounded-2xl font-black"
-                            >
-                              Desbloquear Academy
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                const section = document.getElementById("episodios");
-                                section?.scrollIntoView({ behavior: "smooth" });
-                              }}
-                              className="bg-white/10 border border-white/10 hover:bg-white/15 px-7 py-4 rounded-2xl font-black"
-                            >
-                              Ver outras aulas
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="hidden lg:flex items-center justify-center">
-                          <div className="w-48 h-48 rounded-full border border-pink-500/40 flex items-center justify-center shadow-[0_0_80px_rgba(255,0,150,0.20)]">
-                            <span className="text-7xl">🔒</span>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="relative z-10 p-10 text-center">
-                  <h2 className="text-3xl font-black mb-3">
-                    Nenhuma aula publicada neste curso.
-                  </h2>
-
-                  <p className="text-zinc-400">
-                    As aulas aparecerão aqui quando forem cadastradas.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <aside
-              id="episodios"
-              className="relative h-fit xl:sticky xl:top-24 overflow-hidden rounded-[42px] border border-white/10 bg-gradient-to-br from-white/[0.075] via-white/[0.035] to-white/[0.015] backdrop-blur-2xl p-5 shadow-[0_30px_100px_rgba(0,0,0,0.55)]"
-            >
-              <div className="absolute -top-24 -right-24 w-56 h-56 bg-pink-500/10 rounded-full blur-3xl" />
-
-              <div className="relative z-10">
-                <div className="flex items-start justify-between gap-4 mb-5">
-                  <div>
-                    <p className="text-pink-500 font-black uppercase tracking-[0.32em] text-xs mb-2">
-                      Catálogo
-                    </p>
-
-                    <h2 className="text-3xl font-black">Episódios</h2>
-                  </div>
-
-                  <span className="bg-black/45 border border-white/10 text-zinc-300 px-3 py-2 rounded-full text-sm font-black">
-                    {selectedCourseLessons.length}
-                  </span>
-                </div>
-
-                {!hasAccess && (
-                  <div className="bg-black/45 border border-pink-500/20 rounded-2xl p-4 mb-5">
-                    <p className="text-zinc-300 text-sm font-bold">
-                      Prévia liberada: escolha as aulas e veja a estrutura. O
-                      conteúdo completo abre após a assinatura.
-                    </p>
-                  </div>
+                  </section>
                 )}
+              </div>
 
-                <div className="relative mb-5">
+              <aside className="xl:sticky xl:top-28 h-fit">
+                <div className="rounded-[36px] border border-white/10 bg-black/70 p-6">
+                  <div className="mb-5 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-widest font-black text-zinc-500">
+                        Aulas do curso
+                      </p>
+                      <h2 className="mt-2 text-2xl font-black">
+                        Conteúdo
+                      </h2>
+                    </div>
+
+                    <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-black text-zinc-300">
+                      {selectedCourseLessons.length} aulas
+                    </span>
+                  </div>
+
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Buscar aula..."
-                    className="w-full bg-black/45 border border-white/10 rounded-full px-5 py-4 outline-none focus:border-pink-500 transition text-sm"
+                    className="mb-5 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
                   />
-                </div>
 
-                <div className="space-y-4 max-h-[720px] overflow-y-auto pr-2">
-                  {Object.keys(groupedLessons).length === 0 ? (
-                    <p className="text-zinc-400">Nenhuma aula encontrada.</p>
-                  ) : (
-                    Object.entries(groupedLessons).map(
-                      ([moduleTitle, moduleLessons]) => (
-                        <div
-                          key={moduleTitle}
-                          className="overflow-hidden rounded-[30px] border border-white/10 bg-black/30"
+                  <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                    {Object.entries(groupedLessons).map(([moduleTitle, moduleLessons]) => (
+                      <div
+                        key={moduleTitle}
+                        className="rounded-[24px] border border-white/10 bg-white/[0.035] overflow-hidden"
+                      >
+                        <button
+                          onClick={() => toggleModule(moduleTitle)}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-4 text-left"
                         >
-                          <button
-                            onClick={() => toggleModule(moduleTitle)}
-                            className="w-full text-left px-5 py-5 flex items-center justify-between gap-4 hover:bg-white/[0.03] transition"
-                          >
-                            <div>
-                              <p className="text-white font-black text-base leading-tight">
-                                {moduleTitle}
-                              </p>
+                          <span className="font-black text-white">
+                            {moduleTitle}
+                          </span>
 
-                              <p className="text-zinc-500 text-sm mt-1">
-                                {moduleLessons.length} aula
-                                {moduleLessons.length > 1 ? "s" : ""}
-                              </p>
-                            </div>
+                          <span className="text-zinc-500 text-sm">
+                            {openModules[moduleTitle] ? "−" : "+"}
+                          </span>
+                        </button>
 
-                            <span className="text-pink-400 text-2xl font-light">
-                              {openModules[moduleTitle] ? "−" : "+"}
-                            </span>
-                          </button>
+                        {openModules[moduleTitle] && (
+                          <div className="border-t border-white/10 p-3 space-y-2">
+                            {moduleLessons.map((lesson) => {
+                              const completed = isLessonCompleted(lesson.id);
+                              const active = selectedLesson?.id === lesson.id;
 
-                          {openModules[moduleTitle] && (
-                            <div className="px-3 pb-3 space-y-2">
-                              {moduleLessons.map((lesson, index) => {
-                                const active = selectedLesson?.id === lesson.id;
-                                const completed = isLessonCompleted(lesson.id);
+                              return (
+                                <button
+                                  key={lesson.id}
+                                  onClick={() => selectLesson(lesson)}
+                                  className={`w-full rounded-2xl px-4 py-3 text-left transition ${
+                                    active
+                                      ? "bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white"
+                                      : "bg-black/30 text-zinc-300 hover:bg-white/[0.06] hover:text-white"
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="font-black text-sm">
+                                        {lesson.lesson_title}
+                                      </p>
 
-                                return (
-                                  <button
-                                    key={lesson.id}
-                                    onClick={() => selectLesson(lesson)}
-                                    className={`group w-full text-left rounded-[24px] p-4 border transition-all duration-200 ${
-                                      active
-                                        ? "bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white border-pink-300 shadow-[0_12px_35px_rgba(236,72,153,0.28)]"
-                                        : "bg-white/[0.035] border-white/5 hover:bg-white/[0.075] text-zinc-300"
-                                    }`}
-                                  >
-                                    <div className="flex items-start gap-4">
-                                      <div
-                                        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-sm font-black ${
-                                          active
-                                            ? "bg-white text-pink-500"
-                                            : "bg-black/50 border border-white/10 text-zinc-400 group-hover:text-white"
-                                        }`}
-                                      >
-                                        {hasAccess ? index + 1 : "🔒"}
-                                      </div>
-
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between gap-2">
-                                          <p className="font-black text-[15px] leading-snug break-words">
-                                            {lesson.lesson_title}
-                                          </p>
-
-                                          {hasAccess && completed && (
-                                            <span className="shrink-0 bg-green-500 text-black px-2 py-1 rounded-full text-[10px] font-black uppercase">
-                                              OK
-                                            </span>
-                                          )}
-
-                                          {!hasAccess && (
-                                            <span className="shrink-0 bg-black/45 border border-white/10 text-zinc-300 px-2 py-1 rounded-full text-[10px] font-black uppercase">
-                                              Premium
-                                            </span>
-                                          )}
-                                        </div>
-
-                                        <div
-                                          className={`mt-2 flex items-center gap-2 text-xs ${
-                                            active ? "text-white/80" : "text-zinc-500"
-                                          }`}
-                                        >
-                                          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
-
-                                          <span>
-                                            Aula #{lesson.order_index || lesson.id}
-                                          </span>
-                                        </div>
-                                      </div>
+                                      {!selectedCourseAccess && (
+                                        <p className="mt-1 text-xs text-zinc-500">
+                                          Aula bloqueada
+                                        </p>
+                                      )}
                                     </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    )
-                  )}
+
+                                    {selectedCourseAccess ? (
+                                      <span
+                                        className={`mt-1 h-3 w-3 rounded-full ${
+                                          completed
+                                            ? "bg-emerald-400"
+                                            : "bg-zinc-700"
+                                        }`}
+                                      />
+                                    ) : (
+                                      <span className="text-xs text-zinc-500">
+                                        🔒
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {!selectedCourseLessons.length && (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-sm text-zinc-400">
+                        Este curso ainda não tem aulas cadastradas.
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </aside>
+              </aside>
+            </div>
           </section>
-        </main>
-      )}
+        )}
+
+        {!!links.length && (
+          <section id="links" className="max-w-[1500px] mx-auto px-4 md:px-10 pb-16">
+            <div className="mb-8">
+              <p className="text-pink-500 font-black uppercase tracking-[0.28em] text-sm mb-3">
+                Materiais extras
+              </p>
+
+              <h2 className="text-4xl md:text-5xl font-black">
+                Links úteis
+              </h2>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {Object.entries(groupedLinks).map(([category, categoryLinks]) => (
+                <div
+                  key={category}
+                  className="rounded-[32px] border border-white/10 bg-white/[0.045] p-6"
+                >
+                  <h3 className="text-2xl font-black mb-5">{category}</h3>
+
+                  <div className="space-y-3">
+                    {categoryLinks.map((link) => (
+                      <button
+                        key={link.id}
+                        onClick={() => openLink(link.url)}
+                        className="w-full rounded-2xl border border-white/10 bg-black/30 p-4 text-left transition hover:bg-white/[0.06]"
+                      >
+                        <p className="font-black text-white">{link.title}</p>
+
+                        {link.description && (
+                          <p className="mt-1 text-sm text-zinc-500">
+                            {link.description}
+                          </p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
     </div>
   );
 }

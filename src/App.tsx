@@ -24,6 +24,69 @@ import ThankYou from "./pages/ThankYou";
 import Sidebar from "./components/Sidebar";
 import FatorzAssistant from "./components/FatorzAssistant";
 
+type StaffRole =
+  | "none"
+  | "ceo_fatorz"
+  | "diretor_operacional"
+  | "gestor_entregas"
+  | "criador_visual"
+  | "suporte_fatorz"
+  | "financeiro"
+  | "mentor_academy";
+
+const ALL_TEAM_ROLES: StaffRole[] = [
+  "ceo_fatorz",
+  "diretor_operacional",
+  "gestor_entregas",
+  "criador_visual",
+  "suporte_fatorz",
+  "financeiro",
+  "mentor_academy",
+];
+
+const ORDERS_ROLES: StaffRole[] = [
+  "ceo_fatorz",
+  "diretor_operacional",
+  "gestor_entregas",
+  "suporte_fatorz",
+  "financeiro",
+];
+
+const USERS_ROLES: StaffRole[] = [
+  "ceo_fatorz",
+  "diretor_operacional",
+  "gestor_entregas",
+  "suporte_fatorz",
+  "mentor_academy",
+];
+
+const ACADEMY_ACCESS_ROLES: StaffRole[] = [
+  "ceo_fatorz",
+  "diretor_operacional",
+  "financeiro",
+  "mentor_academy",
+];
+
+const ACADEMY_ADMIN_ROLES: StaffRole[] = [
+  "ceo_fatorz",
+  "diretor_operacional",
+  "mentor_academy",
+];
+
+const PROJECTS_ROLES: StaffRole[] = [
+  "ceo_fatorz",
+  "diretor_operacional",
+  "gestor_entregas",
+  "criador_visual",
+  "suporte_fatorz",
+];
+
+const FINANCE_ROLES: StaffRole[] = [
+  "ceo_fatorz",
+  "diretor_operacional",
+  "financeiro",
+];
+
 function LoadingScreen({ text = "Carregando..." }: { text?: string }) {
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -44,6 +107,22 @@ function DashboardLayout({ children, profile }: any) {
   );
 }
 
+function getStaffRole(profile: any): StaffRole {
+  if (profile?.staff_role) return profile.staff_role;
+
+  // Compatibilidade com o sistema antigo.
+  // Enquanto o banco ainda usa role = admin, você continua entrando como CEO.
+  if (profile?.role === "admin") return "ceo_fatorz";
+
+  return "none";
+}
+
+function canAccess(profile: any, allowedRoles: StaffRole[]) {
+  const staffRole = getStaffRole(profile);
+
+  return allowedRoles.includes(staffRole);
+}
+
 function ProtectedRoute({ user, profile, children }: any) {
   if (!user) return <Navigate to="/login" replace />;
 
@@ -54,14 +133,19 @@ function ProtectedRoute({ user, profile, children }: any) {
   return children;
 }
 
-function AdminRoute({ user, profile, children }: any) {
+function StaffRoute({
+  user,
+  profile,
+  allowedRoles = ALL_TEAM_ROLES,
+  children,
+}: any) {
   if (!user) return <Navigate to="/login" replace />;
 
   if (!profile) {
     return <LoadingScreen text="Verificando permissões..." />;
   }
 
-  if (profile?.role !== "admin") {
+  if (!canAccess(profile, allowedRoles)) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -107,7 +191,10 @@ export default function App() {
           email: currentUser.email,
           nome: currentUser.email,
           role: isAdminFromDatabase ? "admin" : "user",
+          staff_role: isAdminFromDatabase ? "ceo_fatorz" : "none",
+          customer_tag: "free",
           academy_expires_at: null,
+          total_spent: 0,
         });
 
         return;
@@ -119,13 +206,29 @@ export default function App() {
           email: currentUser.email,
           nome: currentUser.email,
           role: "user",
+          staff_role: "none",
+          customer_tag: "free",
           academy_expires_at: null,
+          total_spent: 0,
         };
+
+      const finalRole = isAdminFromDatabase
+        ? "admin"
+        : profileData.role || "user";
+
+      const finalStaffRole =
+        profileData.staff_role ||
+        (isAdminFromDatabase || profileData.role === "admin"
+          ? "ceo_fatorz"
+          : "none");
 
       setProfile({
         ...profileData,
         email: profileData.email || currentUser.email,
-        role: isAdminFromDatabase ? "admin" : profileData.role || "user",
+        role: finalRole,
+        staff_role: finalStaffRole,
+        customer_tag: profileData.customer_tag || "free",
+        total_spent: profileData.total_spent || 0,
       });
     } catch (err) {
       if (profileRequestIdRef.current !== requestId) return;
@@ -137,7 +240,10 @@ export default function App() {
         email: currentUser.email,
         nome: currentUser.email,
         role: "user",
+        staff_role: "none",
+        customer_tag: "free",
         academy_expires_at: null,
+        total_spent: 0,
       });
     }
   }
@@ -292,99 +398,115 @@ export default function App() {
         <Route
           path="/admin/pedidos"
           element={
-            <AdminRoute user={user} profile={profile}>
+            <StaffRoute user={user} profile={profile} allowedRoles={ORDERS_ROLES}>
               <DashboardLayout profile={profile}>
                 <AdminOrders />
               </DashboardLayout>
-            </AdminRoute>
+            </StaffRoute>
           }
         />
 
         <Route
           path="/admin/assinaturas"
           element={
-            <AdminRoute user={user} profile={profile}>
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={ACADEMY_ACCESS_ROLES}
+            >
               <DashboardLayout profile={profile}>
                 <AdminSubscriptions />
               </DashboardLayout>
-            </AdminRoute>
+            </StaffRoute>
           }
         />
 
         <Route
           path="/admin/usuarios"
           element={
-            <AdminRoute user={user} profile={profile}>
+            <StaffRoute user={user} profile={profile} allowedRoles={USERS_ROLES}>
               <DashboardLayout profile={profile}>
                 <AdminUsers />
               </DashboardLayout>
-            </AdminRoute>
+            </StaffRoute>
           }
         />
 
         <Route
           path="/admin/cursos"
           element={
-            <AdminRoute user={user} profile={profile}>
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={ACADEMY_ADMIN_ROLES}
+            >
               <DashboardLayout profile={profile}>
                 <AdminCourses />
               </DashboardLayout>
-            </AdminRoute>
+            </StaffRoute>
           }
         />
 
         <Route
           path="/admin/aulas"
           element={
-            <AdminRoute user={user} profile={profile}>
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={ACADEMY_ADMIN_ROLES}
+            >
               <DashboardLayout profile={profile}>
                 <AdminLessons />
               </DashboardLayout>
-            </AdminRoute>
+            </StaffRoute>
           }
         />
 
         <Route
           path="/admin/links"
           element={
-            <AdminRoute user={user} profile={profile}>
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={ACADEMY_ADMIN_ROLES}
+            >
               <DashboardLayout profile={profile}>
                 <AdminLinks />
               </DashboardLayout>
-            </AdminRoute>
+            </StaffRoute>
           }
         />
 
         <Route
           path="/clientes"
           element={
-            <AdminRoute user={user} profile={profile}>
+            <StaffRoute user={user} profile={profile} allowedRoles={USERS_ROLES}>
               <DashboardLayout profile={profile}>
                 <Clients />
               </DashboardLayout>
-            </AdminRoute>
+            </StaffRoute>
           }
         />
 
         <Route
           path="/projetos"
           element={
-            <AdminRoute user={user} profile={profile}>
+            <StaffRoute user={user} profile={profile} allowedRoles={PROJECTS_ROLES}>
               <DashboardLayout profile={profile}>
                 <Projects />
               </DashboardLayout>
-            </AdminRoute>
+            </StaffRoute>
           }
         />
 
         <Route
           path="/financeiro"
           element={
-            <AdminRoute user={user} profile={profile}>
+            <StaffRoute user={user} profile={profile} allowedRoles={FINANCE_ROLES}>
               <DashboardLayout profile={profile}>
                 <Finance />
               </DashboardLayout>
-            </AdminRoute>
+            </StaffRoute>
           }
         />
 

@@ -2,12 +2,100 @@ import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-export default function Sidebar({ profile }: any) {
+type SidebarProps = {
+  profile: any;
+};
+
+type StaffRole =
+  | "none"
+  | "ceo_fatorz"
+  | "diretor_operacional"
+  | "gestor_entregas"
+  | "criador_visual"
+  | "suporte_fatorz"
+  | "financeiro"
+  | "mentor_academy";
+
+const staffRoleLabels: Record<string, string> = {
+  ceo_fatorz: "CEO FatorZ",
+  diretor_operacional: "Diretor Operacional",
+  gestor_entregas: "Gestor de Entregas",
+  criador_visual: "Criador Visual",
+  suporte_fatorz: "Suporte FatorZ",
+  financeiro: "Financeiro",
+  mentor_academy: "Mentor Academy",
+  none: "Aluno/Cliente",
+};
+
+function getStaffRole(profile: any): StaffRole {
+  if (profile?.staff_role) return profile.staff_role;
+
+  // Compatibilidade com o sistema antigo.
+  if (profile?.role === "admin") return "ceo_fatorz";
+
+  return "none";
+}
+
+function hasAnyRole(profile: any, roles: StaffRole[]) {
+  const staffRole = getStaffRole(profile);
+
+  return roles.includes(staffRole);
+}
+
+function isTeamMember(profile: any) {
+  return getStaffRole(profile) !== "none";
+}
+
+export default function Sidebar({ profile }: SidebarProps) {
   const navigate = useNavigate();
 
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const isAdmin = profile?.role === "admin";
+  const staffRole = getStaffRole(profile);
+  const roleLabel = staffRoleLabels[staffRole] || "Aluno/Cliente";
+
+  const canSeeOrders = hasAnyRole(profile, [
+    "ceo_fatorz",
+    "diretor_operacional",
+    "gestor_entregas",
+    "suporte_fatorz",
+    "financeiro",
+  ]);
+
+  const canSeeUsers = hasAnyRole(profile, [
+    "ceo_fatorz",
+    "diretor_operacional",
+    "gestor_entregas",
+    "suporte_fatorz",
+    "mentor_academy",
+  ]);
+
+  const canSeeAcademyAdmin = hasAnyRole(profile, [
+    "ceo_fatorz",
+    "diretor_operacional",
+    "mentor_academy",
+  ]);
+
+  const canSeeProjects = hasAnyRole(profile, [
+    "ceo_fatorz",
+    "diretor_operacional",
+    "gestor_entregas",
+    "criador_visual",
+    "suporte_fatorz",
+  ]);
+
+  const canSeeFinance = hasAnyRole(profile, [
+    "ceo_fatorz",
+    "diretor_operacional",
+    "financeiro",
+  ]);
+
+  const canSeeSubscriptions = hasAnyRole(profile, [
+    "ceo_fatorz",
+    "diretor_operacional",
+    "financeiro",
+    "mentor_academy",
+  ]);
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `block px-4 py-3 rounded-2xl transition font-black ${
@@ -36,9 +124,29 @@ export default function Sidebar({ profile }: any) {
     setMobileOpen(false);
   }
 
+  function AccountBox() {
+    return (
+      <div className="mb-6 rounded-3xl border border-white/10 bg-white/[0.045] p-4">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
+          Conta
+        </p>
+
+        <h3 className="mt-2 text-sm font-black text-white break-all">
+          {profile?.nome || profile?.name || profile?.email || "FatorZ"}
+        </h3>
+
+        <div className="mt-3 inline-flex rounded-full border border-pink-500/25 bg-pink-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-pink-300">
+          {roleLabel}
+        </div>
+      </div>
+    );
+  }
+
   function Links() {
     return (
       <>
+        <AccountBox />
+
         <NavLink to="/dashboard" className={linkClass} onClick={closeMobileMenu}>
           Painel
         </NavLink>
@@ -60,7 +168,7 @@ export default function Sidebar({ profile }: any) {
         </NavLink>
 
         <NavLink to="/" className={linkClass} onClick={closeMobileMenu}>
-          Produtos
+          Soluções
         </NavLink>
 
         <NavLink
@@ -71,37 +179,77 @@ export default function Sidebar({ profile }: any) {
           Configurações
         </NavLink>
 
-        {isAdmin && (
+        {isTeamMember(profile) && (
           <>
-            <div className="mt-5 mb-1 text-xs uppercase tracking-widest text-zinc-600 font-black">
-              Admin
+            <div className="mt-6 mb-2 text-xs uppercase tracking-widest text-zinc-600 font-black">
+              Operação FatorZ
             </div>
 
-            <NavLink
-              to="/admin/pedidos"
-              className={linkClass}
-              onClick={closeMobileMenu}
-            >
-              Pedidos
-            </NavLink>
+            {canSeeOrders && (
+              <NavLink
+                to="/admin/pedidos"
+                className={linkClass}
+                onClick={closeMobileMenu}
+              >
+                Pedidos
+              </NavLink>
+            )}
 
-            <NavLink
-              to="/admin/assinaturas"
-              className={linkClass}
-              onClick={closeMobileMenu}
-            >
-              Assinaturas
-            </NavLink>
+            {canSeeProjects && (
+              <NavLink
+                to="/projetos"
+                className={linkClass}
+                onClick={closeMobileMenu}
+              >
+                Projetos
+              </NavLink>
+            )}
 
-            <NavLink
-              to="/admin/usuarios"
-              className={linkClass}
-              onClick={closeMobileMenu}
-            >
-              Usuários
-            </NavLink>
+            {canSeeUsers && (
+              <NavLink
+                to="/admin/usuarios"
+                className={linkClass}
+                onClick={closeMobileMenu}
+              >
+                Usuários
+              </NavLink>
+            )}
 
-            <div className="mt-5 mb-1 text-xs uppercase tracking-widest text-zinc-600 font-black">
+            {canSeeSubscriptions && (
+              <NavLink
+                to="/admin/assinaturas"
+                className={linkClass}
+                onClick={closeMobileMenu}
+              >
+                Acessos Academy
+              </NavLink>
+            )}
+
+            {canSeeFinance && (
+              <NavLink
+                to="/financeiro"
+                className={linkClass}
+                onClick={closeMobileMenu}
+              >
+                Financeiro
+              </NavLink>
+            )}
+
+            {canSeeUsers && (
+              <NavLink
+                to="/clientes"
+                className={linkClass}
+                onClick={closeMobileMenu}
+              >
+                Clientes
+              </NavLink>
+            )}
+          </>
+        )}
+
+        {canSeeAcademyAdmin && (
+          <>
+            <div className="mt-6 mb-2 text-xs uppercase tracking-widest text-zinc-600 font-black">
               Academy Admin
             </div>
 
@@ -128,36 +276,17 @@ export default function Sidebar({ profile }: any) {
             >
               Links Academy
             </NavLink>
-
-            <div className="mt-5 mb-1 text-xs uppercase tracking-widest text-zinc-600 font-black">
-              Gestão
-            </div>
-
-            <NavLink
-              to="/clientes"
-              className={linkClass}
-              onClick={closeMobileMenu}
-            >
-              Clientes
-            </NavLink>
-
-            <NavLink
-              to="/projetos"
-              className={linkClass}
-              onClick={closeMobileMenu}
-            >
-              Projetos
-            </NavLink>
-
-            <NavLink
-              to="/financeiro"
-              className={linkClass}
-              onClick={closeMobileMenu}
-            >
-              Financeiro
-            </NavLink>
           </>
         )}
+
+        <div className="mt-6 pt-5 border-t border-white/10">
+          <button
+            onClick={logout}
+            className="w-full rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-left font-black text-red-300 transition hover:bg-red-500/20"
+          >
+            Sair da conta
+          </button>
+        </div>
       </>
     );
   }
@@ -187,61 +316,44 @@ export default function Sidebar({ profile }: any) {
             onClick={() => setMobileOpen(false)}
           />
 
-          <aside className="absolute top-0 left-0 h-full w-[86vw] max-w-[340px] bg-zinc-950 border-r border-zinc-800 p-6 flex flex-col">
+          <aside className="absolute top-0 left-0 h-full w-[86vw] max-w-[360px] bg-zinc-950 border-r border-zinc-800 p-6 overflow-y-auto">
             <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-black text-white">
-                  Fator<span className="text-pink-500">Z</span>
-                </h1>
-
-                <p className="text-zinc-500 text-sm mt-1">Hub</p>
-              </div>
+              <button
+                onClick={() => {
+                  navigate("/dashboard");
+                  closeMobileMenu();
+                }}
+                className="text-2xl font-black text-white"
+              >
+                Fator<span className="text-pink-500">Z</span>
+              </button>
 
               <button
                 onClick={() => setMobileOpen(false)}
-                className="bg-zinc-900 hover:bg-zinc-800 text-white w-12 h-12 rounded-2xl font-black"
+                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-black text-white"
               >
-                X
+                Fechar
               </button>
             </div>
 
-            <nav className="flex flex-col gap-3 flex-1 overflow-y-auto pr-1">
+            <nav className="space-y-2 pb-8">
               <Links />
             </nav>
-
-            <div className="mt-4 pt-4 border-t border-zinc-800">
-              <button
-                onClick={logout}
-                className="w-full bg-zinc-900 hover:bg-red-600 text-zinc-300 hover:text-white px-4 py-3 rounded-xl font-black transition"
-              >
-                Sair
-              </button>
-            </div>
           </aside>
         </div>
       )}
 
-      <aside className="hidden lg:flex w-[260px] bg-zinc-950 border-r border-zinc-800 h-screen p-6 sticky top-0 flex-col shrink-0">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black text-white">
-            Fator<span className="text-pink-500">Z</span>
-          </h1>
+      <aside className="hidden lg:block sticky top-0 h-screen w-[300px] shrink-0 border-r border-white/10 bg-black/80 p-6 overflow-y-auto">
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="mb-8 text-3xl font-black text-white"
+        >
+          Fator<span className="text-pink-500">Z</span>
+        </button>
 
-          <p className="text-zinc-500 text-sm mt-1">Hub</p>
-        </div>
-
-        <nav className="flex flex-col gap-3 flex-1 overflow-y-auto pr-1">
+        <nav className="space-y-2 pb-8">
           <Links />
         </nav>
-
-        <div className="mt-4 pt-4 border-t border-zinc-800">
-          <button
-            onClick={logout}
-            className="w-full bg-zinc-900 hover:bg-red-600 text-zinc-300 hover:text-white px-4 py-3 rounded-xl font-black transition"
-          >
-            Sair
-          </button>
-        </div>
       </aside>
     </>
   );
