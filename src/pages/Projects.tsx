@@ -27,6 +27,16 @@ const initialForm = {
   notes: "",
 };
 
+const statusOptions = [
+  { value: "pendente", label: "Pendente" },
+  { value: "em andamento", label: "Em andamento" },
+  { value: "em revisão", label: "Em revisão" },
+  { value: "aguardando cliente", label: "Aguardando cliente" },
+  { value: "concluído", label: "Concluído" },
+  { value: "atrasado", label: "Atrasado" },
+  { value: "cancelado", label: "Cancelado" },
+];
+
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState(initialForm);
@@ -90,6 +100,17 @@ export default function Projects() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function parseAmount(value: string) {
+    const clean = String(value || "")
+      .replace(/[^\d,.-]/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+
+    const number = Number(clean || 0);
+
+    return Number.isNaN(number) ? 0 : number;
+  }
+
   async function saveProject() {
     if (!form.title.trim()) {
       alert("Preencha o nome do projeto.");
@@ -115,40 +136,24 @@ export default function Projects() {
       service_type: form.service_type.trim(),
       status: form.status,
       deadline: form.deadline || null,
-      amount: Number(form.amount || 0),
+      amount: parseAmount(form.amount),
       delivery_link: form.delivery_link.trim(),
       notes: form.notes.trim(),
     };
 
-    if (editingId) {
-      const { error } = await supabase
-        .from("projects")
-        .update(payload)
-        .eq("id", editingId);
+    const response = editingId
+      ? await supabase.from("projects").update(payload).eq("id", editingId)
+      : await supabase.from("projects").insert(payload);
 
-      setSaving(false);
+    setSaving(false);
 
-      if (error) {
-        console.log("Erro ao editar projeto:", error);
-        alert("Erro ao editar projeto.");
-        return;
-      }
-
-      alert("Projeto atualizado!");
-    } else {
-      const { error } = await supabase.from("projects").insert(payload);
-
-      setSaving(false);
-
-      if (error) {
-        console.log("Erro ao criar projeto:", error);
-        alert("Erro ao criar projeto.");
-        return;
-      }
-
-      alert("Projeto criado!");
+    if (response.error) {
+      console.log("Erro ao salvar projeto:", response.error);
+      alert("Erro ao salvar projeto.");
+      return;
     }
 
+    alert(editingId ? "Projeto atualizado!" : "Projeto criado!");
     resetForm();
     loadProjects();
   }
@@ -170,6 +175,30 @@ export default function Projects() {
     loadProjects();
   }
 
+  async function updateProjectStatus(project: Project, status: string) {
+    const confirmUpdate = confirm(
+      `Alterar o projeto "${project.title}" para "${getStatusLabel(status)}"?`
+    );
+
+    if (!confirmUpdate) return;
+
+    const { error } = await supabase
+      .from("projects")
+      .update({
+        status,
+      })
+      .eq("id", project.id);
+
+    if (error) {
+      console.log("Erro ao atualizar status:", error);
+      alert("Erro ao atualizar status do projeto.");
+      return;
+    }
+
+    alert("Status atualizado!");
+    loadProjects();
+  }
+
   async function markAsDelivered(project: Project) {
     if (!project.delivery_link) {
       alert(
@@ -180,25 +209,42 @@ export default function Projects() {
     }
 
     const confirmDelivered = confirm(
-      `Marcar o projeto "${project.title}" como concluído/entregue?`
+      `Marcar o projeto "${project.title}" como concluído/entregue?\n\nIsso também tentará marcar o pedido vinculado como completed.`
     );
 
     if (!confirmDelivered) return;
 
-    const { error } = await supabase
+    const { error: projectError } = await supabase
       .from("projects")
       .update({
         status: "concluído",
       })
       .eq("id", project.id);
 
-    if (error) {
-      console.log("Erro ao marcar como entregue:", error);
+    if (projectError) {
+      console.log("Erro ao marcar como entregue:", projectError);
       alert("Erro ao marcar projeto como entregue.");
       return;
     }
 
-    alert("Projeto marcado como entregue!");
+    await Promise.all([
+      supabase
+        .from("orders")
+        .update({
+          status: "completed",
+        })
+        .eq("project_id", project.id),
+
+      supabase
+        .from("site_product_orders")
+        .update({
+          status: "completed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("project_id", project.id),
+    ]);
+
+    alert("Projeto entregue e pedido vinculado marcado como concluído!");
     loadProjects();
   }
 
@@ -214,6 +260,24 @@ export default function Projects() {
     } catch (error) {
       console.log("Erro ao copiar link:", error);
       prompt("Copie o link abaixo:", project.delivery_link);
+    }
+  }
+
+  async function copyClientMessage(project: Project) {
+    const message = `Olá, ${project.client_name || "tudo bem"}!
+
+Sua entrega da FatorZ está pronta.
+
+Projeto: ${project.title || "Projeto FatorZ"}
+Link de entrega: ${project.delivery_link || "link ainda não informado"}
+
+Qualquer ajuste, me chama por aqui.`;
+
+    try {
+      await navigator.clipboard.writeText(message);
+      alert("Mensagem para cliente copiada!");
+    } catch {
+      prompt("Copie a mensagem:", message);
     }
   }
 
@@ -239,6 +303,55 @@ export default function Projects() {
     return new Date(date + "T12:00:00").toLocaleDateString("pt-BR");
   }
 
+  function getDaysUntilDeadline(date: string | null | undefined) {
+    if (!date) return null;
+
+    const today = new Date();
+    const deadline = new Date(date + "T23:59:59");
+
+    today.setHours(0, 0, 0, 0);
+
+    const difference = deadline.getTime() - today.getTime();
+
+    return Math.ceil(difference / (1000 * 60 * 60 * 24));
+  }
+
+  function getDeadlineText(project: Project) {
+    const days = getDaysUntilDeadline(project.deadline);
+
+    if (days === null) return "Sem prazo";
+
+    if (project.status === "concluído") return "Entregue";
+
+    if (days < 0) return `Atrasado ${Math.abs(days)} dia(s)`;
+
+    if (days === 0) return "Vence hoje";
+
+    if (days === 1) return "Vence amanhã";
+
+    return `Faltam ${days} dias`;
+  }
+
+  function isProjectLate(project: Project) {
+    const days = getDaysUntilDeadline(project.deadline);
+
+    if (days === null) return false;
+
+    return days < 0 && project.status !== "concluído";
+  }
+
+  function getStatusLabel(status: string | null) {
+    if (status === "pendente") return "Pendente";
+    if (status === "em andamento") return "Em andamento";
+    if (status === "em revisão") return "Em revisão";
+    if (status === "aguardando cliente") return "Aguardando cliente";
+    if (status === "concluído") return "Concluído";
+    if (status === "atrasado") return "Atrasado";
+    if (status === "cancelado") return "Cancelado";
+
+    return status || "sem status";
+  }
+
   function getStatusStyle(status: string | null) {
     if (status === "concluído") {
       return "bg-green-500/20 text-green-400 border-green-500/30";
@@ -246,6 +359,14 @@ export default function Projects() {
 
     if (status === "em andamento") {
       return "bg-pink-500/20 text-pink-400 border-pink-500/30";
+    }
+
+    if (status === "em revisão") {
+      return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    }
+
+    if (status === "aguardando cliente") {
+      return "bg-purple-500/20 text-purple-300 border-purple-500/30";
     }
 
     if (status === "pendente") {
@@ -261,6 +382,28 @@ export default function Projects() {
     }
 
     return "bg-zinc-800 text-zinc-400 border-zinc-700";
+  }
+
+  function getDeadlineStyle(project: Project) {
+    const days = getDaysUntilDeadline(project.deadline);
+
+    if (project.status === "concluído") {
+      return "bg-green-500/20 text-green-400 border-green-500/20";
+    }
+
+    if (days === null) {
+      return "bg-zinc-800 text-zinc-400 border-zinc-700";
+    }
+
+    if (days < 0) {
+      return "bg-red-500/20 text-red-400 border-red-500/30";
+    }
+
+    if (days <= 2) {
+      return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+    }
+
+    return "bg-blue-500/20 text-blue-300 border-blue-500/30";
   }
 
   function getDeliveryStatus(project: Project) {
@@ -297,10 +440,13 @@ export default function Projects() {
         project.client_name?.toLowerCase().includes(value) ||
         project.client_email?.toLowerCase().includes(value) ||
         project.service_type?.toLowerCase().includes(value) ||
-        project.status?.toLowerCase().includes(value);
+        project.status?.toLowerCase().includes(value) ||
+        project.notes?.toLowerCase().includes(value);
 
       const matchesStatus =
-        statusFilter === "todos" || project.status === statusFilter;
+        statusFilter === "todos" ||
+        project.status === statusFilter ||
+        (statusFilter === "atrasado-auto" && isProjectLate(project));
 
       return matchesSearch && matchesStatus;
     });
@@ -316,9 +462,16 @@ export default function Projects() {
     (project) => project.status === "em andamento"
   ).length;
 
+  const totalReview = projects.filter(
+    (project) =>
+      project.status === "em revisão" || project.status === "aguardando cliente"
+  ).length;
+
   const totalCompleted = projects.filter(
     (project) => project.status === "concluído"
   ).length;
+
+  const totalLate = projects.filter((project) => isProjectLate(project)).length;
 
   const totalDelivered = projects.filter(
     (project) => !!project.delivery_link
@@ -342,18 +495,18 @@ export default function Projects() {
     <div className="text-white">
       <section className="mb-10">
         <p className="text-pink-500 font-black uppercase tracking-widest mb-3">
-          Admin
+          Operação FatorZ
         </p>
 
         <h1 className="text-4xl font-black mb-2">Projetos e Entregas</h1>
 
         <p className="text-zinc-400 max-w-3xl">
-          Controle a produção da FatorZ, acompanhe prazos e publique links de
-          entrega para os clientes.
+          Controle a produção da FatorZ, acompanhe prazos, publique links de
+          entrega e finalize pedidos vinculados automaticamente.
         </p>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-5 gap-5 mb-8">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-5 mb-8">
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
           <p className="text-zinc-400 mb-2">Projetos</p>
           <h2 className="text-4xl font-black">{totalProjects}</h2>
@@ -367,20 +520,20 @@ export default function Projects() {
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-          <p className="text-zinc-400 mb-2">Em andamento</p>
+          <p className="text-zinc-400 mb-2">Andamento</p>
           <h2 className="text-4xl font-black text-pink-500">
             {totalInProgress}
           </h2>
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-          <p className="text-zinc-400 mb-2">Entregues</p>
-          <h2 className="text-4xl font-black text-green-400">
-            {totalDelivered}
-          </h2>
-          <p className="text-zinc-500 mt-2 text-sm">
-            Concluídos: {totalCompleted}
-          </p>
+          <p className="text-zinc-400 mb-2">Revisão</p>
+          <h2 className="text-4xl font-black text-blue-300">{totalReview}</h2>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+          <p className="text-zinc-400 mb-2">Atrasados</p>
+          <h2 className="text-4xl font-black text-red-400">{totalLate}</h2>
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
@@ -388,6 +541,9 @@ export default function Projects() {
           <h2 className="text-3xl font-black text-green-400">
             {formatMoney(totalAmount)}
           </h2>
+          <p className="text-zinc-500 mt-2 text-sm">
+            Entregues: {totalDelivered} | Concluídos: {totalCompleted}
+          </p>
         </div>
       </section>
 
@@ -431,11 +587,11 @@ export default function Projects() {
               onChange={(e) => updateField("status", e.target.value)}
               className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl p-4 outline-none focus:border-pink-500"
             >
-              <option value="pendente">pendente</option>
-              <option value="em andamento">em andamento</option>
-              <option value="concluído">concluído</option>
-              <option value="atrasado">atrasado</option>
-              <option value="cancelado">cancelado</option>
+              {statusOptions.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
             </select>
 
             <input
@@ -446,10 +602,9 @@ export default function Projects() {
             />
 
             <input
-              type="number"
               value={form.amount}
               onChange={(e) => updateField("amount", e.target.value)}
-              placeholder="Valor do projeto"
+              placeholder="Valor do projeto. Ex: 697,00"
               className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl p-4 outline-none focus:border-pink-500"
             />
 
@@ -512,8 +667,11 @@ export default function Projects() {
                 <option value="todos">Todos</option>
                 <option value="pendente">Pendente</option>
                 <option value="em andamento">Em andamento</option>
+                <option value="em revisão">Em revisão</option>
+                <option value="aguardando cliente">Aguardando cliente</option>
                 <option value="concluído">Concluído</option>
                 <option value="atrasado">Atrasado</option>
+                <option value="atrasado-auto">Atrasado automático</option>
                 <option value="cancelado">Cancelado</option>
               </select>
 
@@ -551,7 +709,15 @@ export default function Projects() {
                             project.status
                           )}`}
                         >
-                          {project.status || "sem status"}
+                          {getStatusLabel(project.status)}
+                        </span>
+
+                        <span
+                          className={`border px-4 py-2 rounded-xl font-black text-sm ${getDeadlineStyle(
+                            project
+                          )}`}
+                        >
+                          {getDeadlineText(project)}
                         </span>
 
                         <span
@@ -564,10 +730,6 @@ export default function Projects() {
 
                         <span className="bg-zinc-800 text-zinc-400 px-4 py-2 rounded-xl font-bold text-sm">
                           {project.service_type || "Sem serviço"}
-                        </span>
-
-                        <span className="bg-zinc-800 text-zinc-400 px-4 py-2 rounded-xl font-bold text-sm">
-                          Prazo: {formatDate(project.deadline)}
                         </span>
                       </div>
 
@@ -635,12 +797,28 @@ export default function Projects() {
                       )}
                     </div>
 
-                    <div className="w-full xl:w-[220px] flex xl:flex-col gap-3">
+                    <div className="w-full xl:w-[240px] flex xl:flex-col gap-3">
                       <button
                         onClick={() => editProject(project)}
                         className="flex-1 bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-2xl font-black"
                       >
                         Editar
+                      </button>
+
+                      <button
+                        onClick={() => updateProjectStatus(project, "em andamento")}
+                        disabled={project.status === "em andamento"}
+                        className="flex-1 bg-pink-500 hover:bg-pink-600 px-5 py-4 rounded-2xl font-black disabled:bg-zinc-800 disabled:text-zinc-500"
+                      >
+                        Andamento
+                      </button>
+
+                      <button
+                        onClick={() => updateProjectStatus(project, "em revisão")}
+                        disabled={project.status === "em revisão"}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 px-5 py-4 rounded-2xl font-black disabled:bg-zinc-800 disabled:text-zinc-500"
+                      >
+                        Revisão
                       </button>
 
                       <button
@@ -653,6 +831,18 @@ export default function Projects() {
                         }`}
                       >
                         Marcar entregue
+                      </button>
+
+                      <button
+                        onClick={() => copyClientMessage(project)}
+                        disabled={!project.delivery_link}
+                        className={`flex-1 px-5 py-4 rounded-2xl font-black ${
+                          project.delivery_link
+                            ? "bg-zinc-800 hover:bg-zinc-700"
+                            : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                        }`}
+                      >
+                        Mensagem cliente
                       </button>
 
                       <button
