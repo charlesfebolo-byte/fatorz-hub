@@ -62,16 +62,6 @@ function formatMoneyFromCents(cents: number | null | undefined) {
   });
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
-
-  return new Date(value).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
 function selectClassName() {
   return "w-full rounded-2xl border border-white/10 bg-[#0B0B10] px-4 py-4 text-white outline-none focus:border-pink-500/40";
 }
@@ -310,9 +300,7 @@ export default function AdminCourses() {
   }
 
   async function deleteLesson(lesson: Lesson) {
-    const confirmDelete = confirm(
-      `Apagar a aula "${lesson.lesson_title}"?`
-    );
+    const confirmDelete = confirm(`Apagar a aula "${lesson.lesson_title}"?`);
 
     if (!confirmDelete) return;
 
@@ -478,9 +466,9 @@ export default function AdminCourses() {
           </h1>
 
           <p className="max-w-4xl text-zinc-400 text-lg leading-relaxed">
-            Cadastre cursos públicos, defina preço único, link do Mercado Pago,
-            capa, aulas e estrutura. Sem assinatura mensal, sem renovação de 30
-            dias e sem vencimento.
+            Cadastre cursos públicos, defina preço único, link do Mercado Pago
+            ou checkout próprio, capa, aulas e estrutura. Sem assinatura mensal,
+            sem renovação de 30 dias e sem vencimento.
           </p>
         </div>
       </section>
@@ -733,7 +721,7 @@ export default function AdminCourses() {
 
               <div>
                 <label className="block mb-2 text-sm font-black text-zinc-300">
-                  Link de pagamento Mercado Pago
+                  Link de pagamento externo
                 </label>
 
                 <input
@@ -744,7 +732,7 @@ export default function AdminCourses() {
                       payment_url: e.target.value,
                     }))
                   }
-                  placeholder="https://mpago.la/..."
+                  placeholder="https://mpago.la/... ou deixe vazio se usar Appmax"
                   className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
                 />
               </div>

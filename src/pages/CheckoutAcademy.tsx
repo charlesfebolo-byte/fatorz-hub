@@ -30,7 +30,42 @@ type CoursePurchase = {
   access_type: string | null;
   approved_at: string | null;
   notes: string | null;
+  payment_provider?: string | null;
+  payment_method?: string | null;
+  amount_cents?: number | null;
+  pix_qr_code?: string | null;
+  pix_copy_paste?: string | null;
+  appmax_customer_id?: string | null;
+  appmax_order_id?: string | null;
+  appmax_payment_id?: string | null;
 };
+
+function onlyNumbers(value: string) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function formatCpf(value: string) {
+  const numbers = onlyNumbers(value).slice(0, 11);
+
+  return numbers
+    .replace(/^(\d{3})(\d)/, "$1.$2")
+    .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1-$2");
+}
+
+function formatPhone(value: string) {
+  const numbers = onlyNumbers(value).slice(0, 11);
+
+  if (numbers.length <= 10) {
+    return numbers
+      .replace(/^(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
+  }
+
+  return numbers
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
 
 function formatMoneyFromCents(cents: number | null | undefined) {
   const value = Number(cents || 0) / 100;
@@ -77,7 +112,17 @@ function getPurchaseStatusClass(status: string | null | undefined) {
   return "border-white/10 bg-white/[0.05] text-zinc-300";
 }
 
-export default function CheckoutAcademy({ user }: any) {
+function isQrImage(value: string | null | undefined) {
+  if (!value) return false;
+
+  return (
+    value.startsWith("data:image") ||
+    value.startsWith("http://") ||
+    value.startsWith("https://")
+  );
+}
+
+export default function CheckoutAcademy({ user, profile }: any) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -87,10 +132,20 @@ export default function CheckoutAcademy({ user }: any) {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [purchases, setPurchases] = useState<CoursePurchase[]>([]);
 
+  const [customerName, setCustomerName] = useState(
+    profile?.nome || profile?.name || ""
+  );
+  const [customerPhone, setCustomerPhone] = useState(profile?.whatsapp || "");
+  const [documentNumber, setDocumentNumber] = useState("");
+
   const [loading, setLoading] = useState(true);
-  const [loadingPayment, setLoadingPayment] = useState(false);
+  const [loadingPix, setLoadingPix] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(false);
   const [message, setMessage] = useState("");
+
+  const [pixCopyPaste, setPixCopyPaste] = useState("");
+  const [pixQrCode, setPixQrCode] = useState("");
+  const [appmaxOrderId, setAppmaxOrderId] = useState("");
 
   useEffect(() => {
     loadCheckoutData();
@@ -135,14 +190,28 @@ export default function CheckoutAcademy({ user }: any) {
     setCourses(activeCourses);
     setPurchases(userPurchases);
 
-    if (courseIdFromUrl) {
-      const course = activeCourses.find(
-        (item: Course) => String(item.id) === String(courseIdFromUrl)
-      );
+    let course: Course | null = null;
 
-      setSelectedCourse(course || activeCourses[0] || null);
-    } else {
-      setSelectedCourse(activeCourses[0] || null);
+    if (courseIdFromUrl) {
+      course =
+        activeCourses.find(
+          (item: Course) => String(item.id) === String(courseIdFromUrl)
+        ) || null;
+    }
+
+    setSelectedCourse(course || activeCourses[0] || null);
+
+    const currentPurchase =
+      userPurchases.find(
+        (purchase: CoursePurchase) =>
+          Number(purchase.course_id) === Number(course?.id || courseIdFromUrl) &&
+          purchase.status === "pending"
+      ) || null;
+
+    if (currentPurchase?.pix_copy_paste) {
+      setPixCopyPaste(currentPurchase.pix_copy_paste);
+      setPixQrCode(currentPurchase.pix_qr_code || "");
+      setAppmaxOrderId(currentPurchase.appmax_order_id || "");
     }
   }
 
@@ -167,51 +236,7 @@ export default function CheckoutAcademy({ user }: any) {
   const hasApprovedAccess = selectedPurchase?.status === "approved";
   const hasPendingPurchase = selectedPurchase?.status === "pending";
 
-  async function createPendingPurchase(course: Course) {
-    if (!user?.email || !user?.id) {
-      alert("Você precisa estar logado para comprar um curso.");
-      navigate("/login");
-      return null;
-    }
-
-    const existingPending = purchases.find(
-      (purchase) =>
-        Number(purchase.course_id) === Number(course.id) &&
-        purchase.status === "pending"
-    );
-
-    if (existingPending) {
-      return existingPending;
-    }
-
-    const { data, error } = await supabase
-      .from("course_purchases")
-      .insert({
-        user_id: user.id,
-        user_email: user.email,
-        course_id: course.id,
-        course_title: course.title,
-        payment_id: null,
-        payment_url: course.payment_url || "",
-        status: "pending",
-        access_type: "lifetime",
-        approved_at: null,
-        notes: "Compra vitalícia criada pelo Checkout Academy.",
-      })
-      .select("*")
-      .single();
-
-    if (error) {
-      console.log("Erro ao criar compra pendente:", error);
-      return null;
-    }
-
-    setPurchases((prev) => [data, ...prev]);
-
-    return data as CoursePurchase;
-  }
-
-  async function openPayment() {
+  async function createAppmaxPix() {
     if (!selectedCourse) {
       alert("Escolha um curso primeiro.");
       return;
@@ -228,31 +253,104 @@ export default function CheckoutAcademy({ user }: any) {
       return;
     }
 
-    if (!selectedCourse.payment_url) {
-      alert("Esse curso ainda não tem link de pagamento cadastrado.");
+    const cleanCpf = onlyNumbers(documentNumber);
+    const cleanPhone = onlyNumbers(customerPhone);
+
+    if (!customerName.trim()) {
+      alert("Informe seu nome completo.");
+      return;
+    }
+
+    if (cleanPhone.length < 10) {
+      alert("Informe seu WhatsApp com DDD.");
+      return;
+    }
+
+    if (cleanCpf.length !== 11) {
+      alert("Informe um CPF válido com 11 números.");
       return;
     }
 
     setMessage("");
-    setLoadingPayment(true);
+    setPixCopyPaste("");
+    setPixQrCode("");
+    setAppmaxOrderId("");
+    setLoadingPix(true);
 
-    const purchase = await createPendingPurchase(selectedCourse);
+    try {
+      const response = await fetch("/api/create-academy-pix", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          userEmail: user.email,
+          customerName,
+          customerPhone: cleanPhone,
+          documentNumber: cleanCpf,
+          courseId: selectedCourse.id,
+        }),
+      });
 
-    setLoadingPayment(false);
+      const data = await response.json();
 
-    if (!purchase) {
-      const continuar = confirm(
-        "Não consegui registrar a intenção de compra no sistema, mas você ainda pode abrir o pagamento. Quer continuar?"
+      setLoadingPix(false);
+
+      if (!response.ok || data.error) {
+        console.log("Erro Pix Appmax:", data);
+        setMessage(data.error || "Erro ao gerar Pix.");
+        return;
+      }
+
+      if (data.alreadyApproved) {
+        setMessage("Esse curso já está liberado na sua conta.");
+        navigate("/academy");
+        return;
+      }
+
+      const copyPaste =
+        data?.pix?.copy_paste ||
+        data?.purchase?.pix_copy_paste ||
+        data?.pix?.qr_code ||
+        "";
+
+      const qrCode =
+        data?.pix?.qr_code ||
+        data?.purchase?.pix_qr_code ||
+        "";
+
+      setPixCopyPaste(copyPaste || "");
+      setPixQrCode(qrCode || "");
+      setAppmaxOrderId(String(data?.appmax?.order_id || ""));
+
+      if (data.purchase) {
+        setPurchases((prev) => {
+          const withoutCurrent = prev.filter((item) => item.id !== data.purchase.id);
+          return [data.purchase, ...withoutCurrent];
+        });
+      }
+
+      setMessage(
+        "Pix gerado com sucesso. Após o pagamento ser confirmado, a FatorZ libera seu acesso vitalício."
       );
+    } catch (error: any) {
+      setLoadingPix(false);
+      console.log("Erro ao chamar API Pix:", error);
+      setMessage(
+        "Erro ao conectar com a função de pagamento. Verifique se você está rodando com npx vercel dev."
+      );
+    }
+  }
 
-      if (!continuar) return;
+  async function copyPix() {
+    if (!pixCopyPaste) {
+      alert("Nenhum código Pix disponível.");
+      return;
     }
 
-    window.open(selectedCourse.payment_url, "_blank");
-
-    setMessage(
-      "Pagamento aberto. Depois de pagar, aguarde a liberação manual ou clique em verificar acesso."
-    );
+    await navigator.clipboard.writeText(pixCopyPaste);
+    alert("Código Pix copiado.");
   }
 
   async function checkAccess() {
@@ -288,7 +386,7 @@ export default function CheckoutAcademy({ user }: any) {
 
     if (!data) {
       setMessage(
-        "Ainda não encontramos uma compra registrada para esse curso. Clique em comprar primeiro."
+        "Ainda não encontramos uma compra registrada para esse curso. Gere o Pix primeiro."
       );
       return;
     }
@@ -297,6 +395,12 @@ export default function CheckoutAcademy({ user }: any) {
       const withoutCurrent = prev.filter((item) => item.id !== data.id);
       return [data, ...withoutCurrent];
     });
+
+    if (data.pix_copy_paste) {
+      setPixCopyPaste(data.pix_copy_paste);
+      setPixQrCode(data.pix_qr_code || "");
+      setAppmaxOrderId(data.appmax_order_id || "");
+    }
 
     if (data.status === "approved") {
       setMessage("Acesso vitalício confirmado. Redirecionando para o Academy...");
@@ -310,7 +414,7 @@ export default function CheckoutAcademy({ user }: any) {
 
     if (data.status === "pending") {
       setMessage(
-        "Sua compra ainda está pendente. Se você já pagou, aguarde a aprovação manual da FatorZ."
+        "Sua compra ainda está pendente. Se você já pagou, aguarde a aprovação ou o webhook da Appmax."
       );
       return;
     }
@@ -359,33 +463,6 @@ export default function CheckoutAcademy({ user }: any) {
     );
   }
 
-  if (!courses.length) {
-    return (
-      <div className="min-h-screen bg-[#09090B] text-white flex items-center justify-center p-6">
-        <div className="max-w-2xl rounded-[42px] border border-white/10 bg-black p-8 md:p-12 text-center">
-          <p className="text-pink-500 font-black uppercase tracking-[0.28em] mb-4">
-            Academy
-          </p>
-
-          <h1 className="text-4xl font-black mb-5">
-            Nenhum curso ativo encontrado.
-          </h1>
-
-          <p className="text-zinc-400 mb-8">
-            Cadastre ou ative um curso no painel admin da Academy.
-          </p>
-
-          <button
-            onClick={() => navigate("/academy")}
-            className="rounded-2xl bg-white px-8 py-4 font-black text-black"
-          >
-            Voltar para Academy
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#09090B] text-white">
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_12%_8%,rgba(0,92,255,0.18),transparent_28%),radial-gradient(circle_at_88%_12%,rgba(255,0,150,0.16),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(145,35,255,0.14),transparent_34%)]" />
@@ -413,20 +490,19 @@ export default function CheckoutAcademy({ user }: any) {
 
           <div className="relative">
             <p className="text-pink-500 font-black uppercase tracking-[0.28em] text-sm mb-4">
-              Checkout Academy
+              Checkout FatorZ
             </p>
 
             <h2 className="text-4xl md:text-6xl font-black leading-tight mb-4">
-              Compra vitalícia por{" "}
+              Pagamento via{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]">
-                curso.
+                Pix Appmax.
               </span>
             </h2>
 
             <p className="max-w-4xl text-zinc-400 text-lg leading-relaxed">
-              Escolha o curso, registre sua compra, pague pelo Mercado Pago e,
-              após aprovação da FatorZ, o acesso fica liberado na sua conta para
-              sempre.
+              Gere o Pix dentro do Hub, pague com segurança e aguarde a liberação
+              vitalícia do curso na sua conta.
             </p>
           </div>
         </section>
@@ -441,10 +517,16 @@ export default function CheckoutAcademy({ user }: any) {
               <div className="grid gap-4 md:grid-cols-2">
                 {courses.map((course) => {
                   const active = selectedCourse?.id === course.id;
-                  const purchase = purchases.find(
+                  const approved = purchases.find(
                     (item) =>
                       Number(item.course_id) === Number(course.id) &&
                       item.status === "approved"
+                  );
+
+                  const pending = purchases.find(
+                    (item) =>
+                      Number(item.course_id) === Number(course.id) &&
+                      item.status === "pending"
                   );
 
                   return (
@@ -453,6 +535,9 @@ export default function CheckoutAcademy({ user }: any) {
                       onClick={() => {
                         setSelectedCourse(course);
                         setMessage("");
+                        setPixCopyPaste(pending?.pix_copy_paste || "");
+                        setPixQrCode(pending?.pix_qr_code || "");
+                        setAppmaxOrderId(pending?.appmax_order_id || "");
                       }}
                       className={`overflow-hidden rounded-[28px] border text-left transition hover:-translate-y-1 ${
                         active
@@ -478,9 +563,15 @@ export default function CheckoutAcademy({ user }: any) {
                             </span>
                           )}
 
-                          {purchase && (
+                          {approved && (
                             <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-emerald-300">
-                              Comprado
+                              Liberado
+                            </span>
+                          )}
+
+                          {pending && (
+                            <span className="rounded-full border border-orange-400/25 bg-orange-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-orange-300">
+                              Pix pendente
                             </span>
                           )}
                         </div>
@@ -524,9 +615,7 @@ export default function CheckoutAcademy({ user }: any) {
                     </div>
                   )}
 
-                  <h3 className="text-3xl font-black">
-                    {selectedCourse.title}
-                  </h3>
+                  <h3 className="text-3xl font-black">{selectedCourse.title}</h3>
 
                   <p className="mt-3 text-sm leading-relaxed text-zinc-400">
                     {selectedCourse.description ||
@@ -563,19 +652,52 @@ export default function CheckoutAcademy({ user }: any) {
                     )}
                   </div>
 
+                  {!hasApprovedAccess && (
+                    <div className="mb-5 rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
+                      <p className="text-xs uppercase tracking-widest font-black text-zinc-500 mb-4">
+                        Dados para gerar Pix
+                      </p>
+
+                      <div className="space-y-3">
+                        <input
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="Nome completo"
+                          className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
+                        />
+
+                        <input
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(formatPhone(e.target.value))}
+                          placeholder="WhatsApp com DDD"
+                          className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
+                        />
+
+                        <input
+                          value={documentNumber}
+                          onChange={(e) =>
+                            setDocumentNumber(formatCpf(e.target.value))
+                          }
+                          placeholder="CPF"
+                          className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     <button
-                      onClick={openPayment}
-                      disabled={loadingPayment}
+                      onClick={createAppmaxPix}
+                      disabled={loadingPix}
                       className="w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white transition hover:opacity-90 disabled:opacity-60"
                     >
-                      {loadingPayment
-                        ? "Registrando..."
+                      {loadingPix
+                        ? "Gerando Pix..."
                         : hasApprovedAccess
                         ? "Abrir Academy"
                         : hasPendingPurchase
-                        ? "Abrir pagamento novamente"
-                        : "Comprar acesso vitalício"}
+                        ? "Gerar novo Pix"
+                        : "Gerar Pix"}
                     </button>
 
                     <button
@@ -586,6 +708,69 @@ export default function CheckoutAcademy({ user }: any) {
                       {checkingAccess ? "Verificando..." : "Verificar acesso"}
                     </button>
                   </div>
+
+                  {(pixCopyPaste || pixQrCode) && (
+                    <div className="mt-5 rounded-[26px] border border-emerald-400/20 bg-emerald-500/10 p-5">
+                      <p className="text-xs uppercase tracking-widest font-black text-emerald-300 mb-3">
+                        Pix gerado
+                      </p>
+
+                      {appmaxOrderId && (
+                        <p className="mb-3 text-xs text-emerald-100/70">
+                          Pedido Appmax: {appmaxOrderId}
+                        </p>
+                      )}
+
+                      {isQrImage(pixQrCode) && (
+                        <div className="mb-4 overflow-hidden rounded-2xl bg-white p-3">
+                          <img
+                            src={pixQrCode}
+                            alt="QR Code Pix"
+                            className="mx-auto h-56 w-56 object-contain"
+                          />
+                        </div>
+                      )}
+
+                      {pixCopyPaste && (
+                        <>
+                          <textarea
+                            value={pixCopyPaste}
+                            readOnly
+                            rows={5}
+                            className="w-full resize-none rounded-2xl border border-white/10 bg-black/50 p-4 text-xs text-zinc-300 outline-none"
+                          />
+
+                          <button
+                            onClick={copyPix}
+                            className="mt-3 w-full rounded-2xl bg-emerald-500 px-5 py-4 font-black text-black transition hover:opacity-90"
+                          >
+                            Copiar código Pix
+                          </button>
+                        </>
+                      )}
+
+                      {!pixCopyPaste && pixQrCode && !isQrImage(pixQrCode) && (
+                        <>
+                          <textarea
+                            value={pixQrCode}
+                            readOnly
+                            rows={5}
+                            className="w-full resize-none rounded-2xl border border-white/10 bg-black/50 p-4 text-xs text-zinc-300 outline-none"
+                          />
+
+                          <button
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(pixQrCode);
+                              alert("Código Pix copiado.");
+                            }}
+                            className="mt-3 w-full rounded-2xl bg-emerald-500 px-5 py-4 font-black text-black transition hover:opacity-90"
+                          >
+                            Copiar código Pix
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
 
                   {message && (
                     <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-relaxed text-zinc-300">
