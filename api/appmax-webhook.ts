@@ -59,7 +59,8 @@ function isApprovedStatus(payload: any) {
     normalized.includes("pago") ||
     normalized.includes("captured") ||
     normalized.includes("confirmado") ||
-    normalized.includes("completed")
+    normalized.includes("completed") ||
+    normalized.includes("concluido")
   );
 }
 
@@ -86,7 +87,8 @@ function isCancelledStatus(payload: any) {
     normalized.includes("denied") ||
     normalized.includes("failed") ||
     normalized.includes("chargeback") ||
-    normalized.includes("estorno")
+    normalized.includes("estorno") ||
+    normalized.includes("reembols")
   );
 }
 
@@ -98,6 +100,7 @@ function getAppmaxOrderId(payload: any) {
     "idOrder",
     "pedido_id",
     "pedidoId",
+    "pedido",
   ]);
 }
 
@@ -111,7 +114,151 @@ function getAppmaxPaymentId(payload: any) {
     "idTransaction",
     "id_payment",
     "idPayment",
+    "payment",
+    "transaction",
   ]);
+}
+
+function getWebhookStatus(payload: any): "pending" | "approved" | "cancelled" {
+  const approved = isApprovedStatus(payload);
+  const cancelled = isCancelledStatus(payload);
+
+  if (approved) return "approved";
+  if (cancelled) return "cancelled";
+
+  return "pending";
+}
+
+async function updateCoursePurchases({
+  supabaseAdmin,
+  appmaxOrderId,
+  appmaxPaymentId,
+  newStatus,
+  payload,
+}: {
+  supabaseAdmin: any;
+  appmaxOrderId: any;
+  appmaxPaymentId: any;
+  newStatus: "pending" | "approved" | "cancelled";
+  payload: any;
+}) {
+  const updates: any = {
+    status: newStatus,
+    raw_payment_response: payload,
+  };
+
+  if (appmaxPaymentId) {
+    updates.appmax_payment_id = String(appmaxPaymentId);
+    updates.payment_id = String(appmaxPaymentId);
+  }
+
+  if (newStatus === "approved") {
+    updates.approved_at = new Date().toISOString();
+    updates.access_type = "lifetime";
+    updates.notes =
+      "Acesso vitalício liberado automaticamente via webhook Appmax.";
+  }
+
+  if (newStatus === "cancelled") {
+    updates.notes = "Pagamento cancelado/recusado via webhook Appmax.";
+  }
+
+  if (newStatus === "pending") {
+    updates.notes = "Webhook Appmax recebido, pagamento ainda pendente.";
+  }
+
+  let query = supabaseAdmin.from("course_purchases").update(updates);
+
+  if (appmaxOrderId) {
+    query = query.eq("appmax_order_id", String(appmaxOrderId));
+  } else {
+    query = query.eq("appmax_payment_id", String(appmaxPaymentId));
+  }
+
+  const { data, error } = await query.select("*");
+
+  if (error) {
+    console.log("Erro ao atualizar course_purchases:", error);
+
+    return {
+      ok: false,
+      table: "course_purchases",
+      error,
+      data: [],
+    };
+  }
+
+  return {
+    ok: true,
+    table: "course_purchases",
+    error: null,
+    data: data || [],
+  };
+}
+
+async function updateSiteProductOrders({
+  supabaseAdmin,
+  appmaxOrderId,
+  appmaxPaymentId,
+  newStatus,
+  payload,
+}: {
+  supabaseAdmin: any;
+  appmaxOrderId: any;
+  appmaxPaymentId: any;
+  newStatus: "pending" | "approved" | "cancelled";
+  payload: any;
+}) {
+  const updates: any = {
+    status: newStatus,
+    raw_payment_response: payload,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (appmaxPaymentId) {
+    updates.appmax_payment_id = String(appmaxPaymentId);
+    updates.payment_id = String(appmaxPaymentId);
+  }
+
+  if (newStatus === "approved") {
+    updates.notes = "Pedido de produto aprovado automaticamente via webhook Appmax.";
+  }
+
+  if (newStatus === "cancelled") {
+    updates.notes = "Pedido de produto cancelado/recusado via webhook Appmax.";
+  }
+
+  if (newStatus === "pending") {
+    updates.notes = "Webhook Appmax recebido, pedido de produto ainda pendente.";
+  }
+
+  let query = supabaseAdmin.from("site_product_orders").update(updates);
+
+  if (appmaxOrderId) {
+    query = query.eq("appmax_order_id", String(appmaxOrderId));
+  } else {
+    query = query.eq("appmax_payment_id", String(appmaxPaymentId));
+  }
+
+  const { data, error } = await query.select("*");
+
+  if (error) {
+    console.log("Erro ao atualizar site_product_orders:", error);
+
+    return {
+      ok: false,
+      table: "site_product_orders",
+      error,
+      data: [],
+    };
+  }
+
+  return {
+    ok: true,
+    table: "site_product_orders",
+    error: null,
+    data: data || [],
+  };
 }
 
 export default async function handler(req: any, res: any) {
@@ -135,6 +282,7 @@ export default async function handler(req: any, res: any) {
 
     const appmaxOrderId = getAppmaxOrderId(payload);
     const appmaxPaymentId = getAppmaxPaymentId(payload);
+    const newStatus = getWebhookStatus(payload);
 
     if (!appmaxOrderId && !appmaxPaymentId) {
       return res.status(200).json({
@@ -157,54 +305,39 @@ export default async function handler(req: any, res: any) {
       },
     });
 
-    const approved = isApprovedStatus(payload);
-    const cancelled = isCancelledStatus(payload);
+    const courseResult = await updateCoursePurchases({
+      supabaseAdmin,
+      appmaxOrderId,
+      appmaxPaymentId,
+      newStatus,
+      payload,
+    });
 
-    let newStatus: "pending" | "approved" | "cancelled" = "pending";
+    const productResult = await updateSiteProductOrders({
+      supabaseAdmin,
+      appmaxOrderId,
+      appmaxPaymentId,
+      newStatus,
+      payload,
+    });
 
-    if (approved) newStatus = "approved";
-    if (cancelled) newStatus = "cancelled";
-
-    const updates: any = {
-      status: newStatus,
-      raw_payment_response: payload,
-    };
-
-    if (appmaxPaymentId) {
-      updates.appmax_payment_id = String(appmaxPaymentId);
-      updates.payment_id = String(appmaxPaymentId);
-    }
-
-    if (newStatus === "approved") {
-      updates.approved_at = new Date().toISOString();
-      updates.access_type = "lifetime";
-      updates.notes = "Acesso vitalício liberado automaticamente via webhook Appmax.";
-    }
-
-    if (newStatus === "cancelled") {
-      updates.notes = "Pagamento cancelado/recusado via webhook Appmax.";
-    }
-
-    let query = supabaseAdmin.from("course_purchases").update(updates);
-
-    if (appmaxOrderId) {
-      query = query.eq("appmax_order_id", String(appmaxOrderId));
-    } else {
-      query = query.eq("appmax_payment_id", String(appmaxPaymentId));
-    }
-
-    const { data, error } = await query.select("*");
-
-    if (error) {
-      console.log("Erro ao atualizar course_purchases:", error);
-
+    if (!courseResult.ok || !productResult.ok) {
       return res.status(500).json({
-        error: "Erro ao atualizar compra no Supabase.",
-        details: error,
+        error: "Erro ao atualizar uma ou mais tabelas no Supabase.",
+        appmaxOrderId,
+        appmaxPaymentId,
+        status: newStatus,
+        results: {
+          course_purchases: courseResult,
+          site_product_orders: productResult,
+        },
       });
     }
 
-    if (!data || data.length === 0) {
+    const updatedCoursePurchases = courseResult.data || [];
+    const updatedProductOrders = productResult.data || [];
+
+    if (!updatedCoursePurchases.length && !updatedProductOrders.length) {
       return res.status(200).json({
         received: true,
         ignored: true,
@@ -212,16 +345,25 @@ export default async function handler(req: any, res: any) {
         appmaxOrderId,
         appmaxPaymentId,
         status: newStatus,
+        updated: {
+          course_purchases: 0,
+          site_product_orders: 0,
+        },
       });
     }
 
     return res.status(200).json({
       received: true,
-      updated: true,
+      updated_anything: true,
       status: newStatus,
       appmaxOrderId,
       appmaxPaymentId,
-      purchases: data,
+      updated: {
+        course_purchases: updatedCoursePurchases.length,
+        site_product_orders: updatedProductOrders.length,
+      },
+      purchases: updatedCoursePurchases,
+      product_orders: updatedProductOrders,
     });
   } catch (error: any) {
     console.log("Erro appmax-webhook:", error);

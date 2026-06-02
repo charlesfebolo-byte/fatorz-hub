@@ -1,43 +1,225 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { products, type Product } from "../data/products";
 import { supabase } from "../lib/supabase";
 
 const INSTAGRAM_URL = "https://www.instagram.com/fatorzhouse/";
 
+type SiteProduct = {
+  id: number;
+  created_at: string;
+  updated_at: string | null;
+
+  name: string;
+  slug: string;
+  subtitle: string | null;
+  description: string | null;
+
+  category: string;
+  product_type: string;
+
+  price_cents: number;
+  old_price_cents: number | null;
+
+  is_active: boolean | null;
+  is_featured: boolean | null;
+  order_index: number | null;
+
+  image_url: string | null;
+  badge: string | null;
+
+  checkout_provider: string | null;
+  external_payment_url: string | null;
+
+  accepts_pix: boolean | null;
+  accepts_boleto: boolean | null;
+  accepts_card: boolean | null;
+
+  appmax_sku: string | null;
+  appmax_product_name: string | null;
+
+  course_id: number | null;
+
+  notes: string | null;
+};
+
+const categoryLabels: Record<string, string> = {
+  assessoria: "Assessoria Mensal",
+  "servicos-unicos": "Serviços Únicos",
+  sites: "Sites e Landing Pages",
+  identidade: "Identidade e Posicionamento",
+  academy: "Academy",
+};
+
 const categoryDescriptions: Record<string, string> = {
-  "Assessoria Mensal":
+  assessoria:
     "Acompanhamento contínuo para organizar presença digital, conteúdo, posicionamento e direção de crescimento.",
-  "Serviços Únicos":
+  "servicos-unicos":
     "Soluções pontuais para resolver partes específicas do seu Instagram, conteúdo ou comunicação.",
-  "Sites e Landing Pages":
+  sites:
     "Páginas profissionais para transformar visitas em contatos, clientes e oportunidades.",
-  "Identidade e Posicionamento":
+  identidade:
     "Produtos para deixar sua marca mais clara, profissional e pronta para ser escolhida.",
-  Academy:
+  academy:
     "Cursos digitais com acesso vitalício para você aprender e aplicar no seu ritmo.",
 };
 
 const categoryOrder = [
-  "Assessoria Mensal",
-  "Serviços Únicos",
-  "Sites e Landing Pages",
-  "Identidade e Posicionamento",
-  "Academy",
+  "assessoria",
+  "servicos-unicos",
+  "sites",
+  "identidade",
+  "academy",
 ];
 
-function isInstagramLink(link: string) {
-  return link.includes("instagram.com");
+function formatMoney(cents: number | null | undefined) {
+  return (Number(cents || 0) / 100).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function getCategoryLabel(category: string) {
+  return categoryLabels[category] || category;
+}
+
+function getCategoryDescription(category: string) {
+  return (
+    categoryDescriptions[category] ||
+    "Soluções FatorZ para melhorar sua presença digital."
+  );
+}
+
+function getDeliveryType(product: SiteProduct) {
+  if (product.product_type === "subscription") return "Mensal";
+  if (product.product_type === "course") return "Acesso vitalício";
+  if (product.product_type === "site") return "Projeto único";
+  if (product.product_type === "branding") return "Entrega estratégica";
+  if (product.product_type === "diagnostic") return "Diagnóstico";
+  return "Entrega única";
+}
+
+function getProductBenefits(product: SiteProduct) {
+  if (product.product_type === "course") {
+    return [
+      "Acesso individual vinculado à sua conta",
+      "Conteúdo organizado dentro da FatorZ Academy",
+      "Compra única, sem mensalidade",
+      "Ideal para aprender e aplicar no seu ritmo",
+    ];
+  }
+
+  if (product.product_type === "subscription") {
+    return [
+      "Acompanhamento recorrente",
+      "Direção de presença digital",
+      "Organização de conteúdo e posicionamento",
+      "Estrutura para crescer com consistência",
+    ];
+  }
+
+  if (product.product_type === "site") {
+    return [
+      "Estrutura profissional para apresentar sua marca",
+      "Página pensada para gerar ação",
+      "Visual alinhado ao posicionamento",
+      "Ideal para campanhas, serviços e conversão",
+    ];
+  }
+
+  if (product.product_type === "branding") {
+    return [
+      "Mais clareza na percepção da marca",
+      "Direção visual e estratégica",
+      "Organização da mensagem",
+      "Perfil mais profissional e memorável",
+    ];
+  }
+
+  if (product.product_type === "diagnostic") {
+    return [
+      "Análise rápida do perfil",
+      "Identificação dos principais gargalos",
+      "Direção clara para o próximo passo",
+      "Ideal para parar de postar no escuro",
+    ];
+  }
+
+  return [
+    "Entrega pontual e objetiva",
+    "Solução prática para melhorar sua presença",
+    "Aplicação direta no Instagram ou marca",
+    "Direção profissional da FatorZ",
+  ];
+}
+
+function PaymentBadges({ product }: { product: SiteProduct }) {
+  const badges = [];
+
+  if (product.accepts_pix) badges.push("Pix");
+  if (product.accepts_boleto) badges.push("Boleto");
+  if (product.accepts_card) badges.push("Cartão");
+
+  if (!badges.length) badges.push("Manual");
+
+  return (
+    <div className="mt-4 flex flex-wrap gap-2">
+      {badges.map((badge) => (
+        <span
+          key={badge}
+          className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-black uppercase tracking-widest text-zinc-300"
+        >
+          {badge}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function Landing() {
   const navigate = useNavigate();
 
-  const [selectedCategory, setSelectedCategory] = useState("Assessoria Mensal");
-  const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [products, setProducts] = useState<SiteProduct[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("assessoria");
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [buyingId, setBuyingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  async function loadProducts() {
+    setLoadingProducts(true);
+
+    const { data, error } = await supabase
+      .from("site_products")
+      .select("*")
+      .eq("is_active", true)
+      .order("order_index", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    setLoadingProducts(false);
+
+    if (error) {
+      console.log("Erro ao carregar produtos da Landing:", error);
+      return;
+    }
+
+    const activeProducts = data || [];
+
+    setProducts(activeProducts);
+
+    const firstAvailableCategory =
+      categoryOrder.find((category) =>
+        activeProducts.some((product) => product.category === category)
+      ) || activeProducts[0]?.category;
+
+    if (firstAvailableCategory) {
+      setSelectedCategory(firstAvailableCategory);
+    }
+  }
 
   const groupedProducts = useMemo(() => {
-    const grouped: Record<string, Product[]> = {};
+    const grouped: Record<string, SiteProduct[]> = {};
 
     products.forEach((product) => {
       if (!grouped[product.category]) {
@@ -47,11 +229,30 @@ export default function Landing() {
       grouped[product.category].push(product);
     });
 
+    Object.keys(grouped).forEach((category) => {
+      grouped[category].sort((a, b) => {
+        const featuredA = a.is_featured ? 1 : 0;
+        const featuredB = b.is_featured ? 1 : 0;
+
+        if (featuredA !== featuredB) return featuredB - featuredA;
+
+        return Number(a.order_index || 999) - Number(b.order_index || 999);
+      });
+    });
+
     return grouped;
-  }, []);
+  }, [products]);
 
   const visibleCategories = useMemo(() => {
-    return categoryOrder.filter((category) => groupedProducts[category]?.length);
+    const ordered = categoryOrder.filter(
+      (category) => groupedProducts[category]?.length
+    );
+
+    const extraCategories = Object.keys(groupedProducts).filter(
+      (category) => !categoryOrder.includes(category)
+    );
+
+    return [...ordered, ...extraCategories];
   }, [groupedProducts]);
 
   const selectedProducts = groupedProducts[selectedCategory] || [];
@@ -65,80 +266,35 @@ export default function Landing() {
     section?.scrollIntoView({ behavior: "smooth" });
   }
 
-  async function handleBuy(product: Product) {
-    if (!product.paymentLink) {
-      alert("Esse produto ainda não tem link de pagamento.");
-      return;
-    }
-
-    if (isInstagramLink(product.paymentLink)) {
-      window.open(product.paymentLink, "_blank");
-      return;
-    }
-
+  function handleBuy(product: SiteProduct) {
     setBuyingId(product.id);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const customerName = prompt(
-      "Digite seu nome para registrar o pedido:",
-      user?.user_metadata?.nome || user?.user_metadata?.name || ""
-    );
-
-    if (!customerName) {
+    if (product.checkout_provider === "manual") {
+      openInstagram();
       setBuyingId(null);
       return;
     }
 
-    const customerEmail = prompt(
-      "Digite seu email para registrar o pedido:",
-      user?.email || ""
-    );
+    if (product.checkout_provider === "external") {
+      if (!product.external_payment_url) {
+        alert("Esse produto está com checkout externo, mas não tem link cadastrado.");
+        setBuyingId(null);
+        return;
+      }
 
-    if (!customerEmail) {
+      window.open(product.external_payment_url, "_blank");
       setBuyingId(null);
       return;
     }
 
-    if (!customerEmail.includes("@")) {
-      alert("Digite um email válido.");
+    if (product.product_type === "course" && product.course_id) {
+      navigate(`/checkout/academy?courseId=${product.course_id}`);
       setBuyingId(null);
       return;
     }
 
-    const { error } = await supabase.from("orders").insert({
-      user_id: user?.id || null,
-      customer_email: customerEmail.trim(),
-      customer_name: customerName.trim(),
-      product_id: product.id,
-      product_name: product.name,
-      product_category: product.category,
-      product_price: product.price,
-      payment_link: product.paymentLink,
-      status: "pending",
-      payment_id: null,
-      project_id: null,
-      notes: product.monthly
-        ? "Pedido mensal criado pela Landing Page."
-        : "Pedido único criado pela Landing Page.",
-    });
-
+    navigate(`/checkout/produto?slug=${product.slug}`);
     setBuyingId(null);
-
-    if (error) {
-      console.log("Erro ao registrar pedido:", error);
-
-      const continuar = confirm(
-        "Não consegui registrar o pedido no sistema, mas você ainda pode abrir o pagamento. Quer continuar?"
-      );
-
-      if (!continuar) return;
-    }
-
-    window.open(product.paymentLink, "_blank");
-    navigate("/obrigado");
   }
 
   return (
@@ -260,32 +416,38 @@ export default function Landing() {
                   <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#005cff] via-[#9123ff] to-[#ff0096] shadow-[0_0_28px_rgba(255,0,150,0.24)]" />
                 </div>
 
-                <div className="space-y-3">
-                  {visibleCategories.map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => {
-                        setSelectedCategory(category);
-                        setTimeout(scrollToProducts, 80);
-                      }}
-                      className="group flex w-full items-center justify-between rounded-3xl border border-white/10 bg-white/[0.045] p-5 text-left transition hover:border-pink-500/40 hover:bg-white/[0.075]"
-                    >
-                      <div>
-                        <h3 className="text-lg font-black text-white">
-                          {category}
-                        </h3>
+                {loadingProducts ? (
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5 text-zinc-400">
+                    Carregando soluções...
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {visibleCategories.map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          setSelectedCategory(category);
+                          setTimeout(scrollToProducts, 80);
+                        }}
+                        className="group flex w-full items-center justify-between rounded-3xl border border-white/10 bg-white/[0.045] p-5 text-left transition hover:border-pink-500/40 hover:bg-white/[0.075]"
+                      >
+                        <div>
+                          <h3 className="text-lg font-black text-white">
+                            {getCategoryLabel(category)}
+                          </h3>
 
-                        <p className="mt-1 text-sm leading-relaxed text-zinc-500">
-                          {categoryDescriptions[category]}
-                        </p>
-                      </div>
+                          <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                            {getCategoryDescription(category)}
+                          </p>
+                        </div>
 
-                      <span className="ml-4 shrink-0 rounded-full border border-white/10 px-3 py-1 text-sm font-black text-zinc-300 group-hover:text-white">
-                        {groupedProducts[category]?.length || 0}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                        <span className="ml-4 shrink-0 rounded-full border border-white/10 px-3 py-1 text-sm font-black text-zinc-300 group-hover:text-white">
+                          {groupedProducts[category]?.length || 0}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -302,107 +464,151 @@ export default function Landing() {
             </h2>
 
             <p className="mt-5 max-w-3xl text-lg leading-relaxed text-zinc-400">
-              Os produtos da FatorZ agora são organizados por área para ficar
-              mais fácil entender o que sua marca precisa neste momento.
+              Agora os produtos da FatorZ vêm direto do painel. Mudou preço,
+              ativou, ocultou ou destacou: o site acompanha.
             </p>
           </div>
 
-          <div className="mb-8 flex gap-3 overflow-x-auto pb-2">
-            {visibleCategories.map((category) => {
-              const active = selectedCategory === category;
+          {loadingProducts ? (
+            <div className="rounded-[32px] border border-white/10 bg-white/[0.045] p-8 text-zinc-400">
+              Carregando produtos...
+            </div>
+          ) : !products.length ? (
+            <div className="rounded-[32px] border border-white/10 bg-white/[0.045] p-8 text-zinc-400">
+              Nenhum produto ativo no momento.
+            </div>
+          ) : (
+            <>
+              <div className="mb-8 flex gap-3 overflow-x-auto pb-2">
+                {visibleCategories.map((category) => {
+                  const active = selectedCategory === category;
 
-              return (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`shrink-0 rounded-2xl border px-5 py-4 text-sm font-black transition ${
-                    active
-                      ? "border-pink-500/50 bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-[0_0_25px_rgba(255,0,150,0.18)]"
-                      : "border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
-                  }`}
-                >
-                  {category}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mb-8 overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.045] p-6 md:p-8">
-            <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
-              Setor selecionado
-            </p>
-
-            <h3 className="text-3xl font-black md:text-4xl">
-              {selectedCategory}
-            </h3>
-
-            <p className="mt-3 max-w-3xl text-zinc-400">
-              {categoryDescriptions[selectedCategory]}
-            </p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {selectedProducts.map((product) => (
-              <article
-                key={product.id}
-                className={`relative overflow-hidden rounded-[36px] border p-6 transition hover:-translate-y-1 ${
-                  product.highlight
-                    ? "border-pink-500/45 bg-pink-500/[0.08] shadow-[0_0_35px_rgba(255,0,150,0.12)]"
-                    : "border-white/10 bg-white/[0.045]"
-                }`}
-              >
-                {product.highlight && (
-                  <div className="mb-5 inline-flex rounded-full border border-pink-500/30 bg-pink-500/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-pink-300">
-                    Destaque FatorZ
-                  </div>
-                )}
-
-                <div className="mb-5">
-                  <p className="mb-2 text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
-                    {product.monthly ? "Mensal" : "Entrega única"}
-                  </p>
-
-                  <h4 className="text-2xl font-black">{product.name}</h4>
-
-                  <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                    {product.description}
-                  </p>
-                </div>
-
-                <div className="mb-6 rounded-3xl border border-white/10 bg-black/40 p-5">
-                  <p className="text-sm font-bold text-zinc-500">Valor</p>
-
-                  <p className="mt-1 text-3xl font-black text-white">
-                    {product.price}
-                  </p>
-                </div>
-
-                <ul className="mb-6 space-y-3">
-                  {product.features.slice(0, 6).map((feature) => (
-                    <li
-                      key={feature}
-                      className="flex gap-3 text-sm leading-relaxed text-zinc-300"
+                  return (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={`shrink-0 rounded-2xl border px-5 py-4 text-sm font-black transition ${
+                        active
+                          ? "border-pink-500/50 bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-[0_0_25px_rgba(255,0,150,0.18)]"
+                          : "border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
+                      }`}
                     >
-                      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-pink-500 shadow-[0_0_12px_rgba(255,0,150,0.8)]" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                      {getCategoryLabel(category)}
+                    </button>
+                  );
+                })}
+              </div>
 
-                <button
-                  onClick={() => handleBuy(product)}
-                  disabled={buyingId === product.id}
-                  className="w-full rounded-2xl bg-white px-5 py-4 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {buyingId === product.id
-                    ? "Abrindo..."
-                    : isInstagramLink(product.paymentLink)
-                    ? "Chamar no direct"
-                    : "Comprar agora"}
-                </button>
-              </article>
-            ))}
-          </div>
+              <div className="mb-8 overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.045] p-6 md:p-8">
+                <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
+                  Setor selecionado
+                </p>
+
+                <h3 className="text-3xl font-black md:text-4xl">
+                  {getCategoryLabel(selectedCategory)}
+                </h3>
+
+                <p className="mt-3 max-w-3xl text-zinc-400">
+                  {getCategoryDescription(selectedCategory)}
+                </p>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {selectedProducts.map((product) => (
+                  <article
+                    key={product.id}
+                    className={`relative overflow-hidden rounded-[36px] border p-6 transition hover:-translate-y-1 ${
+                      product.is_featured
+                        ? "border-pink-500/45 bg-pink-500/[0.08] shadow-[0_0_35px_rgba(255,0,150,0.12)]"
+                        : "border-white/10 bg-white/[0.045]"
+                    }`}
+                  >
+                    {product.image_url && (
+                      <div className="mb-5 h-44 overflow-hidden rounded-[26px] border border-white/10 bg-zinc-900">
+                        <img
+                          src={product.image_url}
+                          alt={product.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
+
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {product.is_featured && (
+                        <div className="inline-flex rounded-full border border-pink-500/30 bg-pink-500/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-pink-300">
+                          Destaque FatorZ
+                        </div>
+                      )}
+
+                      {product.badge && (
+                        <div className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-black uppercase tracking-widest text-zinc-300">
+                          {product.badge}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mb-5">
+                      <p className="mb-2 text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
+                        {getDeliveryType(product)}
+                      </p>
+
+                      <h4 className="text-2xl font-black">{product.name}</h4>
+
+                      <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                        {product.description ||
+                          product.subtitle ||
+                          "Solução FatorZ para melhorar sua presença digital."}
+                      </p>
+
+                      <PaymentBadges product={product} />
+                    </div>
+
+                    <div className="mb-6 rounded-3xl border border-white/10 bg-black/40 p-5">
+                      <p className="text-sm font-bold text-zinc-500">Valor</p>
+
+                      <div className="mt-1 flex items-end gap-3">
+                        {product.old_price_cents && (
+                          <p className="pb-1 text-sm font-black text-zinc-500 line-through">
+                            {formatMoney(product.old_price_cents)}
+                          </p>
+                        )}
+
+                        <p className="text-3xl font-black text-white">
+                          {formatMoney(product.price_cents)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <ul className="mb-6 space-y-3">
+                      {getProductBenefits(product).map((benefit) => (
+                        <li
+                          key={benefit}
+                          className="flex gap-3 text-sm leading-relaxed text-zinc-300"
+                        >
+                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-pink-500 shadow-[0_0_12px_rgba(255,0,150,0.8)]" />
+                          <span>{benefit}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      onClick={() => handleBuy(product)}
+                      disabled={buyingId === product.id}
+                      className="w-full rounded-2xl bg-white px-5 py-4 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {buyingId === product.id
+                        ? "Abrindo..."
+                        : product.checkout_provider === "manual"
+                        ? "Chamar no direct"
+                        : product.checkout_provider === "external"
+                        ? "Abrir pagamento"
+                        : "Comprar agora"}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">

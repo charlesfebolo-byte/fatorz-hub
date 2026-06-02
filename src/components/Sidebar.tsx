@@ -30,7 +30,6 @@ const staffRoleLabels: Record<string, string> = {
 function getStaffRole(profile: any): StaffRole {
   if (profile?.staff_role) return profile.staff_role;
 
-  // Compatibilidade com o sistema antigo.
   if (profile?.role === "admin") return "ceo_fatorz";
 
   return "none";
@@ -59,6 +58,12 @@ export default function Sidebar({ profile }: SidebarProps) {
     "diretor_operacional",
     "gestor_entregas",
     "suporte_fatorz",
+    "financeiro",
+  ]);
+
+  const canSeeProducts = hasAnyRole(profile, [
+    "ceo_fatorz",
+    "diretor_operacional",
     "financeiro",
   ]);
 
@@ -192,6 +197,16 @@ export default function Sidebar({ profile }: SidebarProps) {
                 onClick={closeMobileMenu}
               >
                 Pedidos
+              </NavLink>
+            )}
+
+            {canSeeProducts && (
+              <NavLink
+                to="/admin/produtos"
+                className={linkClass}
+                onClick={closeMobileMenu}
+              >
+                Produtos
               </NavLink>
             )}
 

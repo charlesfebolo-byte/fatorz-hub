@@ -18,7 +18,9 @@ import AdminLinks from "./pages/AdminLinks";
 import AdminUsers from "./pages/AdminUsers";
 import AdminSubscriptions from "./pages/AdminSubscriptions";
 import AdminOrders from "./pages/AdminOrders";
+import AdminProducts from "./pages/AdminProducts";
 import CheckoutAcademy from "./pages/CheckoutAcademy";
+import ProductCheckout from "./pages/ProductCheckout";
 import ThankYou from "./pages/ThankYou";
 
 import Sidebar from "./components/Sidebar";
@@ -49,6 +51,12 @@ const ORDERS_ROLES: StaffRole[] = [
   "diretor_operacional",
   "gestor_entregas",
   "suporte_fatorz",
+  "financeiro",
+];
+
+const PRODUCTS_ROLES: StaffRole[] = [
+  "ceo_fatorz",
+  "diretor_operacional",
   "financeiro",
 ];
 
@@ -110,8 +118,6 @@ function DashboardLayout({ children, profile }: any) {
 function getStaffRole(profile: any): StaffRole {
   if (profile?.staff_role) return profile.staff_role;
 
-  // Compatibilidade com o sistema antigo.
-  // Enquanto o banco ainda usa role = admin, você continua entrando como CEO.
   if (profile?.role === "admin") return "ceo_fatorz";
 
   return "none";
@@ -339,7 +345,12 @@ export default function App() {
 
         <Route
           path="/checkout/academy"
-          element={<CheckoutAcademy user={user} />}
+          element={<CheckoutAcademy user={user} profile={profile} />}
+        />
+
+        <Route
+          path="/checkout/produto"
+          element={<ProductCheckout user={user} profile={profile} />}
         />
 
         <Route
@@ -401,6 +412,17 @@ export default function App() {
             <StaffRoute user={user} profile={profile} allowedRoles={ORDERS_ROLES}>
               <DashboardLayout profile={profile}>
                 <AdminOrders />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/admin/produtos"
+          element={
+            <StaffRoute user={user} profile={profile} allowedRoles={PRODUCTS_ROLES}>
+              <DashboardLayout profile={profile}>
+                <AdminProducts />
               </DashboardLayout>
             </StaffRoute>
           }
