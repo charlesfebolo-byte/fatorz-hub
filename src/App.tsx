@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "./lib/supabase";
 
 import Landing from "./pages/Landing";
+import Services from "./pages/Services";
+import ServicePage from "./pages/ServicePage";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -335,6 +337,13 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
+
+        <Route path="/servicos" element={<Services />} />
+        <Route path="/servicos/:slug" element={<ServicePage />} />
+        <Route
+          path="/agencia-de-marketing-em-pelotas"
+          element={<ServicePage />}
+        />
 
         <Route path="/obrigado" element={<ThankYou />} />
 
