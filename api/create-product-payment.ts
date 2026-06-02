@@ -14,6 +14,14 @@ function onlyNumbers(value: string) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function formatCpf(value: string) {
+  const numbers = onlyNumbers(value).slice(0, 11);
+
+  if (numbers.length !== 11) return numbers;
+
+  return numbers.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+}
+
 function splitName(fullName: string) {
   const cleanName = String(fullName || "").trim();
 
@@ -76,6 +84,59 @@ function findValueDeep(obj: any, wantedKeys: string[]): any {
   return null;
 }
 
+function normalizeStatus(value: any) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function getPaymentStatus(response: any): "pending" | "approved" | "cancelled" {
+  const value =
+    findValueDeep(response, [
+      "status",
+      "payment_status",
+      "paymentStatus",
+      "order_status",
+      "orderStatus",
+      "situation",
+      "text",
+    ]) || "";
+
+  const normalized = normalizeStatus(value);
+
+  if (
+    normalized.includes("approved") ||
+    normalized.includes("aprovado") ||
+    normalized.includes("paid") ||
+    normalized.includes("pago") ||
+    normalized.includes("captured") ||
+    normalized.includes("confirmado") ||
+    normalized.includes("completed") ||
+    normalized.includes("concluido") ||
+    normalized === "ok"
+  ) {
+    return "approved";
+  }
+
+  if (
+    normalized.includes("cancel") ||
+    normalized.includes("recus") ||
+    normalized.includes("refused") ||
+    normalized.includes("denied") ||
+    normalized.includes("failed") ||
+    normalized.includes("chargeback") ||
+    normalized.includes("estorno") ||
+    normalized.includes("invalido") ||
+    normalized.includes("erro")
+  ) {
+    return "cancelled";
+  }
+
+  return "pending";
+}
+
 function getCustomerId(response: any) {
   return (
     response?.customer_id ||
@@ -125,7 +186,34 @@ function getPaymentId(response: any) {
       "paymentId",
       "transaction_id",
       "transactionId",
+      "id",
     ])
+  );
+}
+
+function getCardToken(response: any) {
+  return (
+    response?.token ||
+    response?.card_token ||
+    response?.cardToken ||
+    response?.data?.token ||
+    response?.data?.card_token ||
+    response?.data?.cardToken ||
+    response?.data?.hash ||
+    response?.hash ||
+    findValueDeep(response, ["token", "card_token", "cardToken", "hash"])
+  );
+}
+
+function getCardBrand(response: any) {
+  return (
+    response?.brand ||
+    response?.card_brand ||
+    response?.data?.brand ||
+    response?.data?.card_brand ||
+    response?.payment?.card_brand ||
+    response?.card?.brand ||
+    findValueDeep(response, ["brand", "card_brand", "cardBrand"])
   );
 }
 
@@ -181,12 +269,16 @@ function getPixQrCode(response: any) {
 function getBoletoUrl(response: any) {
   return (
     response?.boleto_url ||
+    response?.billet_url ||
     response?.url ||
     response?.data?.boleto_url ||
+    response?.data?.billet_url ||
     response?.data?.url ||
     response?.data?.boleto?.url ||
+    response?.data?.billet?.url ||
     response?.boleto?.url ||
-    findValueDeep(response, ["boleto_url", "boletoUrl", "url"])
+    response?.billet?.url ||
+    findValueDeep(response, ["boleto_url", "boletoUrl", "billet_url", "url"])
   );
 }
 
@@ -194,12 +286,20 @@ function getBoletoBarcode(response: any) {
   return (
     response?.barcode ||
     response?.bar_code ||
+    response?.order_billet_payment_code ||
     response?.data?.barcode ||
     response?.data?.bar_code ||
+    response?.data?.order_billet_payment_code ||
     response?.data?.boleto?.barcode ||
     response?.data?.boleto?.bar_code ||
+    response?.data?.billet?.barcode ||
     response?.boleto?.barcode ||
-    findValueDeep(response, ["barcode", "bar_code", "barCode"])
+    findValueDeep(response, [
+      "barcode",
+      "bar_code",
+      "barCode",
+      "order_billet_payment_code",
+    ])
   );
 }
 
@@ -207,15 +307,19 @@ function getBoletoDigitableLine(response: any) {
   return (
     response?.digitable_line ||
     response?.linha_digitavel ||
+    response?.billet_digitable_line ||
     response?.data?.digitable_line ||
     response?.data?.linha_digitavel ||
+    response?.data?.billet_digitable_line ||
     response?.data?.boleto?.digitable_line ||
     response?.data?.boleto?.linha_digitavel ||
+    response?.data?.billet?.digitable_line ||
     response?.boleto?.digitable_line ||
     findValueDeep(response, [
       "digitable_line",
       "linha_digitavel",
       "digitableLine",
+      "billet_digitable_line",
     ])
   );
 }
@@ -299,9 +403,11 @@ export default async function handler(req: any, res: any) {
       documentNumber,
       productSlug,
       paymentMethod,
+      card,
     } = req.body || {};
 
     const cleanDocument = onlyNumbers(documentNumber);
+    const formattedDocument = formatCpf(cleanDocument);
     const cleanPhone = onlyNumbers(customerPhone);
 
     if (!productSlug) {
@@ -334,9 +440,9 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    if (!["pix", "boleto"].includes(paymentMethod)) {
+    if (!["pix", "boleto", "card"].includes(paymentMethod)) {
       return res.status(400).json({
-        error: "Forma de pagamento inválida. Use pix ou boleto.",
+        error: "Forma de pagamento inválida. Use pix, boleto ou card.",
       });
     }
 
@@ -366,6 +472,12 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    if (paymentMethod === "card" && !product.accepts_card) {
+      return res.status(400).json({
+        error: "Esse produto não aceita cartão.",
+      });
+    }
+
     const amountCents = Number(product.price_cents || 0);
     const amount = amountCents / 100;
 
@@ -385,6 +497,7 @@ export default async function handler(req: any, res: any) {
       lastname,
       email: userEmail,
       telephone: cleanPhone,
+      document_number: formattedDocument,
       ip:
         req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
         req.socket?.remoteAddress ||
@@ -442,6 +555,11 @@ export default async function handler(req: any, res: any) {
     }
 
     let paymentResponse: any = null;
+    let tokenizeResponse: any = null;
+    let cardToken: string | null = null;
+    let cardLast4: string | null = null;
+    let cardBrand: string | null = null;
+    let cardInstallments: number | null = null;
 
     if (paymentMethod === "pix") {
       paymentResponse = await appmaxPost("/payment/pix", {
@@ -476,6 +594,102 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    if (paymentMethod === "card") {
+      const cleanCardNumber = onlyNumbers(card?.number);
+      const cleanCvv = onlyNumbers(card?.cvv);
+      const cardMonth = Number(card?.month || 0);
+      const cardYear = Number(card?.year || 0);
+      const installments = Number(card?.installments || 1);
+      const holderName = String(card?.holderName || customerName || "").trim();
+
+      if (!holderName) {
+        return res.status(400).json({
+          error: "Nome impresso no cartão não informado.",
+        });
+      }
+
+      if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
+        return res.status(400).json({
+          error: "Número do cartão inválido.",
+        });
+      }
+
+      if (cleanCvv.length < 3 || cleanCvv.length > 4) {
+        return res.status(400).json({
+          error: "CVV inválido.",
+        });
+      }
+
+      if (cardMonth < 1 || cardMonth > 12) {
+        return res.status(400).json({
+          error: "Mês de validade inválido.",
+        });
+      }
+
+      if (cardYear < 24 || cardYear > 99) {
+        return res.status(400).json({
+          error: "Ano de validade inválido.",
+        });
+      }
+
+      if (installments < 1 || installments > 12) {
+        return res.status(400).json({
+          error: "Número de parcelas inválido.",
+        });
+      }
+
+      cardLast4 = cleanCardNumber.slice(-4);
+      cardInstallments = installments;
+
+      tokenizeResponse = await appmaxPost("/tokenize/card", {
+        card: {
+          name: holderName,
+          number: cleanCardNumber,
+          cvv: cleanCvv,
+          month: cardMonth,
+          year: cardYear,
+        },
+      });
+
+      console.log("PRODUCT CARD TOKEN RESPONSE:", JSON.stringify(tokenizeResponse));
+
+      cardToken = getCardToken(tokenizeResponse);
+
+      if (!cardToken) {
+        return res.status(500).json({
+          error: "A Appmax não retornou token do cartão.",
+          response: tokenizeResponse,
+        });
+      }
+
+      paymentResponse = await appmaxPost("/payment/credit-card", {
+        cart: {
+          order_id: appmaxOrderId,
+        },
+        customer: {
+          customer_id: appmaxCustomerId,
+        },
+        payment: {
+          CreditCard: {
+            token: cardToken,
+
+            cvv: cleanCvv,
+            CVV: cleanCvv,
+
+            document_number: formattedDocument,
+            documentNumber: formattedDocument,
+
+            installments,
+            soft_descriptor: "FATORZ",
+          },
+        },
+      });
+
+      cardBrand = getCardBrand(paymentResponse);
+
+      console.log("PRODUCT CARD PAYMENT RESPONSE:", JSON.stringify(paymentResponse));
+    }
+
     console.log("PRODUCT PAYMENT RESPONSE:", JSON.stringify(paymentResponse));
 
     const appmaxPaymentId = getPaymentId(paymentResponse);
@@ -490,6 +704,27 @@ export default async function handler(req: any, res: any) {
       paymentMethod === "boleto" ? getBoletoBarcode(paymentResponse) : null;
     const boletoDigitableLine =
       paymentMethod === "boleto" ? getBoletoDigitableLine(paymentResponse) : null;
+
+    const detectedPaymentStatus =
+      paymentMethod === "card" ? getPaymentStatus(paymentResponse) : "pending";
+
+    const safeRawResponse =
+      paymentMethod === "card"
+        ? {
+            tokenize: {
+              success: tokenizeResponse?.success,
+              status: tokenizeResponse?.status,
+              text: tokenizeResponse?.text,
+              has_token: Boolean(cardToken),
+            },
+            payment: paymentResponse,
+            card: {
+              last4: cardLast4,
+              brand: cardBrand,
+              installments: cardInstallments,
+            },
+          }
+        : paymentResponse;
 
     const { data: order, error: orderSaveError } = await supabaseAdmin
       .from("site_product_orders")
@@ -507,7 +742,7 @@ export default async function handler(req: any, res: any) {
         product_type: product.product_type,
 
         amount_cents: amountCents,
-        status: "pending",
+        status: detectedPaymentStatus,
 
         payment_provider: "appmax",
         payment_method: paymentMethod,
@@ -528,8 +763,11 @@ export default async function handler(req: any, res: any) {
         boleto_expiration_date:
           paymentMethod === "boleto" ? getExpirationDate(3) : null,
 
-        raw_payment_response: paymentResponse,
-        notes: `Pedido de produto criado pelo checkout FatorZ via ${paymentMethod}.`,
+        raw_payment_response: safeRawResponse,
+        notes:
+          paymentMethod === "card"
+            ? `Pedido de produto criado pelo checkout FatorZ via cartão. Final ${cardLast4 || "—"} em ${cardInstallments || 1}x.`
+            : `Pedido de produto criado pelo checkout FatorZ via ${paymentMethod}.`,
       })
       .select("*")
       .single();
@@ -557,6 +795,7 @@ export default async function handler(req: any, res: any) {
       },
       payment: {
         method: paymentMethod,
+        status: detectedPaymentStatus,
         pix: {
           qr_code: pixQrCode,
           copy_paste: pixCopyPaste,
@@ -566,7 +805,12 @@ export default async function handler(req: any, res: any) {
           barcode: boletoBarcode,
           digitable_line: boletoDigitableLine,
         },
-        raw: paymentResponse,
+        card: {
+          last4: cardLast4,
+          brand: cardBrand,
+          installments: cardInstallments,
+        },
+        raw: safeRawResponse,
       },
     });
   } catch (error: any) {

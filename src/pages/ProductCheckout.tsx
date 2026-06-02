@@ -26,7 +26,7 @@ type SiteProduct = {
   course_id: number | null;
 };
 
-type PaymentMethod = "pix" | "boleto";
+type PaymentMethod = "pix" | "boleto" | "card";
 
 type PaymentResult = {
   success: boolean;
@@ -39,6 +39,7 @@ type PaymentResult = {
   };
   payment: {
     method: PaymentMethod;
+    status: "pending" | "approved" | "cancelled";
     pix: {
       qr_code: string | null;
       copy_paste: string | null;
@@ -47,6 +48,11 @@ type PaymentResult = {
       url: string | null;
       barcode: string | null;
       digitable_line: string | null;
+    };
+    card: {
+      last4: string | null;
+      brand: string | null;
+      installments: number | null;
     };
     raw: any;
   };
@@ -94,6 +100,20 @@ function maskPhone(value: string) {
     .replace(/(\d{5})(\d)/, "$1-$2");
 }
 
+function maskCardNumber(value: string) {
+  const numbers = onlyNumbers(value).slice(0, 19);
+
+  return numbers.replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+
+function maskExpiration(value: string) {
+  const numbers = onlyNumbers(value).slice(0, 4);
+
+  if (numbers.length <= 2) return numbers;
+
+  return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+}
+
 function getCategoryLabel(category: string) {
   return categoryLabels[category] || category;
 }
@@ -117,6 +137,16 @@ function canRenderImage(value: string | null) {
   );
 }
 
+function getInstallmentLabel(cents: number, installments: number) {
+  const installmentValue = Math.round(cents / installments);
+
+  if (installments === 1) {
+    return `1x de ${formatMoney(cents)}`;
+  }
+
+  return `${installments}x de ${formatMoney(installmentValue)}`;
+}
+
 export default function ProductCheckout({ user: userFromApp }: any) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -137,6 +167,12 @@ export default function ProductCheckout({ user: userFromApp }: any) {
   const [customerPhone, setCustomerPhone] = useState("");
   const [documentNumber, setDocumentNumber] = useState("");
 
+  const [cardHolderName, setCardHolderName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiration, setCardExpiration] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+  const [cardInstallments, setCardInstallments] = useState(1);
+
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -153,13 +189,15 @@ export default function ProductCheckout({ user: userFromApp }: any) {
     setCurrentUser(user || userFromApp || null);
 
     if (user) {
-      setCustomerEmail(user.email || "");
-      setCustomerName(
+      const userName =
         user.user_metadata?.nome ||
-          user.user_metadata?.name ||
-          user.user_metadata?.full_name ||
-          ""
-      );
+        user.user_metadata?.name ||
+        user.user_metadata?.full_name ||
+        "";
+
+      setCustomerEmail(user.email || "");
+      setCustomerName(userName);
+      setCardHolderName(userName);
     }
 
     if (!slug) {
@@ -186,6 +224,11 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
     if (!data.accepts_pix && data.accepts_boleto) {
       setPaymentMethod("boleto");
+      return;
+    }
+
+    if (!data.accepts_pix && !data.accepts_boleto && data.accepts_card) {
+      setPaymentMethod("card");
     }
   }
 
@@ -210,7 +253,28 @@ export default function ProductCheckout({ user: userFromApp }: any) {
       });
     }
 
+    if (product.accepts_card) {
+      options.push({
+        id: "card",
+        label: "Cartão",
+        description: "Pagamento com token seguro Appmax.",
+      });
+    }
+
     return options;
+  }, [product]);
+
+  const maxInstallments = useMemo(() => {
+    if (!product) return 1;
+
+    const price = Number(product.price_cents || 0);
+
+    if (price >= 100000) return 12;
+    if (price >= 50000) return 10;
+    if (price >= 30000) return 6;
+    if (price >= 10000) return 4;
+
+    return 3;
   }, [product]);
 
   async function copyToClipboard(value: string) {
@@ -229,6 +293,9 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
     const cleanPhone = onlyNumbers(customerPhone);
     const cleanCpf = onlyNumbers(documentNumber);
+    const cleanCardNumber = onlyNumbers(cardNumber);
+    const cleanCardCvv = onlyNumbers(cardCvv);
+    const cleanExpiration = onlyNumbers(cardExpiration);
 
     if (!customerName.trim()) {
       alert("Digite seu nome.");
@@ -260,11 +327,53 @@ export default function ProductCheckout({ user: userFromApp }: any) {
       return;
     }
 
+    if (paymentMethod === "card") {
+      if (!product.accepts_card) {
+        alert("Esse produto não aceita cartão.");
+        return;
+      }
+
+      if (!cardHolderName.trim()) {
+        alert("Digite o nome impresso no cartão.");
+        return;
+      }
+
+      if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
+        alert("Digite um número de cartão válido.");
+        return;
+      }
+
+      if (cleanExpiration.length !== 4) {
+        alert("Digite a validade no formato MM/AA.");
+        return;
+      }
+
+      const month = Number(cleanExpiration.slice(0, 2));
+      const year = Number(cleanExpiration.slice(2, 4));
+
+      if (month < 1 || month > 12) {
+        alert("Mês de validade inválido.");
+        return;
+      }
+
+      if (year < 24 || year > 99) {
+        alert("Ano de validade inválido.");
+        return;
+      }
+
+      if (cleanCardCvv.length < 3 || cleanCardCvv.length > 4) {
+        alert("Digite um CVV válido.");
+        return;
+      }
+    }
+
     setCreatingPayment(true);
     setPaymentResult(null);
     setCopied(false);
 
     try {
+      const cleanExpirationForCard = onlyNumbers(cardExpiration);
+
       const response = await fetch("/api/create-product-payment", {
         method: "POST",
         headers: {
@@ -278,6 +387,17 @@ export default function ProductCheckout({ user: userFromApp }: any) {
           documentNumber: cleanCpf,
           productSlug: product.slug,
           paymentMethod,
+          card:
+            paymentMethod === "card"
+              ? {
+                  holderName: cardHolderName.trim(),
+                  number: onlyNumbers(cardNumber),
+                  cvv: onlyNumbers(cardCvv),
+                  month: Number(cleanExpirationForCard.slice(0, 2)),
+                  year: Number(cleanExpirationForCard.slice(2, 4)),
+                  installments: cardInstallments,
+                }
+              : null,
         }),
       });
 
@@ -285,7 +405,19 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
       if (!response.ok) {
         console.log("Erro pagamento produto:", data);
-        alert(data?.error || "Erro ao criar pagamento.");
+
+        let details = "";
+
+        try {
+          const parsedDetails = data?.details ? JSON.parse(data.details) : null;
+          details = parsedDetails?.response?.text
+            ? `\n\nDetalhe Appmax: ${parsedDetails.response.text}`
+            : "";
+        } catch {
+          details = data?.details ? `\n\n${data.details}` : "";
+        }
+
+        alert((data?.error || "Erro ao criar pagamento.") + details);
         setCreatingPayment(false);
         return;
       }
@@ -466,9 +598,10 @@ export default function ProductCheckout({ user: userFromApp }: any) {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-              <p className="font-black">Pedido registrado no Hub</p>
+              <p className="font-black">Cartão não fica salvo no Hub</p>
               <p className="mt-1 text-sm text-zinc-500">
-                Depois do pagamento, o pedido fica salvo para controle interno.
+                Os dados do cartão são usados apenas para tokenizar e cobrar na
+                Appmax. A FatorZ não salva número, validade ou CVV no banco.
               </p>
             </div>
           </div>
@@ -497,7 +630,13 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
               <input
                 value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
+                onChange={(event) => {
+                  setCustomerName(event.target.value);
+
+                  if (!cardHolderName) {
+                    setCardHolderName(event.target.value);
+                  }
+                }}
                 placeholder="Seu nome"
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
               />
@@ -553,7 +692,7 @@ export default function ProductCheckout({ user: userFromApp }: any) {
                 Forma de pagamento
               </label>
 
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-3">
                 {paymentOptions.map((option) => {
                   const active = paymentMethod === option.id;
 
@@ -582,10 +721,119 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
               {!paymentOptions.length && (
                 <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5 text-red-300">
-                  Esse produto não tem Pix ou boleto ativo.
+                  Esse produto não tem Pix, boleto ou cartão ativo.
                 </div>
               )}
             </div>
+
+            {paymentMethod === "card" && (
+              <div className="mt-2 rounded-[30px] border border-blue-400/20 bg-blue-500/10 p-5">
+                <p className="mb-4 text-sm font-black uppercase tracking-[0.22em] text-blue-300">
+                  Dados do cartão
+                </p>
+
+                <div className="grid gap-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-black text-zinc-300">
+                      Nome impresso no cartão
+                    </label>
+
+                    <input
+                      value={cardHolderName}
+                      onChange={(event) => setCardHolderName(event.target.value)}
+                      placeholder="Nome como está no cartão"
+                      className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-blue-400/50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-black text-zinc-300">
+                      Número do cartão
+                    </label>
+
+                    <input
+                      value={cardNumber}
+                      onChange={(event) =>
+                        setCardNumber(maskCardNumber(event.target.value))
+                      }
+                      placeholder="0000 0000 0000 0000"
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-blue-400/50"
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div>
+                      <label className="mb-2 block text-sm font-black text-zinc-300">
+                        Validade
+                      </label>
+
+                      <input
+                        value={cardExpiration}
+                        onChange={(event) =>
+                          setCardExpiration(maskExpiration(event.target.value))
+                        }
+                        placeholder="MM/AA"
+                        inputMode="numeric"
+                        autoComplete="cc-exp"
+                        className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-blue-400/50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-black text-zinc-300">
+                        CVV
+                      </label>
+
+                      <input
+                        value={cardCvv}
+                        onChange={(event) =>
+                          setCardCvv(onlyNumbers(event.target.value).slice(0, 4))
+                        }
+                        placeholder="123"
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
+                        className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-blue-400/50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-black text-zinc-300">
+                        Parcelas
+                      </label>
+
+                      <select
+                        value={cardInstallments}
+                        onChange={(event) =>
+                          setCardInstallments(Number(event.target.value || 1))
+                        }
+                        className="w-full rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none focus:border-blue-400/50"
+                      >
+                        {Array.from({ length: maxInstallments }).map((_, index) => {
+                          const installment = index + 1;
+
+                          return (
+                            <option key={installment} value={installment}>
+                              {getInstallmentLabel(
+                                product.price_cents,
+                                installment
+                              )}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-blue-100/80">
+                    O número do cartão, validade e CVV não são salvos no banco da
+                    FatorZ. Eles são enviados para tokenização e cobrança na
+                    Appmax.
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button
               onClick={createPayment}
@@ -596,7 +844,9 @@ export default function ProductCheckout({ user: userFromApp }: any) {
                 ? "Gerando pagamento..."
                 : paymentMethod === "pix"
                 ? "Gerar Pix"
-                : "Gerar Boleto"}
+                : paymentMethod === "boleto"
+                ? "Gerar Boleto"
+                : "Pagar com cartão"}
             </button>
           </div>
 
@@ -728,6 +978,59 @@ export default function ProductCheckout({ user: userFromApp }: any) {
               <p className="mt-4 text-sm text-yellow-100/80">
                 Pedido Appmax: {paymentResult.appmax.order_id}
               </p>
+            </div>
+          )}
+
+          {paymentResult && paymentResult.payment.method === "card" && (
+            <div
+              className={`mt-8 rounded-[30px] border p-6 ${
+                paymentResult.payment.status === "approved"
+                  ? "border-green-400/20 bg-green-500/10"
+                  : paymentResult.payment.status === "cancelled"
+                  ? "border-red-400/20 bg-red-500/10"
+                  : "border-blue-400/20 bg-blue-500/10"
+              }`}
+            >
+              <p className="mb-2 text-sm font-black uppercase tracking-[0.25em] text-blue-300">
+                Cartão processado
+              </p>
+
+              <h3 className="text-2xl font-black">
+                {paymentResult.payment.status === "approved"
+                  ? "Pagamento aprovado"
+                  : paymentResult.payment.status === "cancelled"
+                  ? "Pagamento recusado"
+                  : "Pagamento em análise"}
+              </h3>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                  <p className="text-sm text-zinc-500">Final do cartão</p>
+                  <p className="mt-1 font-black">
+                    {paymentResult.payment.card.last4
+                      ? `•••• ${paymentResult.payment.card.last4}`
+                      : "—"}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                  <p className="text-sm text-zinc-500">Parcelas</p>
+                  <p className="mt-1 font-black">
+                    {paymentResult.payment.card.installments || 1}x
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm text-blue-100/80">
+                Pedido Appmax: {paymentResult.appmax.order_id}
+              </p>
+
+              {paymentResult.payment.status !== "approved" && (
+                <p className="mt-3 text-sm text-zinc-400">
+                  A Appmax pode atualizar esse pedido por webhook depois da
+                  análise/retorno do banco.
+                </p>
+              )}
             </div>
           )}
         </section>

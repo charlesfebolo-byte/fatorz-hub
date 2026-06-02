@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-type Order = {
+type LegacyOrder = {
   id: number;
   created_at: string;
 
@@ -22,6 +22,47 @@ type Order = {
   notes: string | null;
 };
 
+type SiteProductOrder = {
+  id: number;
+  created_at: string;
+  updated_at: string | null;
+
+  user_id: string | null;
+  user_email: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_document: string | null;
+
+  product_id: number | null;
+  product_slug: string | null;
+  product_name: string | null;
+  product_category: string | null;
+  product_type: string | null;
+
+  amount_cents: number | null;
+  status: string | null;
+
+  payment_provider: string | null;
+  payment_method: string | null;
+
+  appmax_customer_id: string | null;
+  appmax_order_id: string | null;
+  appmax_payment_id: string | null;
+  payment_id: string | null;
+
+  pix_qr_code: string | null;
+  pix_copy_paste: string | null;
+
+  boleto_url: string | null;
+  boleto_barcode: string | null;
+  boleto_digitable_line: string | null;
+  boleto_expiration_date: string | null;
+
+  raw_payment_response: any;
+  project_id: number | null;
+  notes: string | null;
+};
+
 type Project = {
   id: number;
   created_at: string;
@@ -36,14 +77,57 @@ type Project = {
   notes: string | null;
 };
 
+type UnifiedOrder = {
+  source: "legacy" | "product";
+  actionKey: string;
+
+  id: number;
+  created_at: string;
+
+  customer_email: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_document: string | null;
+
+  product_name: string | null;
+  product_category: string | null;
+  product_type: string | null;
+
+  product_price: string | null;
+  amount_number: number;
+
+  status: string | null;
+  payment_id: string | null;
+  payment_method: string | null;
+  payment_provider: string | null;
+
+  appmax_order_id: string | null;
+  appmax_customer_id: string | null;
+  appmax_payment_id: string | null;
+
+  payment_link: string | null;
+  boleto_url: string | null;
+  boleto_digitable_line: string | null;
+  pix_copy_paste: string | null;
+
+  project_id: number | null;
+  notes: string | null;
+
+  legacy?: LegacyOrder;
+  product?: SiteProductOrder;
+};
+
 export default function AdminOrders() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [legacyOrders, setLegacyOrders] = useState<LegacyOrder[]>([]);
+  const [productOrders, setProductOrders] = useState<SiteProductOrder[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [sourceFilter, setSourceFilter] = useState("todos");
 
   useEffect(() => {
     loadData();
@@ -52,30 +136,44 @@ export default function AdminOrders() {
   async function loadData() {
     setLoading(true);
 
-    const { data: ordersData, error: ordersError } = await supabase
-      .from("orders")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [legacyResponse, productResponse, projectsResponse] = await Promise.all([
+      supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false }),
 
-    const { data: projectsData, error: projectsError } = await supabase
-      .from("projects")
-      .select("*")
-      .order("created_at", { ascending: false });
+      supabase
+        .from("site_product_orders")
+        .select("*")
+        .order("created_at", { ascending: false }),
+
+      supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false }),
+    ]);
 
     setLoading(false);
 
-    if (ordersError) {
-      console.log("Erro ao carregar pedidos:", ordersError);
-      alert("Erro ao carregar pedidos.");
+    if (legacyResponse.error) {
+      console.log("Erro ao carregar pedidos antigos:", legacyResponse.error);
+      alert("Erro ao carregar pedidos antigos.");
       return;
     }
 
-    if (projectsError) {
-      console.log("Erro ao carregar projetos:", projectsError);
+    if (productResponse.error) {
+      console.log("Erro ao carregar pedidos de produtos:", productResponse.error);
+      alert("Erro ao carregar pedidos de produtos. Confere se rodou o SQL de permissão.");
+      return;
     }
 
-    setOrders(ordersData || []);
-    setProjects(projectsData || []);
+    if (projectsResponse.error) {
+      console.log("Erro ao carregar projetos:", projectsResponse.error);
+    }
+
+    setLegacyOrders(legacyResponse.data || []);
+    setProductOrders(productResponse.data || []);
+    setProjects(projectsResponse.data || []);
   }
 
   function formatDateTime(date: string | null | undefined) {
@@ -87,6 +185,13 @@ export default function AdminOrders() {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+    });
+  }
+
+  function formatMoney(cents: number | null | undefined) {
+    return (Number(cents || 0) / 100).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
     });
   }
 
@@ -116,6 +221,10 @@ export default function AdminOrders() {
       return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
     }
 
+    if (status === "completed") {
+      return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    }
+
     if (status === "cancelled" || status === "canceled") {
       return "bg-red-500/20 text-red-400 border-red-500/30";
     }
@@ -127,20 +236,142 @@ export default function AdminOrders() {
     return "bg-zinc-800 text-zinc-400 border-zinc-700";
   }
 
+  function getStatusLabel(status: string | null) {
+    if (status === "pending") return "Pendente";
+    if (status === "approved") return "Aprovado";
+    if (status === "project_created") return "Projeto criado";
+    if (status === "completed") return "Concluído";
+    if (status === "cancelled" || status === "canceled") return "Cancelado";
+
+    return status || "sem status";
+  }
+
+  function getSourceStyle(source: "legacy" | "product") {
+    if (source === "product") {
+      return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    }
+
+    return "bg-zinc-800 text-zinc-300 border-zinc-700";
+  }
+
+  function getSourceLabel(source: "legacy" | "product") {
+    if (source === "product") return "Produto Appmax";
+
+    return "Pedido antigo";
+  }
+
   function getProjectById(projectId: number | null) {
     if (!projectId) return null;
 
     return projects.find((project) => project.id === projectId) || null;
   }
 
-  function canCreateProject(order: Order) {
+  function normalizeOrders(): UnifiedOrder[] {
+    const normalizedLegacy: UnifiedOrder[] = legacyOrders.map((order) => ({
+      source: "legacy",
+      actionKey: `legacy-${order.id}`,
+
+      id: order.id,
+      created_at: order.created_at,
+
+      customer_email: order.customer_email,
+      customer_name: order.customer_name,
+      customer_phone: null,
+      customer_document: null,
+
+      product_name: order.product_name,
+      product_category: order.product_category,
+      product_type: null,
+
+      product_price: order.product_price,
+      amount_number: extractNumberFromPrice(order.product_price),
+
+      status: order.status,
+      payment_id: order.payment_id,
+      payment_method: null,
+      payment_provider: "manual",
+
+      appmax_order_id: null,
+      appmax_customer_id: null,
+      appmax_payment_id: null,
+
+      payment_link: order.payment_link,
+      boleto_url: null,
+      boleto_digitable_line: null,
+      pix_copy_paste: null,
+
+      project_id: order.project_id,
+      notes: order.notes,
+
+      legacy: order,
+    }));
+
+    const normalizedProducts: UnifiedOrder[] = productOrders.map((order) => ({
+      source: "product",
+      actionKey: `product-${order.id}`,
+
+      id: order.id,
+      created_at: order.created_at,
+
+      customer_email: order.user_email,
+      customer_name: order.customer_name,
+      customer_phone: order.customer_phone,
+      customer_document: order.customer_document,
+
+      product_name: order.product_name,
+      product_category: order.product_category,
+      product_type: order.product_type,
+
+      product_price: formatMoney(order.amount_cents),
+      amount_number: Number(order.amount_cents || 0) / 100,
+
+      status: order.status,
+      payment_id: order.payment_id,
+      payment_method: order.payment_method,
+      payment_provider: order.payment_provider,
+
+      appmax_order_id: order.appmax_order_id,
+      appmax_customer_id: order.appmax_customer_id,
+      appmax_payment_id: order.appmax_payment_id,
+
+      payment_link: order.boleto_url,
+      boleto_url: order.boleto_url,
+      boleto_digitable_line: order.boleto_digitable_line,
+      pix_copy_paste: order.pix_copy_paste,
+
+      project_id: order.project_id,
+      notes: order.notes,
+
+      product: order,
+    }));
+
+    return [...normalizedProducts, ...normalizedLegacy].sort((a, b) => {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }
+
+  function canCreateProject(order: UnifiedOrder) {
     if (order.project_id) return false;
+    if (order.status === "completed") return false;
+    if (order.status === "cancelled" || order.status === "canceled") return false;
 
     return order.status === "approved";
   }
 
-  function getCreateProjectButtonText(order: Order) {
+  function canCompleteOrder(order: UnifiedOrder) {
+    if (order.status === "completed") return false;
+    if (order.status === "cancelled" || order.status === "canceled") return false;
+    if (order.status === "pending") return false;
+
+    return order.status === "approved" || order.status === "project_created" || !!order.project_id;
+  }
+
+  function getCreateProjectButtonText(order: UnifiedOrder) {
     if (order.project_id) return "Projeto criado";
+
+    if (order.status === "completed") {
+      return "Pedido concluído";
+    }
 
     if (order.status !== "approved") {
       return "Aguardando aprovação";
@@ -149,26 +380,49 @@ export default function AdminOrders() {
     return "Criar projeto";
   }
 
-  async function updateOrderStatus(order: Order, status: string) {
+  function getCompleteButtonText(order: UnifiedOrder) {
+    if (order.status === "completed") return "Concluído";
+
+    if (order.status === "pending") return "Aguardando pagamento";
+
+    if (order.status === "cancelled" || order.status === "canceled") {
+      return "Pedido cancelado";
+    }
+
+    return "Marcar concluído";
+  }
+
+  async function updateOrderStatus(order: UnifiedOrder, status: string) {
+    const statusLabel = getStatusLabel(status);
+
     const confirmUpdate = confirm(
-      `Alterar pedido #${order.id} para status "${status}"?`
+      `Alterar pedido #${order.id} para status "${statusLabel}"?`
     );
 
     if (!confirmUpdate) return;
 
-    setActionLoading(order.id);
+    setActionLoading(order.actionKey);
 
-    const { error } = await supabase
-      .from("orders")
-      .update({
-        status,
-      })
-      .eq("id", order.id);
+    const response =
+      order.source === "legacy"
+        ? await supabase
+            .from("orders")
+            .update({
+              status,
+            })
+            .eq("id", order.id)
+        : await supabase
+            .from("site_product_orders")
+            .update({
+              status,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", order.id);
 
     setActionLoading(null);
 
-    if (error) {
-      console.log("Erro ao atualizar pedido:", error);
+    if (response.error) {
+      console.log("Erro ao atualizar pedido:", response.error);
       alert("Erro ao atualizar pedido.");
       return;
     }
@@ -177,27 +431,41 @@ export default function AdminOrders() {
     loadData();
   }
 
-  async function savePaymentId(order: Order) {
+  async function savePaymentId(order: UnifiedOrder) {
     const paymentId = prompt(
-      "Cole o ID do pagamento Mercado Pago:",
-      order.payment_id || ""
+      order.source === "product"
+        ? "Cole o ID do pagamento/Appmax:"
+        : "Cole o ID do pagamento:",
+      order.payment_id || order.appmax_payment_id || ""
     );
 
     if (paymentId === null) return;
 
-    setActionLoading(order.id);
+    setActionLoading(order.actionKey);
 
-    const { error } = await supabase
-      .from("orders")
-      .update({
-        payment_id: paymentId.trim(),
-      })
-      .eq("id", order.id);
+    const cleanPaymentId = paymentId.trim();
+
+    const response =
+      order.source === "legacy"
+        ? await supabase
+            .from("orders")
+            .update({
+              payment_id: cleanPaymentId,
+            })
+            .eq("id", order.id)
+        : await supabase
+            .from("site_product_orders")
+            .update({
+              payment_id: cleanPaymentId,
+              appmax_payment_id: cleanPaymentId,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", order.id);
 
     setActionLoading(null);
 
-    if (error) {
-      console.log("Erro ao salvar payment_id:", error);
+    if (response.error) {
+      console.log("Erro ao salvar payment_id:", response.error);
       alert("Erro ao salvar ID do pagamento.");
       return;
     }
@@ -206,7 +474,7 @@ export default function AdminOrders() {
     loadData();
   }
 
-  async function createProjectFromOrder(order: Order) {
+  async function createProjectFromOrder(order: UnifiedOrder) {
     if (!order.product_name) {
       alert("Esse pedido não tem produto.");
       return;
@@ -239,7 +507,7 @@ export default function AdminOrders() {
 
     if (!confirmCreate) return;
 
-    setActionLoading(order.id);
+    setActionLoading(order.actionKey);
 
     const { data: createdProject, error: projectError } = await supabase
       .from("projects")
@@ -250,16 +518,25 @@ export default function AdminOrders() {
         service_type: order.product_category || order.product_name,
         status: "pendente",
         deadline: null,
-        amount: extractNumberFromPrice(order.product_price),
+        amount: order.amount_number,
         delivery_link: "",
         notes: `Projeto criado a partir do pedido #${order.id}.
 
+Origem: ${getSourceLabel(order.source)}
 Produto: ${order.product_name || ""}
 Categoria: ${order.product_category || ""}
+Tipo: ${order.product_type || ""}
 Cliente: ${clientName}
 Email: ${order.customer_email || ""}
+WhatsApp: ${order.customer_phone || ""}
+CPF: ${order.customer_document || ""}
 Valor: ${order.product_price || ""}
+Método: ${order.payment_method || ""}
+Provider: ${order.payment_provider || ""}
 Payment ID: ${order.payment_id || "—"}
+Appmax Order ID: ${order.appmax_order_id || "—"}
+Appmax Customer ID: ${order.appmax_customer_id || "—"}
+Appmax Payment ID: ${order.appmax_payment_id || "—"}
 
 Observações do pedido:
 ${order.notes || ""}`,
@@ -274,18 +551,28 @@ ${order.notes || ""}`,
       return;
     }
 
-    const { error: orderError } = await supabase
-      .from("orders")
-      .update({
-        project_id: createdProject.id,
-        status: "project_created",
-      })
-      .eq("id", order.id);
+    const response =
+      order.source === "legacy"
+        ? await supabase
+            .from("orders")
+            .update({
+              project_id: createdProject.id,
+              status: "project_created",
+            })
+            .eq("id", order.id)
+        : await supabase
+            .from("site_product_orders")
+            .update({
+              project_id: createdProject.id,
+              status: "project_created",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", order.id);
 
     setActionLoading(null);
 
-    if (orderError) {
-      console.log("Erro ao vincular projeto:", orderError);
+    if (response.error) {
+      console.log("Erro ao vincular projeto:", response.error);
       alert(
         "Projeto criado, mas deu erro ao vincular no pedido. Confira em Projetos."
       );
@@ -297,24 +584,33 @@ ${order.notes || ""}`,
     loadData();
   }
 
-  async function editNotes(order: Order) {
+  async function editNotes(order: UnifiedOrder) {
     const notes = prompt("Observações do pedido:", order.notes || "");
 
     if (notes === null) return;
 
-    setActionLoading(order.id);
+    setActionLoading(order.actionKey);
 
-    const { error } = await supabase
-      .from("orders")
-      .update({
-        notes,
-      })
-      .eq("id", order.id);
+    const response =
+      order.source === "legacy"
+        ? await supabase
+            .from("orders")
+            .update({
+              notes,
+            })
+            .eq("id", order.id)
+        : await supabase
+            .from("site_product_orders")
+            .update({
+              notes,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", order.id);
 
     setActionLoading(null);
 
-    if (error) {
-      console.log("Erro ao salvar observações:", error);
+    if (response.error) {
+      console.log("Erro ao salvar observações:", response.error);
       alert("Erro ao salvar observações.");
       return;
     }
@@ -323,7 +619,7 @@ ${order.notes || ""}`,
     loadData();
   }
 
-  async function deleteOrder(order: Order) {
+  async function deleteOrder(order: UnifiedOrder) {
     const confirmDelete = confirm(
       `Apagar pedido #${order.id}?\n\n${order.product_name || ""}\n${
         order.customer_email || ""
@@ -332,14 +628,17 @@ ${order.notes || ""}`,
 
     if (!confirmDelete) return;
 
-    setActionLoading(order.id);
+    setActionLoading(order.actionKey);
 
-    const { error } = await supabase.from("orders").delete().eq("id", order.id);
+    const response =
+      order.source === "legacy"
+        ? await supabase.from("orders").delete().eq("id", order.id)
+        : await supabase.from("site_product_orders").delete().eq("id", order.id);
 
     setActionLoading(null);
 
-    if (error) {
-      console.log("Erro ao apagar pedido:", error);
+    if (response.error) {
+      console.log("Erro ao apagar pedido:", response.error);
       alert("Erro ao apagar pedido.");
       return;
     }
@@ -348,13 +647,37 @@ ${order.notes || ""}`,
     loadData();
   }
 
-  function openPaymentLink(order: Order) {
-    if (!order.payment_link) {
-      alert("Esse pedido não tem link de pagamento.");
+  async function copyText(value: string | null, label: string) {
+    if (!value) {
+      alert(`Esse pedido não tem ${label}.`);
       return;
     }
 
-    window.open(order.payment_link, "_blank");
+    try {
+      await navigator.clipboard.writeText(value);
+      alert(`${label} copiado!`);
+    } catch {
+      alert(`Não consegui copiar ${label}. Copie manualmente.`);
+    }
+  }
+
+  function openPaymentLink(order: UnifiedOrder) {
+    if (order.boleto_url) {
+      window.open(order.boleto_url, "_blank");
+      return;
+    }
+
+    if (order.payment_link) {
+      window.open(order.payment_link, "_blank");
+      return;
+    }
+
+    if (order.pix_copy_paste) {
+      copyText(order.pix_copy_paste, "Pix copia e cola");
+      return;
+    }
+
+    alert("Esse pedido não tem link de pagamento disponível.");
   }
 
   function openProject(projectId: number | null) {
@@ -366,35 +689,62 @@ ${order.notes || ""}`,
     window.location.href = "/projetos";
   }
 
+  const unifiedOrders = useMemo(() => {
+    return normalizeOrders();
+  }, [legacyOrders, productOrders]);
+
   const filteredOrders = useMemo(() => {
     const value = search.trim().toLowerCase();
 
-    return orders.filter((order) => {
+    return unifiedOrders.filter((order) => {
       const matchesSearch =
         !value ||
         order.customer_email?.toLowerCase().includes(value) ||
         order.customer_name?.toLowerCase().includes(value) ||
+        order.customer_phone?.toLowerCase().includes(value) ||
+        order.customer_document?.toLowerCase().includes(value) ||
         order.product_name?.toLowerCase().includes(value) ||
         order.product_category?.toLowerCase().includes(value) ||
+        order.product_type?.toLowerCase().includes(value) ||
         order.product_price?.toLowerCase().includes(value) ||
         order.status?.toLowerCase().includes(value) ||
-        order.payment_id?.toLowerCase().includes(value);
+        order.payment_id?.toLowerCase().includes(value) ||
+        order.payment_method?.toLowerCase().includes(value) ||
+        order.appmax_order_id?.toLowerCase().includes(value) ||
+        order.appmax_customer_id?.toLowerCase().includes(value) ||
+        order.appmax_payment_id?.toLowerCase().includes(value);
 
       const matchesStatus =
         statusFilter === "todos" || order.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [orders, search, statusFilter]);
+      const matchesSource =
+        sourceFilter === "todos" || order.source === sourceFilter;
 
-  const totalOrders = orders.length;
-  const totalPending = orders.filter(
+      return matchesSearch && matchesStatus && matchesSource;
+    });
+  }, [unifiedOrders, search, statusFilter, sourceFilter]);
+
+  const totalOrders = unifiedOrders.length;
+
+  const totalProductOrders = unifiedOrders.filter(
+    (order) => order.source === "product"
+  ).length;
+
+  const totalPending = unifiedOrders.filter(
     (order) => order.status === "pending"
   ).length;
-  const totalApproved = orders.filter(
+
+  const totalApproved = unifiedOrders.filter(
     (order) => order.status === "approved"
   ).length;
-  const totalWithProject = orders.filter((order) => !!order.project_id).length;
+
+  const totalWithProject = unifiedOrders.filter(
+    (order) => !!order.project_id || order.status === "project_created"
+  ).length;
+
+  const totalCompleted = unifiedOrders.filter(
+    (order) => order.status === "completed"
+  ).length;
 
   if (loading) {
     return (
@@ -415,15 +765,22 @@ ${order.notes || ""}`,
         <h1 className="text-4xl font-black mb-2">Pedidos</h1>
 
         <p className="text-zinc-400 max-w-3xl">
-          Controle compras iniciadas, pagamentos, pedidos aprovados e criação de
-          projetos. Projetos só podem ser criados após o pedido estar aprovado.
+          Controle pedidos antigos, compras novas via Appmax, Pix, boleto,
+          pagamentos aprovados, projetos criados e pedidos concluídos.
         </p>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-5 mb-8">
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
           <p className="text-zinc-400 mb-2">Pedidos</p>
           <h2 className="text-4xl font-black">{totalOrders}</h2>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+          <p className="text-zinc-400 mb-2">Produtos Appmax</p>
+          <h2 className="text-4xl font-black text-blue-400">
+            {totalProductOrders}
+          </h2>
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
@@ -446,14 +803,21 @@ ${order.notes || ""}`,
             {totalWithProject}
           </h2>
         </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+          <p className="text-zinc-400 mb-2">Concluídos</p>
+          <h2 className="text-4xl font-black text-blue-300">
+            {totalCompleted}
+          </h2>
+        </div>
       </section>
 
       <section className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
-        <div className="grid md:grid-cols-[1fr_220px_160px] gap-4">
+        <div className="grid md:grid-cols-[1fr_200px_200px_160px] gap-4">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por cliente, email, produto, pagamento..."
+            placeholder="Buscar por cliente, email, produto, Appmax Order ID..."
             className="bg-zinc-800 border border-zinc-700 rounded-2xl p-4 outline-none focus:border-pink-500"
           />
 
@@ -462,11 +826,22 @@ ${order.notes || ""}`,
             onChange={(e) => setStatusFilter(e.target.value)}
             className="bg-zinc-800 border border-zinc-700 rounded-2xl p-4 outline-none focus:border-pink-500"
           >
-            <option value="todos">Todos</option>
+            <option value="todos">Todos status</option>
             <option value="pending">Pendentes</option>
             <option value="approved">Aprovados</option>
             <option value="project_created">Com projeto</option>
+            <option value="completed">Concluídos</option>
             <option value="cancelled">Cancelados</option>
+          </select>
+
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="bg-zinc-800 border border-zinc-700 rounded-2xl p-4 outline-none focus:border-pink-500"
+          >
+            <option value="todos">Todas origens</option>
+            <option value="product">Produtos Appmax</option>
+            <option value="legacy">Pedidos antigos</option>
           </select>
 
           <button
@@ -486,19 +861,20 @@ ${order.notes || ""}`,
             </h2>
 
             <p className="text-zinc-400">
-              Quando alguém clicar em comprar um produto, o pedido vai aparecer
-              aqui.
+              Quando alguém comprar por Pix, boleto ou checkout antigo, o pedido
+              vai aparecer aqui.
             </p>
           </div>
         ) : (
           filteredOrders.map((order) => {
             const project = getProjectById(order.project_id);
-            const isActionLoading = actionLoading === order.id;
+            const isActionLoading = actionLoading === order.actionKey;
             const projectAllowed = canCreateProject(order);
+            const completeAllowed = canCompleteOrder(order);
 
             return (
               <div
-                key={order.id}
+                key={order.actionKey}
                 className="bg-zinc-900 border border-zinc-800 rounded-[32px] p-6"
               >
                 <div className="flex flex-col xl:flex-row gap-6">
@@ -509,12 +885,26 @@ ${order.notes || ""}`,
                           order.status
                         )}`}
                       >
-                        {order.status || "sem status"}
+                        {getStatusLabel(order.status)}
+                      </span>
+
+                      <span
+                        className={`border px-4 py-2 rounded-xl font-black text-sm ${getSourceStyle(
+                          order.source
+                        )}`}
+                      >
+                        {getSourceLabel(order.source)}
                       </span>
 
                       <span className="bg-zinc-800 text-zinc-300 px-4 py-2 rounded-xl font-bold text-sm">
                         Pedido #{order.id}
                       </span>
+
+                      {order.appmax_order_id && (
+                        <span className="bg-zinc-800 text-zinc-300 px-4 py-2 rounded-xl font-bold text-sm">
+                          Appmax #{order.appmax_order_id}
+                        </span>
+                      )}
 
                       <span className="bg-zinc-800 text-zinc-300 px-4 py-2 rounded-xl font-bold text-sm">
                         {formatDateTime(order.created_at)}
@@ -534,11 +924,20 @@ ${order.notes || ""}`,
                       </span>
                     </p>
 
-                    {order.status !== "approved" && !order.project_id && (
+                    {order.status === "pending" && !order.project_id && (
                       <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 mb-5">
                         <p className="text-yellow-400 font-bold">
                           Esse pedido ainda não está aprovado. Não crie projeto
                           antes da confirmação do pagamento.
+                        </p>
+                      </div>
+                    )}
+
+                    {order.status === "completed" && (
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 mb-5">
+                        <p className="text-blue-300 font-bold">
+                          Pedido marcado como concluído. Use esse status quando
+                          a entrega já foi finalizada.
                         </p>
                       </div>
                     )}
@@ -548,6 +947,13 @@ ${order.notes || ""}`,
                         <p className="text-zinc-500 text-sm mb-1">Email</p>
                         <p className="font-bold break-all">
                           {order.customer_email || "—"}
+                        </p>
+                      </div>
+
+                      <div className="bg-black border border-zinc-800 rounded-2xl p-4">
+                        <p className="text-zinc-500 text-sm mb-1">WhatsApp</p>
+                        <p className="font-bold">
+                          {order.customer_phone || "—"}
                         </p>
                       </div>
 
@@ -564,13 +970,38 @@ ${order.notes || ""}`,
                           {order.product_price || "—"}
                         </p>
                       </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+                      <div className="bg-black border border-zinc-800 rounded-2xl p-4">
+                        <p className="text-zinc-500 text-sm mb-1">Método</p>
+                        <p className="font-bold uppercase">
+                          {order.payment_method || "—"}
+                        </p>
+                      </div>
+
+                      <div className="bg-black border border-zinc-800 rounded-2xl p-4">
+                        <p className="text-zinc-500 text-sm mb-1">Provider</p>
+                        <p className="font-bold">
+                          {order.payment_provider || "—"}
+                        </p>
+                      </div>
 
                       <div className="bg-black border border-zinc-800 rounded-2xl p-4">
                         <p className="text-zinc-500 text-sm mb-1">
-                          Pagamento
+                          Payment ID
                         </p>
                         <p className="font-bold break-all">
                           {order.payment_id || "—"}
+                        </p>
+                      </div>
+
+                      <div className="bg-black border border-zinc-800 rounded-2xl p-4">
+                        <p className="text-zinc-500 text-sm mb-1">
+                          Appmax Order
+                        </p>
+                        <p className="font-bold break-all">
+                          {order.appmax_order_id || "—"}
                         </p>
                       </div>
                     </div>
@@ -613,8 +1044,39 @@ ${order.notes || ""}`,
                       disabled={isActionLoading}
                       className="bg-white text-black hover:bg-zinc-200 px-5 py-4 rounded-2xl font-black disabled:bg-zinc-700 disabled:text-zinc-400"
                     >
-                      Abrir pagamento
+                      {order.boleto_url
+                        ? "Abrir boleto"
+                        : order.pix_copy_paste
+                        ? "Copiar Pix"
+                        : "Abrir pagamento"}
                     </button>
+
+                    {order.pix_copy_paste && (
+                      <button
+                        onClick={() =>
+                          copyText(order.pix_copy_paste, "Pix copia e cola")
+                        }
+                        disabled={isActionLoading}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-black px-5 py-4 rounded-2xl font-black disabled:bg-zinc-700 disabled:text-zinc-400"
+                      >
+                        Copiar Pix
+                      </button>
+                    )}
+
+                    {order.boleto_digitable_line && (
+                      <button
+                        onClick={() =>
+                          copyText(
+                            order.boleto_digitable_line,
+                            "linha digitável"
+                          )
+                        }
+                        disabled={isActionLoading}
+                        className="bg-yellow-500 hover:bg-yellow-600 text-black px-5 py-4 rounded-2xl font-black disabled:bg-zinc-700 disabled:text-zinc-400"
+                      >
+                        Copiar boleto
+                      </button>
+                    )}
 
                     <button
                       onClick={() => updateOrderStatus(order, "approved")}
@@ -634,6 +1096,18 @@ ${order.notes || ""}`,
                       }`}
                     >
                       {getCreateProjectButtonText(order)}
+                    </button>
+
+                    <button
+                      onClick={() => updateOrderStatus(order, "completed")}
+                      disabled={isActionLoading || !completeAllowed}
+                      className={`px-5 py-4 rounded-2xl font-black disabled:bg-zinc-700 disabled:text-zinc-400 ${
+                        completeAllowed
+                          ? "bg-blue-500 hover:bg-blue-600 text-white"
+                          : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                      }`}
+                    >
+                      {getCompleteButtonText(order)}
                     </button>
 
                     <button
