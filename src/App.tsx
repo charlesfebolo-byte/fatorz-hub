@@ -5,6 +5,8 @@ import { supabase } from "./lib/supabase";
 import Landing from "./pages/Landing";
 import Services from "./pages/Services";
 import ServicePage from "./pages/ServicePage";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -344,6 +346,9 @@ export default function App() {
           path="/agencia-de-marketing-em-pelotas"
           element={<ServicePage />}
         />
+
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/blog/:slug" element={<BlogPost />} />
 
         <Route path="/obrigado" element={<ThankYou />} />
 

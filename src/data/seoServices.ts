@@ -451,63 +451,64 @@ export const seoServices: SeoService[] = [
   {
     slug: "agencia-de-marketing-em-pelotas",
     path: "/agencia-de-marketing-em-pelotas",
-    title: "Agência de Marketing em Pelotas",
+    title: "Plano Local Pelotas",
     metaTitle:
-      "Agência de Marketing em Pelotas | FatorZ - Marketing Digital no RS",
+      "Plano Local Pelotas | FatorZ - Marketing Digital para Negócios Locais",
     metaDescription:
-      "Agência de marketing em Pelotas para empresas, profissionais e pequenos negócios que precisam de presença digital, Instagram, sites e conteúdo.",
-    eyebrow: "Marketing em Pelotas",
-    h1: "Agência de marketing em Pelotas para negócios que querem presença digital.",
+      "Plano Local Pelotas da FatorZ para negócios locais que precisam organizar Instagram, WhatsApp, link da bio, presença digital e percepção profissional na cidade.",
+    eyebrow: "Solução local",
+    h1: "Plano local para negócios de Pelotas parecerem mais profissionais no digital.",
     intro:
-      "A FatorZ atende marcas, profissionais e pequenos negócios em Pelotas e no Brasil com soluções de marketing digital, Instagram, landing pages, identidade visual e conteúdo.",
+      "O Plano Local Pelotas é uma solução da FatorZ para negócios da cidade que precisam organizar a presença digital sem começar com uma estrutura grande. A ideia é ajustar o básico que mais pesa na primeira impressão: Instagram, bio, destaques, WhatsApp, link de atendimento, comunicação visual e clareza da oferta.",
     keywords: [
-      "agência de marketing em Pelotas",
       "marketing digital em Pelotas",
+      "marketing para negócios locais em Pelotas",
+      "agência de marketing em Pelotas",
+      "Instagram para negócios locais",
       "criação de site em Pelotas",
-      "gestão de Instagram em Pelotas",
-      "edição de reels em Pelotas",
+      "presença digital em Pelotas",
     ],
     problems: [
-      "Negócio local sem presença digital clara.",
-      "Instagram pouco profissional.",
-      "Falta de página para apresentar serviços.",
-      "Pouca clareza na comunicação online.",
-      "Dificuldade para parecer confiável no digital.",
+      "O cliente entra no Instagram e não entende direito o que o negócio oferece.",
+      "A bio, os destaques e o link de atendimento não passam confiança.",
+      "O visual do perfil parece mais simples do que o serviço realmente é.",
+      "O negócio depende de indicação, mas não tem uma presença digital organizada.",
+      "Falta uma página ou link claro para explicar serviços, preços, horários ou atendimento.",
     ],
     deliverables: [
-      "Marketing digital para negócios locais.",
-      "Artes e conteúdo para Instagram.",
-      "Landing pages e páginas profissionais.",
-      "Organização de perfil comercial.",
-      "Direção de presença digital.",
+      "Diagnóstico rápido da presença digital local.",
+      "Ajustes de bio, destaques e direção visual do Instagram.",
+      "Organização do caminho de atendimento pelo WhatsApp ou link da bio.",
+      "Sugestões de posts, stories e conteúdos para negócios locais.",
+      "Possibilidade de landing page simples para apresentar serviços e gerar contato.",
     ],
     benefits: [
-      "Mais profissionalismo online.",
-      "Comunicação mais clara para clientes locais.",
-      "Página e perfil mais preparados para receber visitantes.",
-      "Melhor percepção da marca.",
-      "Estrutura para divulgar serviços com mais confiança.",
+      "Mais confiança para quem encontra seu negócio pela internet.",
+      "Perfil mais organizado e fácil de entender.",
+      "Atendimento mais claro pelo WhatsApp ou link da bio.",
+      "Comunicação mais profissional sem precisar começar com um plano grande.",
+      "Presença digital mais alinhada com a realidade de um negócio local.",
     ],
     faq: [
       {
-        question: "A FatorZ atende só Pelotas?",
+        question: "Esse plano é só para empresas de Pelotas?",
         answer:
-          "Não. A FatorZ tem base em Pelotas, mas atende marcas de outras cidades também.",
+          "A página é focada em Pelotas porque é a cidade base da FatorZ, mas a estrutura também pode ser adaptada para negócios locais de outras cidades.",
       },
       {
-        question: "Negócio local precisa de marketing digital?",
+        question: "O Plano Local Pelotas é diferente dos planos mensais?",
         answer:
-          "Sim. Hoje muitos clientes conferem Instagram, site, avaliações e aparência digital antes de chamar ou comprar.",
+          "Sim. Ele funciona como uma entrada mais direta para organizar o básico da presença digital local antes de partir para uma assessoria maior.",
       },
       {
-        question: "A FatorZ atende pequenos negócios?",
+        question: "Serve para barbeiro, loja, autônomo ou prestador de serviço?",
         answer:
-          "Sim. A FatorZ foi criada pensando em marcas e negócios que precisam se organizar no digital sem parecer amadores.",
+          "Sim. A ideia é ajudar negócios locais que precisam parecer mais confiáveis e organizados quando alguém encontra o perfil ou recebe o link.",
       },
     ],
-    ctaTitle: "Seu negócio em Pelotas precisa aparecer melhor?",
+    ctaTitle: "Seu negócio em Pelotas precisa parecer mais confiável no digital?",
     ctaText:
-      "Chame a FatorZ e veja como organizar sua presença digital com mais clareza.",
+      "Chame a FatorZ e veja como organizar Instagram, WhatsApp, link da bio e presença digital sem começar pelo mais complicado.",
   },
 ];
 
