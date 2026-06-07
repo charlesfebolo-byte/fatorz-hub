@@ -105,7 +105,9 @@ function formatMoney(value: number | null | undefined) {
 }
 
 function formatMoneyFromCents(value: number | null | undefined) {
-  return Number(value || 0).toLocaleString("pt-BR", {
+  const cents = Number(value || 0);
+
+  return (cents / 100).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
   });
