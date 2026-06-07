@@ -59,6 +59,9 @@ const checkoutProviders = [
   { value: "manual", label: "Manual / Instagram" },
 ];
 
+const PRODUCT_COVERS_BUCKET = "product-covers";
+// V3 GLOBAL: upload de capa fica dentro da aba Visual e funciona para qualquer categoria de produto.
+
 const emptyProduct: Partial<SiteProduct> = {
   name: "",
   slug: "",
@@ -173,6 +176,7 @@ export default function AdminProducts() {
   const [activeTab, setActiveTab] = useState<EditorTab>("base");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -240,6 +244,63 @@ export default function AdminProducts() {
       appmax_product_name: prev.appmax_product_name || value,
       appmax_sku: prev.appmax_sku || makeSlug(value),
     }));
+  }
+
+  async function uploadProductCover(file: File) {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Envie apenas imagem: PNG, JPG ou WEBP.");
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      alert("A imagem precisa ter no máximo 5MB.");
+      return;
+    }
+
+    setUploadingCover(true);
+
+    try {
+      const extension = file.name.split(".").pop()?.toLowerCase() || "png";
+      const safeSlug =
+        editingProduct.slug ||
+        makeSlug(editingProduct.name || "produto-fatorz") ||
+        "produto-fatorz";
+
+      const filePath = `${safeSlug}/${Date.now()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(PRODUCT_COVERS_BUCKET)
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.log("Erro ao importar capa:", uploadError);
+        alert("Erro ao importar capa.");
+        return;
+      }
+
+      const { data } = supabase.storage
+        .from(PRODUCT_COVERS_BUCKET)
+        .getPublicUrl(filePath);
+
+      if (!data.publicUrl) {
+        alert("Imagem enviada, mas não consegui gerar o link público.");
+        return;
+      }
+
+      updateField("image_url", data.publicUrl);
+    } catch (error) {
+      console.log("Erro inesperado ao importar capa:", error);
+      alert("Erro inesperado ao importar capa.");
+    } finally {
+      setUploadingCover(false);
+    }
   }
 
   async function saveProduct() {
@@ -759,8 +820,38 @@ export default function AdminProducts() {
                         <input value={editingProduct.badge || ""} onChange={(event) => updateField("badge", event.target.value)} className={fieldClass()} placeholder="Ex: Premium, Mais vendido" />
                       </div>
                       <div>
-                        <Label>Imagem / capa</Label>
-                        <input value={editingProduct.image_url || ""} onChange={(event) => updateField("image_url", event.target.value)} className={fieldClass()} placeholder="https://..." />
+                        <Label helper="Importe uma imagem do computador ou cole um link externo. Funciona para qualquer categoria de produto.">
+                          Imagem / capa do produto
+                        </Label>
+
+                        <div className="space-y-3">
+                          <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-pink-500/30 bg-pink-500/10 px-4 py-4 text-sm font-black text-pink-200 transition hover:bg-pink-500/15">
+                            {uploadingCover ? "Importando capa..." : "Importar capa do produto"}
+
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              disabled={uploadingCover}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+
+                                if (file) {
+                                  uploadProductCover(file);
+                                }
+
+                                event.target.value = "";
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+
+                          <input
+                            value={editingProduct.image_url || ""}
+                            onChange={(event) => updateField("image_url", event.target.value)}
+                            className={fieldClass()}
+                            placeholder="https://..."
+                          />
+                        </div>
                       </div>
                     </div>
 
