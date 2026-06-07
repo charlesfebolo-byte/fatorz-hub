@@ -99,6 +99,13 @@ function getDeliveryType(product: SiteProduct) {
 }
 
 function getProductBenefits(product: SiteProduct) {
+  const customBenefits = String(product.notes || "")
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (customBenefits.length) return customBenefits;
+
   if (product.product_type === "course") {
     return [
       "Acesso individual vinculado à sua conta",

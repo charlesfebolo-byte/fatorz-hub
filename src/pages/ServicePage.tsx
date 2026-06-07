@@ -27,6 +27,7 @@ type SiteProduct = {
   accepts_boleto: boolean | null;
   accepts_card: boolean | null;
   course_id: number | null;
+  notes: string | null;
 };
 
 const productMatchBySlug: Record<string, string[]> = {
@@ -143,6 +144,15 @@ function getDeliveryType(product: SiteProduct) {
   if (product.product_type === "diagnostic") return "Diagnóstico";
 
   return "Serviço FatorZ";
+}
+
+
+function getProductBenefits(product: SiteProduct) {
+  return String(product.notes || "")
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 4);
 }
 
 function normalize(value: string | null | undefined) {
@@ -533,6 +543,17 @@ export default function ServicePage() {
                       {getPaymentLabel(product)}
                     </p>
                   </div>
+
+                  {getProductBenefits(product).length > 0 && (
+                    <ul className="mt-5 space-y-2">
+                      {getProductBenefits(product).map((benefit) => (
+                        <li key={benefit} className="flex gap-3 text-xs leading-relaxed text-zinc-400">
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-pink-500" />
+                          <span>{benefit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
 
                   <button
                     onClick={() => handleBuy(product)}
