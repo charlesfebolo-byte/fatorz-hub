@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
+// FINANCEIRO_DASHBOARD_FATORZ_V4_METRICAS_COMPLETAS
+
 type DashboardProps = {
   user: any;
   profile: any;
@@ -11,6 +13,15 @@ type Order = {
   id: number;
   created_at: string;
   product_name: string | null;
+  product_id?: number | string | null;
+  product_category?: string | null;
+  product_price?: number | string | null;
+  product_price_cents?: number | string | null;
+  amount?: number | string | null;
+  total_amount?: number | string | null;
+  total?: number | string | null;
+  price?: number | string | null;
+  value?: number | string | null;
   customer_name: string | null;
   customer_email: string | null;
   customer_whatsapp: string | null;
@@ -44,6 +55,17 @@ type Course = {
   price_cents: number | null;
   payment_url: string | null;
   is_paid: boolean | null;
+};
+
+type ProductMetric = {
+  name: string;
+  category: string;
+  totalOrders: number;
+  paidOrders: number;
+  pendingOrders: number;
+  revenue: number;
+  pendingValue: number;
+  lastSale: string | null;
 };
 
 const customerTagLabels: Record<string, string> = {
@@ -113,8 +135,122 @@ function formatMoneyFromCents(value: number | null | undefined) {
   });
 }
 
+function parseMoneyValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return 0;
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return 0;
+
+  const normalized = raw
+    .replace(/R\$/gi, "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getOrderValue(order: Order) {
+  const cents = parseMoneyValue(order.product_price_cents);
+  if (cents > 0) return cents / 100;
+
+  return (
+    parseMoneyValue(order.product_price) ||
+    parseMoneyValue(order.amount) ||
+    parseMoneyValue(order.total_amount) ||
+    parseMoneyValue(order.total) ||
+    parseMoneyValue(order.price) ||
+    parseMoneyValue(order.value)
+  );
+}
+
+function normalizeStatus(status: string | null | undefined) {
+  return String(status || "").toLowerCase().trim();
+}
+
+function isPaidOrder(order: Order) {
+  const status = normalizeStatus(order.status);
+
+  return [
+    "completed",
+    "concluido",
+    "concluído",
+    "approved",
+    "aprovado",
+    "paid",
+    "pago",
+    "success",
+    "succeeded",
+  ].includes(status);
+}
+
+function isCancelledOrder(order: Order) {
+  const status = normalizeStatus(order.status);
+
+  return [
+    "cancelled",
+    "cancelado",
+    "canceled",
+    "refunded",
+    "reembolsado",
+  ].includes(status);
+}
+
+function isPendingOrder(order: Order) {
+  const status = normalizeStatus(order.status);
+
+  return (
+    !isPaidOrder(order) &&
+    !isCancelledOrder(order) &&
+    [
+      "",
+      "pending",
+      "pendente",
+      "in_progress",
+      "andamento",
+      "em andamento",
+      "processing",
+    ].includes(status)
+  );
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function endOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 1);
+}
+
+function isDateBetween(value: string | null | undefined, start: Date, end: Date) {
+  if (!value) return false;
+  const date = new Date(value);
+  return date >= start && date < end;
+}
+
+function sumOrders(orders: Order[]) {
+  return orders.reduce((sum, order) => sum + getOrderValue(order), 0);
+}
+
 function getOrderStatusClass(status: string | null | undefined) {
-  if (status === "completed" || status === "concluido") {
+  if (
+    status === "completed" ||
+    status === "concluido" ||
+    status === "concluído" ||
+    status === "approved" ||
+    status === "aprovado" ||
+    status === "paid" ||
+    status === "pago"
+  ) {
     return "border-emerald-400/30 bg-emerald-500/10 text-emerald-300";
   }
 
@@ -130,7 +266,8 @@ function getOrderStatusClass(status: string | null | undefined) {
 }
 
 function getOrderStatusLabel(status: string | null | undefined) {
-  if (status === "completed" || status === "concluido") return "Concluído";
+  if (status === "completed" || status === "concluido" || status === "concluído") return "Concluído";
+  if (status === "approved" || status === "aprovado" || status === "paid" || status === "pago") return "Pago";
   if (status === "pending" || status === "pendente") return "Pendente";
   if (status === "cancelled" || status === "cancelado") return "Cancelado";
   if (status === "in_progress" || status === "andamento") return "Em andamento";
@@ -142,7 +279,7 @@ function PanelIcon({
   children,
   color = "text-[#ff0096]",
 }: {
-  children: string;
+  children: any;
   color?: string;
 }) {
   return (
@@ -192,11 +329,11 @@ function StatCard({
   );
 }
 
-function MiniChart() {
+function MiniChart({ label = "Resumo financeiro" }: { label?: string }) {
   return (
     <div className="relative h-[260px] overflow-hidden rounded-[28px] border border-white/10 bg-[#08080d]/90 p-5 shadow-[0_0_45px_rgba(124,58,237,0.08)]">
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm font-black text-zinc-200">Resumo de atividades</p>
+        <p className="text-sm font-black text-zinc-200">{label}</p>
 
         <span className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-zinc-500">
           Este mês
@@ -256,6 +393,79 @@ function MiniChart() {
   );
 }
 
+function ProductsRanking({ products }: { products: ProductMetric[] }) {
+  return (
+    <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+      <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+            Produtos
+          </p>
+          <h2 className="mt-3 text-3xl font-black">Produtos mais vendidos</h2>
+          <p className="mt-2 text-sm text-zinc-500">
+            Ranking por receita recebida, vendas e valores pendentes.
+          </p>
+        </div>
+      </div>
+
+      {products.length ? (
+        <div className="space-y-3">
+          {products.slice(0, 8).map((product, index) => {
+            const maxRevenue = Math.max(products[0]?.revenue || 1, 1);
+            const percent = Math.min(100, Math.round((product.revenue / maxRevenue) * 100));
+
+            return (
+              <div
+                key={product.name}
+                className="rounded-[22px] border border-white/10 bg-black/35 p-4"
+              >
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-black text-[#ff7bd0]">
+                        #{index + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="truncate font-black text-white">{product.name}</h3>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {product.paidOrders} venda(s) paga(s) · {product.totalOrders} pedido(s) total
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-left md:text-right">
+                    <p className="text-lg font-black text-emerald-300">
+                      {formatMoney(product.revenue)}
+                    </p>
+                    <p className="text-xs font-bold text-orange-300">
+                      Pendente: {formatMoney(product.pendingValue)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
+          <h3 className="text-xl font-black">Sem vendas registradas ainda.</h3>
+          <p className="mt-2 text-sm text-zinc-500">
+            Quando pedidos pagos entrarem, o ranking aparece aqui automaticamente.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard({ user, profile }: DashboardProps) {
   const navigate = useNavigate();
 
@@ -274,7 +484,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
   useEffect(() => {
     loadDashboard();
-  }, [user?.id, user?.email]);
+  }, [user?.id, user?.email, isTeam]);
 
   async function loadDashboard() {
     if (!user?.id) {
@@ -284,14 +494,19 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
     setLoading(true);
 
+    const ordersQuery = supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(isTeam ? 1000 : 12);
+
+    const scopedOrdersQuery = isTeam
+      ? ordersQuery
+      : ordersQuery.or(`customer_email.eq.${user.email},user_id.eq.${user.id}`);
+
     const [ordersResponse, purchasesResponse, coursesResponse] =
       await Promise.all([
-        supabase
-          .from("orders")
-          .select("*")
-          .or(`customer_email.eq.${user.email},user_id.eq.${user.id}`)
-          .order("created_at", { ascending: false })
-          .limit(8),
+        scopedOrdersQuery,
 
         supabase
           .from("course_purchases")
@@ -313,19 +528,19 @@ export default function Dashboard({ user, profile }: DashboardProps) {
     if (ordersResponse.error) {
       console.log("Erro ao carregar pedidos:", ordersResponse.error);
     } else {
-      setOrders(ordersResponse.data || []);
+      setOrders((ordersResponse.data || []) as Order[]);
     }
 
     if (purchasesResponse.error) {
       console.log("Erro ao carregar compras Academy:", purchasesResponse.error);
     } else {
-      setPurchases(purchasesResponse.data || []);
+      setPurchases((purchasesResponse.data || []) as CoursePurchase[]);
     }
 
     if (coursesResponse.error) {
       console.log("Erro ao carregar cursos:", coursesResponse.error);
     } else {
-      setCourses(coursesResponse.data || []);
+      setCourses((coursesResponse.data || []) as Course[]);
     }
   }
 
@@ -347,21 +562,103 @@ export default function Dashboard({ user, profile }: DashboardProps) {
     });
   }, [courses, approvedPurchases]);
 
-  const pendingOrders = useMemo(() => {
-    return orders.filter(
-      (order) =>
-        order.status === "pending" ||
-        order.status === "pendente" ||
-        order.status === "in_progress" ||
-        order.status === "andamento" ||
-        !order.status
-    );
-  }, [orders]);
+  const paidOrders = useMemo(() => orders.filter(isPaidOrder), [orders]);
+  const pendingOrders = useMemo(() => orders.filter(isPendingOrder), [orders]);
+  const completedOrders = paidOrders;
 
-  const completedOrders = useMemo(() => {
-    return orders.filter(
-      (order) => order.status === "completed" || order.status === "concluido"
+  const financialMetrics = useMemo(() => {
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+    const thisMonthStart = startOfMonth(now);
+    const nextMonthStart = endOfMonth(now);
+
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthStart = startOfMonth(lastMonthDate);
+    const lastMonthEnd = endOfMonth(lastMonthDate);
+
+    const revenueToday = sumOrders(
+      paidOrders.filter((order) => isDateBetween(order.created_at, todayStart, tomorrowStart))
     );
+
+    const revenueYesterday = sumOrders(
+      paidOrders.filter((order) => isDateBetween(order.created_at, yesterdayStart, todayStart))
+    );
+
+    const revenueThisMonth = sumOrders(
+      paidOrders.filter((order) => isDateBetween(order.created_at, thisMonthStart, nextMonthStart))
+    );
+
+    const revenueLastMonth = sumOrders(
+      paidOrders.filter((order) => isDateBetween(order.created_at, lastMonthStart, lastMonthEnd))
+    );
+
+    const revenueTotal = sumOrders(paidOrders);
+    const pendingValue = sumOrders(pendingOrders);
+    const averageTicket = paidOrders.length ? revenueTotal / paidOrders.length : 0;
+
+    return {
+      revenueToday,
+      revenueYesterday,
+      revenueThisMonth,
+      revenueLastMonth,
+      revenueTotal,
+      pendingValue,
+      averageTicket,
+      paidOrdersCount: paidOrders.length,
+      pendingOrdersCount: pendingOrders.length,
+      activeOrdersCount: pendingOrders.length,
+    };
+  }, [paidOrders, pendingOrders]);
+
+  const productMetrics = useMemo(() => {
+    const map = new Map<string, ProductMetric>();
+
+    orders.forEach((order) => {
+      const name = order.product_name?.trim() || `Pedido #${order.id}`;
+      const category = order.product_category || "Sem categoria";
+      const current =
+        map.get(name) ||
+        {
+          name,
+          category,
+          totalOrders: 0,
+          paidOrders: 0,
+          pendingOrders: 0,
+          revenue: 0,
+          pendingValue: 0,
+          lastSale: null,
+        };
+
+      current.totalOrders += 1;
+
+      if (isPaidOrder(order)) {
+        current.paidOrders += 1;
+        current.revenue += getOrderValue(order);
+      }
+
+      if (isPendingOrder(order)) {
+        current.pendingOrders += 1;
+        current.pendingValue += getOrderValue(order);
+      }
+
+      if (!current.lastSale || new Date(order.created_at) > new Date(current.lastSale)) {
+        current.lastSale = order.created_at;
+      }
+
+      map.set(name, current);
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+      if (b.paidOrders !== a.paidOrders) return b.paidOrders - a.paidOrders;
+      return b.totalOrders - a.totalOrders;
+    });
   }, [orders]);
 
   const greetingName =
@@ -374,37 +671,37 @@ export default function Dashboard({ user, profile }: DashboardProps) {
       icon: "🛒",
       title: orders[0]?.product_name || "Novo pedido recebido",
       subtitle: orders[0]
-        ? getOrderStatusLabel(orders[0].status)
-        : "#1025 - R$ 497,00",
-      time: orders[0] ? formatDate(orders[0].created_at) : "há 5 min",
+        ? `${getOrderStatusLabel(orders[0].status)} · ${formatMoney(getOrderValue(orders[0]))}`
+        : "Nenhum pedido ainda",
+      time: orders[0] ? formatDate(orders[0].created_at) : "—",
       color: "text-[#ff0096]",
     },
     {
       icon: "📦",
-      title: approvedPurchases[0]?.course_title || "Curso liberado",
-      subtitle: approvedPurchases[0]
-        ? "Acesso vitalício"
-        : "FatorZ Academy",
-      time: approvedPurchases[0]
-        ? formatDate(approvedPurchases[0].approved_at)
-        : "há 15 min",
+      title: productMetrics[0]?.name || "Produto em destaque",
+      subtitle: productMetrics[0]
+        ? `${productMetrics[0].paidOrders} venda(s) · ${formatMoney(productMetrics[0].revenue)}`
+        : "Sem vendas registradas",
+      time: productMetrics[0]?.lastSale ? formatDate(productMetrics[0].lastSale) : "—",
       color: "text-[#9123ff]",
     },
     {
       icon: "📅",
-      title: pendingOrders.length ? "Pedido em andamento" : "Novo agendamento",
+      title: pendingOrders.length ? "Pedido em andamento" : "Sem pendências",
       subtitle: pendingOrders.length
-        ? `${pendingOrders.length} ativo(s)`
-        : "25/05 - 14:00",
-      time: pendingOrders.length ? "agora" : "há 1 h",
+        ? `${pendingOrders.length} ativo(s) · ${formatMoney(financialMetrics.pendingValue)}`
+        : "Tudo certo por enquanto",
+      time: pendingOrders.length ? "agora" : "—",
       color: "text-[#00a3ff]",
     },
     {
-      icon: "📄",
-      title: "Conteúdo publicado",
-      subtitle: "Promoção de Maio",
-      time: "há 2 h",
-      color: "text-[#00a3ff]",
+      icon: "💰",
+      title: isTeam ? "Receita do mês" : "Produtos FatorZ",
+      subtitle: isTeam
+        ? formatMoney(financialMetrics.revenueThisMonth)
+        : "Sites, landing pages, criativos e SEO",
+      time: "este mês",
+      color: "text-emerald-300",
     },
   ];
 
@@ -436,7 +733,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.4em] text-[#ff0096]">
-              Hub FatorZ
+              {isTeam ? "Dashboard financeiro" : "Hub FatorZ"}
             </p>
 
             <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">
@@ -444,8 +741,9 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             </h1>
 
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-500 md:text-base">
-              Bem-vindo ao centro de controle, {greetingName}. Acompanhe pedidos,
-              cursos, entregas, serviços e movimentações da sua conta.
+              {isTeam
+                ? `Bem-vindo ao centro de controle, ${greetingName}. Analise faturamento, pedidos, produtos mais vendidos, pendências e operação da FatorZ.`
+                : `Bem-vindo ao centro de controle, ${greetingName}. Acompanhe pedidos, cursos, entregas, serviços e movimentações da sua conta.`}
             </p>
           </div>
 
@@ -459,47 +757,123 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             </span>
 
             <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-emerald-300">
-              {approvedPurchases.length} curso(s)
+              {isTeam
+                ? `${financialMetrics.paidOrdersCount} venda(s) paga(s)`
+                : `${approvedPurchases.length} curso(s)`}
             </span>
           </div>
         </div>
 
-        <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
-          <StatCard
-            icon="🛒"
-            label="Pedidos"
-            value={orders.length}
-            trend={`+${pendingOrders.length} ativo(s)`}
-            color="text-[#ff0096]"
-          />
+        {isTeam ? (
+          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
+            <StatCard
+              icon="💰"
+              label="Receita hoje"
+              value={formatMoney(financialMetrics.revenueToday)}
+              trend="Pedidos pagos de hoje"
+              color="text-emerald-300"
+            />
 
-          <StatCard
-            icon="📦"
-            label="Cursos"
-            value={approvedPurchases.length}
-            trend={`+${pendingPurchases.length} pendente(s)`}
-            color="text-[#9123ff]"
-          />
+            <StatCard
+              icon="📆"
+              label="Receita ontem"
+              value={formatMoney(financialMetrics.revenueYesterday)}
+              trend="Comparativo diário"
+              color="text-[#00a3ff]"
+            />
 
-          <StatCard
-            icon="📅"
-            label="Agenda"
-            value={pendingOrders.length}
-            trend="+5% este mês"
-            color="text-[#ff0096]"
-          />
+            <StatCard
+              icon="🚀"
+              label="Este mês"
+              value={formatMoney(financialMetrics.revenueThisMonth)}
+              trend="Receita mensal atual"
+              color="text-[#ff0096]"
+            />
 
-          <StatCard
-            icon="👥"
-            label="Total investido"
-            value={totalSpent}
-            trend="+18% este mês"
-            color="text-[#00a3ff]"
-          />
-        </section>
+            <StatCard
+              icon="📊"
+              label="Mês passado"
+              value={formatMoney(financialMetrics.revenueLastMonth)}
+              trend="Histórico mensal"
+              color="text-[#9123ff]"
+            />
+          </section>
+        ) : (
+          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
+            <StatCard
+              icon="🛒"
+              label="Pedidos"
+              value={orders.length}
+              trend={`+${pendingOrders.length} ativo(s)`}
+              color="text-[#ff0096]"
+            />
+
+            <StatCard
+              icon="📦"
+              label="Cursos"
+              value={approvedPurchases.length}
+              trend={`+${pendingPurchases.length} pendente(s)`}
+              color="text-[#9123ff]"
+            />
+
+            <StatCard
+              icon="📅"
+              label="Pedidos ativos"
+              value={pendingOrders.length}
+              trend="Acompanhamento de entregas"
+              color="text-[#ff0096]"
+            />
+
+            <button onClick={() => navigate("/")} className="text-left">
+              <StatCard
+                icon="🛍️"
+                label="Produtos FatorZ"
+                value="Acessar"
+                trend="Sites, criativos, SEO e Academy"
+                color="text-[#00a3ff]"
+              />
+            </button>
+          </section>
+        )}
+
+        {isTeam && (
+          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
+            <StatCard
+              icon="🏦"
+              label="Receita total"
+              value={formatMoney(financialMetrics.revenueTotal)}
+              trend={`${financialMetrics.paidOrdersCount} venda(s) paga(s)`}
+              color="text-emerald-300"
+            />
+
+            <StatCard
+              icon="⏳"
+              label="Valor pendente"
+              value={formatMoney(financialMetrics.pendingValue)}
+              trend={`${financialMetrics.pendingOrdersCount} pedido(s) pendente(s)`}
+              color="text-orange-300"
+            />
+
+            <StatCard
+              icon="🎯"
+              label="Ticket médio"
+              value={formatMoney(financialMetrics.averageTicket)}
+              trend="Média por venda paga"
+              color="text-[#00a3ff]"
+            />
+
+            <StatCard
+              icon="🏆"
+              label="Produtos vendidos"
+              value={productMetrics.reduce((sum, product) => sum + product.paidOrders, 0)}
+              trend={`${productMetrics.length} produto(s) no ranking`}
+              color="text-[#ff0096]"
+            />
+          </section>
+        )}
 
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.9fr]">
-          <MiniChart />
+          <MiniChart label={isTeam ? "Resumo financeiro" : "Resumo de atividades"} />
 
           <div className="rounded-[28px] border border-white/10 bg-[#08080d]/90 p-5">
             <div className="mb-5 flex items-center justify-between">
@@ -543,6 +917,97 @@ export default function Dashboard({ user, profile }: DashboardProps) {
           </div>
         </section>
       </section>
+
+      {isTeam && (
+        <section className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+          <ProductsRanking products={productMetrics} />
+
+          <aside className="space-y-5">
+            <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+                Análise financeira
+              </p>
+
+              <div className="mt-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-500">Hoje</span>
+                  <span className="text-xl font-black text-emerald-300">
+                    {formatMoney(financialMetrics.revenueToday)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-500">Ontem</span>
+                  <span className="text-xl font-black text-blue-300">
+                    {formatMoney(financialMetrics.revenueYesterday)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-500">Este mês</span>
+                  <span className="text-xl font-black text-[#ff7bd0]">
+                    {formatMoney(financialMetrics.revenueThisMonth)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-500">Mês passado</span>
+                  <span className="text-xl font-black text-[#b983ff]">
+                    {formatMoney(financialMetrics.revenueLastMonth)}
+                  </span>
+                </div>
+
+                <div className="h-px bg-white/10" />
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-500">Ticket médio</span>
+                  <span className="text-xl font-black text-yellow-300">
+                    {formatMoney(financialMetrics.averageTicket)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+                Ações de operação
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <button
+                  onClick={() => navigate("/financeiro")}
+                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-emerald-400/40 hover:bg-white/[0.07]"
+                >
+                  <h3 className="font-black">Abrir financeiro</h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Ver lançamentos, pagamentos e análise completa.
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => navigate("/admin/pedidos")}
+                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#ff0096]/40 hover:bg-white/[0.07]"
+                >
+                  <h3 className="font-black">Gerenciar pedidos</h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Acompanhar vendas, status e pendências.
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => navigate("/admin/produtos")}
+                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#9123ff]/40 hover:bg-white/[0.07]"
+                >
+                  <h3 className="font-black">Gerenciar produtos</h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Editar ofertas, preços e links de pagamento.
+                  </p>
+                </button>
+              </div>
+            </div>
+          </aside>
+        </section>
+      )}
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
         <div className="space-y-5">
@@ -638,6 +1103,30 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             )}
           </div>
 
+          {!isTeam && (
+            <div className="rounded-[30px] border border-[#ff0096]/20 bg-gradient-to-br from-[#ff0096]/12 via-[#9123ff]/10 to-[#005cff]/12 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff7bd0]">
+                Produtos FatorZ
+              </p>
+
+              <h2 className="mt-3 text-3xl font-black">
+                Contrate soluções direto pelo painel
+              </h2>
+
+              <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                Acesse sites, landing pages, criativos, SEO, Academy e serviços
+                digitais sem precisar procurar o link em outro lugar.
+              </p>
+
+              <button
+                onClick={() => navigate("/")}
+                className="mt-5 rounded-2xl bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-zinc-200"
+              >
+                Ver Produtos FatorZ
+              </button>
+            </div>
+          )}
+
           <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
             <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
@@ -655,10 +1144,10 @@ export default function Dashboard({ user, profile }: DashboardProps) {
               </div>
 
               <button
-                onClick={() => navigate("/minhas-entregas")}
+                onClick={() => navigate(isTeam ? "/admin/pedidos" : "/minhas-entregas")}
                 className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.08]"
               >
-                Ver entregas
+                {isTeam ? "Ver pedidos" : "Ver entregas"}
               </button>
             </div>
 
@@ -676,7 +1165,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                         </h3>
 
                         <p className="mt-1 text-xs text-zinc-500">
-                          Criado em {formatDateTime(order.created_at)}
+                          Criado em {formatDateTime(order.created_at)} · {formatMoney(getOrderValue(order))}
                         </p>
                       </div>
 
@@ -698,7 +1187,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 </h3>
 
                 <p className="mt-2 text-sm text-zinc-500">
-                  Quando você contratar uma solução FatorZ, ela aparecerá aqui
+                  Quando uma solução FatorZ for contratada, ela aparecerá aqui
                   para acompanhamento.
                 </p>
 
@@ -706,7 +1195,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                   onClick={() => navigate("/")}
                   className="mt-5 rounded-2xl bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-zinc-200"
                 >
-                  Ver soluções
+                  Ver produtos
                 </button>
               </div>
             )}
@@ -760,48 +1249,80 @@ export default function Dashboard({ user, profile }: DashboardProps) {
         <aside className="space-y-5">
           <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
             <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
-              Resumo da conta
+              {isTeam ? "Resumo operacional" : "Resumo da conta"}
             </p>
 
             <div className="mt-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-500">Cursos liberados</span>
-                <span className="text-xl font-black text-emerald-300">
-                  {approvedPurchases.length}
-                </span>
-              </div>
+              {isTeam ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500">Receita total</span>
+                    <span className="text-xl font-black text-emerald-300">
+                      {formatMoney(financialMetrics.revenueTotal)}
+                    </span>
+                  </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-500">Compras pendentes</span>
-                <span className="text-xl font-black text-orange-300">
-                  {pendingPurchases.length}
-                </span>
-              </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500">Pendente</span>
+                    <span className="text-xl font-black text-orange-300">
+                      {formatMoney(financialMetrics.pendingValue)}
+                    </span>
+                  </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-500">Pedidos ativos</span>
-                <span className="text-xl font-black text-blue-300">
-                  {pendingOrders.length}
-                </span>
-              </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500">Pedidos ativos</span>
+                    <span className="text-xl font-black text-blue-300">
+                      {financialMetrics.activeOrdersCount}
+                    </span>
+                  </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-500">
-                  Entregas concluídas
-                </span>
-                <span className="text-xl font-black text-[#ff7bd0]">
-                  {completedOrders.length}
-                </span>
-              </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500">Produtos vendidos</span>
+                    <span className="text-xl font-black text-[#ff7bd0]">
+                      {productMetrics.reduce((sum, product) => sum + product.paidOrders, 0)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500">Cursos liberados</span>
+                    <span className="text-xl font-black text-emerald-300">
+                      {approvedPurchases.length}
+                    </span>
+                  </div>
 
-              <div className="h-px bg-white/10" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500">Compras pendentes</span>
+                    <span className="text-xl font-black text-orange-300">
+                      {pendingPurchases.length}
+                    </span>
+                  </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-500">Total gasto</span>
-                <span className="text-xl font-black text-yellow-300">
-                  {totalSpent}
-                </span>
-              </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500">Pedidos ativos</span>
+                    <span className="text-xl font-black text-blue-300">
+                      {pendingOrders.length}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500">Entregas concluídas</span>
+                    <span className="text-xl font-black text-[#ff7bd0]">
+                      {completedOrders.length}
+                    </span>
+                  </div>
+
+                  <div className="h-px bg-white/10" />
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-500">Total gasto</span>
+                    <span className="text-xl font-black text-yellow-300">
+                      {totalSpent}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -815,6 +1336,18 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             </h2>
 
             <div className="mt-5 space-y-3">
+              {!isTeam && (
+                <button
+                  onClick={() => navigate("/")}
+                  className="w-full rounded-[20px] border border-[#ff0096]/20 bg-[#ff0096]/10 p-4 text-left transition hover:border-[#ff0096]/40 hover:bg-[#ff0096]/15"
+                >
+                  <h3 className="font-black">Produtos FatorZ</h3>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Contrate sites, landing pages, criativos, SEO e cursos.
+                  </p>
+                </button>
+              )}
+
               <button
                 onClick={() => navigate("/academy")}
                 className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#9123ff]/40 hover:bg-white/[0.07]"
@@ -826,20 +1359,10 @@ export default function Dashboard({ user, profile }: DashboardProps) {
               </button>
 
               <button
-                onClick={() => navigate("/")}
-                className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#ff0096]/40 hover:bg-white/[0.07]"
-              >
-                <h3 className="font-black">Soluções FatorZ</h3>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Sites, landing pages, criativos e SEO.
-                </p>
-              </button>
-
-              <button
-                onClick={() => navigate("/minhas-entregas")}
+                onClick={() => navigate(isTeam ? "/admin/pedidos" : "/minhas-entregas")}
                 className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#00a3ff]/40 hover:bg-white/[0.07]"
               >
-                <h3 className="font-black">Minhas Entregas</h3>
+                <h3 className="font-black">{isTeam ? "Pedidos admin" : "Minhas Entregas"}</h3>
                 <p className="mt-1 text-sm text-zinc-500">
                   Acompanhe status, pedidos e projetos.
                 </p>
@@ -854,21 +1377,6 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                   Atualize seus dados da conta.
                 </p>
               </button>
-
-              {isTeam && (
-                <button
-                  onClick={() => navigate("/admin")}
-                  className="w-full rounded-[20px] border border-blue-400/20 bg-blue-500/10 p-4 text-left transition hover:bg-blue-500/15"
-                >
-                  <h3 className="font-black text-blue-200">
-                    Abrir painel admin
-                  </h3>
-
-                  <p className="mt-1 text-sm text-blue-100/60">
-                    Acesso interno da equipe FatorZ.
-                  </p>
-                </button>
-              )}
             </div>
           </div>
 
@@ -893,10 +1401,12 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 <p className="font-black">{staffLabel}</p>
               </div>
 
-              <div>
-                <p className="text-zinc-500">Total gasto</p>
-                <p className="font-black text-yellow-300">{totalSpent}</p>
-              </div>
+              {!isTeam && (
+                <div>
+                  <p className="text-zinc-500">Total gasto</p>
+                  <p className="font-black text-yellow-300">{totalSpent}</p>
+                </div>
+              )}
             </div>
           </div>
         </aside>

@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+// SIDEBAR_FATORZ_PRODUTOS_V4
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -45,7 +47,7 @@ function isTeamMember(profile: any) {
   return getStaffRole(profile) !== "none";
 }
 
-function SidebarIcon({ children }: { children: string }) {
+function SidebarIcon({ children }: { children: any }) {
   return (
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-[15px]">
       {children}
@@ -193,6 +195,11 @@ export default function Sidebar({ profile }: SidebarProps) {
           <span>Painel</span>
         </NavLink>
 
+        <NavLink to="/" className={linkClass} onClick={closeMobileMenu}>
+          <SidebarIcon>🛍️</SidebarIcon>
+          <span>Produtos FatorZ</span>
+        </NavLink>
+
         <NavLink to="/academy" className={linkClass} onClick={closeMobileMenu}>
           <SidebarIcon>▶</SidebarIcon>
           <span>Academy</span>
@@ -210,11 +217,6 @@ export default function Sidebar({ profile }: SidebarProps) {
         >
           <SidebarIcon>□</SidebarIcon>
           <span>Minhas Entregas</span>
-        </NavLink>
-
-        <NavLink to="/" className={linkClass} onClick={closeMobileMenu}>
-          <SidebarIcon>◇</SidebarIcon>
-          <span>Soluções</span>
         </NavLink>
 
         <NavLink
@@ -248,7 +250,7 @@ export default function Sidebar({ profile }: SidebarProps) {
                 onClick={closeMobileMenu}
               >
                 <SidebarIcon>▣</SidebarIcon>
-                <span>Produtos</span>
+                <span>Produtos Admin</span>
               </NavLink>
             )}
 
