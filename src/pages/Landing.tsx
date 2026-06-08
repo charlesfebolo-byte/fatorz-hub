@@ -169,11 +169,11 @@ function PaymentBadges({ product }: { product: SiteProduct }) {
   if (!badges.length) badges.push("Manual");
 
   return (
-    <div className="mt-4 flex flex-wrap gap-2">
+    <div className="mt-3 flex flex-wrap gap-2">
       {badges.map((badge) => (
         <span
           key={badge}
-          className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-black uppercase tracking-widest text-zinc-300"
+          className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-400"
         >
           {badge}
         </span>
@@ -318,34 +318,27 @@ export default function Landing() {
             Fator<span className="text-pink-500">Z</span>
           </button>
 
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-black text-zinc-400">
-            <button onClick={scrollToProducts} className="hover:text-white">
+          <nav className="hidden lg:flex items-center gap-7 text-sm font-black text-zinc-500">
+            <button onClick={scrollToProducts} className="transition hover:text-white">
               Soluções
             </button>
 
             <button
               onClick={() => navigate("/academy")}
-              className="hover:text-white"
+              className="transition hover:text-white"
             >
               Academy
             </button>
 
             <button
-              onClick={() => navigate("/mural")}
-              className="hover:text-white"
-            >
-              Mural
-            </button>
-
-            <button
               onClick={() => navigate("/minhas-entregas")}
-              className="hover:text-white"
+              className="transition hover:text-white"
             >
               Entregas
             </button>
 
-            <button onClick={openInstagram} className="hover:text-white">
-              Instagram
+            <button onClick={openInstagram} className="transition hover:text-white">
+              Contato
             </button>
           </nav>
 
@@ -368,8 +361,8 @@ export default function Landing() {
       </header>
 
       <main className="relative z-10">
-        <section className="mx-auto max-w-7xl px-4 pb-16 pt-14 md:px-8 md:pb-24 md:pt-24">
-          <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+        <section className="mx-auto max-w-7xl px-4 pb-14 pt-12 md:px-8 md:pb-20 md:pt-20">
+          <div className="grid items-center gap-9 lg:grid-cols-[1fr_0.9fr] lg:gap-14">
             <div>
               <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2">
                 <span className="h-2.5 w-2.5 rounded-full bg-pink-500 shadow-[0_0_18px_rgba(255,0,150,0.9)]" />
@@ -378,11 +371,11 @@ export default function Landing() {
                 </p>
               </div>
 
-              <h1 className="mb-7 max-w-4xl text-5xl font-black leading-[0.92] tracking-tight md:text-7xl lg:text-8xl">
+              <h1 className="mb-6 max-w-[780px] text-5xl font-black leading-[0.98] tracking-tight md:text-6xl lg:text-7xl">
                 Sua marca precisa parecer pronta para ser escolhida.
               </h1>
 
-              <p className="mb-8 max-w-2xl text-lg leading-relaxed text-zinc-400 md:text-xl">
+              <p className="mb-7 max-w-[620px] text-base leading-relaxed text-zinc-400 md:text-lg">
                 A FatorZ organiza conteúdo, posicionamento, landing pages,
                 Academy e estrutura digital para sua marca sair do improviso e
                 ganhar presença com direção.
@@ -391,14 +384,14 @@ export default function Landing() {
               <div className="flex flex-col gap-4 sm:flex-row">
                 <button
                   onClick={scrollToProducts}
-                  className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-8 py-5 text-lg font-black text-white shadow-[0_0_35px_rgba(255,0,150,0.18)] transition hover:opacity-90"
+                  className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-7 py-4 text-base font-black text-white shadow-[0_0_35px_rgba(255,0,150,0.16)] transition hover:opacity-90"
                 >
                   Ver soluções
                 </button>
 
                 <button
                   onClick={openInstagram}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-8 py-5 text-lg font-black text-white transition hover:bg-white/10"
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-7 py-4 text-base font-black text-white transition hover:bg-white/10"
                 >
                   Chamar no direct
                 </button>
@@ -406,21 +399,21 @@ export default function Landing() {
             </div>
 
             <div className="relative">
-              <div className="absolute -inset-6 rounded-[52px] bg-gradient-to-r from-[#005cff]/20 via-[#9123ff]/20 to-[#ff0096]/20 blur-2xl" />
+              <div className="absolute -inset-5 rounded-[46px] bg-gradient-to-r from-[#005cff]/16 via-[#9123ff]/16 to-[#ff0096]/16 blur-2xl" />
 
-              <div className="relative overflow-hidden rounded-[42px] border border-white/10 bg-black/70 p-6 shadow-2xl">
-                <div className="mb-6 flex items-center justify-between">
+              <div className="relative overflow-hidden rounded-[34px] border border-white/10 bg-black/65 p-5 shadow-2xl">
+                <div className="mb-5 flex items-center justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.25em] text-pink-400">
                       FatorZ Hub
                     </p>
 
-                    <h2 className="mt-2 text-3xl font-black">
+                    <h2 className="mt-2 text-2xl font-black">
                       Soluções por setor
                     </h2>
                   </div>
 
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#005cff] via-[#9123ff] to-[#ff0096] shadow-[0_0_28px_rgba(255,0,150,0.24)]" />
+                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#005cff] via-[#9123ff] to-[#ff0096] shadow-[0_0_24px_rgba(255,0,150,0.22)]" />
                 </div>
 
                 {loadingProducts ? (
@@ -436,14 +429,14 @@ export default function Landing() {
                           setSelectedCategory(category);
                           setTimeout(scrollToProducts, 80);
                         }}
-                        className="group flex w-full items-center justify-between rounded-3xl border border-white/10 bg-white/[0.045] p-5 text-left transition hover:border-pink-500/40 hover:bg-white/[0.075]"
+                        className="group flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-pink-500/35 hover:bg-white/[0.07]"
                       >
                         <div>
-                          <h3 className="text-lg font-black text-white">
+                          <h3 className="text-base font-black text-white">
                             {getCategoryLabel(category)}
                           </h3>
 
-                          <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
                             {getCategoryDescription(category)}
                           </p>
                         </div>
@@ -460,17 +453,17 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="produtos" className="mx-auto max-w-7xl px-4 py-12 md:px-8">
+        <section id="produtos" className="mx-auto max-w-7xl px-4 py-10 md:px-8">
           <div className="mb-8">
             <p className="mb-3 text-sm font-black uppercase tracking-[0.28em] text-pink-500">
               Central de soluções
             </p>
 
-            <h2 className="text-4xl font-black leading-tight md:text-6xl">
+            <h2 className="max-w-4xl text-4xl font-black leading-tight md:text-5xl">
               Escolha pela necessidade, não por catálogo.
             </h2>
 
-            <p className="mt-5 max-w-3xl text-lg leading-relaxed text-zinc-400">
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-400">
               Agora os produtos da FatorZ vêm direto do painel. Mudou preço,
               ativou, ocultou ou destacou: o site acompanha.
             </p>
@@ -494,7 +487,7 @@ export default function Landing() {
                     <button
                       key={category}
                       onClick={() => setSelectedCategory(category)}
-                      className={`shrink-0 rounded-2xl border px-5 py-4 text-sm font-black transition ${
+                      className={`shrink-0 rounded-2xl border px-4 py-3 text-xs font-black transition ${
                         active
                           ? "border-pink-500/50 bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-[0_0_25px_rgba(255,0,150,0.18)]"
                           : "border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
@@ -506,16 +499,16 @@ export default function Landing() {
                 })}
               </div>
 
-              <div className="mb-8 overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.045] p-6 md:p-8">
+              <div className="mb-7 overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
                 <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
                   Setor selecionado
                 </p>
 
-                <h3 className="text-3xl font-black md:text-4xl">
+                <h3 className="text-2xl font-black md:text-3xl">
                   {getCategoryLabel(selectedCategory)}
                 </h3>
 
-                <p className="mt-3 max-w-3xl text-zinc-400">
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
                   {getCategoryDescription(selectedCategory)}
                 </p>
               </div>
@@ -524,14 +517,14 @@ export default function Landing() {
                 {selectedProducts.map((product) => (
                   <article
                     key={product.id}
-                    className={`relative overflow-hidden rounded-[36px] border p-6 transition hover:-translate-y-1 ${
+                    className={`relative overflow-hidden rounded-[30px] border p-5 transition hover:-translate-y-1 ${
                       product.is_featured
                         ? "border-pink-500/45 bg-pink-500/[0.08] shadow-[0_0_35px_rgba(255,0,150,0.12)]"
                         : "border-white/10 bg-white/[0.045]"
                     }`}
                   >
                     {product.image_url && (
-                      <div className="mb-5 h-44 overflow-hidden rounded-[26px] border border-white/10 bg-zinc-900">
+                      <div className="mb-4 h-36 overflow-hidden rounded-[22px] border border-white/10 bg-zinc-900">
                         <img
                           src={product.image_url}
                           alt={product.name}
@@ -540,7 +533,7 @@ export default function Landing() {
                       </div>
                     )}
 
-                    <div className="mb-4 flex flex-wrap gap-2">
+                    <div className="mb-3 flex flex-wrap gap-2">
                       {product.is_featured && (
                         <div className="inline-flex rounded-full border border-pink-500/30 bg-pink-500/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-pink-300">
                           Destaque FatorZ
@@ -548,20 +541,20 @@ export default function Landing() {
                       )}
 
                       {product.badge && (
-                        <div className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-black uppercase tracking-widest text-zinc-300">
+                        <div className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-300">
                           {product.badge}
                         </div>
                       )}
                     </div>
 
-                    <div className="mb-5">
+                    <div className="mb-4">
                       <p className="mb-2 text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
                         {getDeliveryType(product)}
                       </p>
 
-                      <h4 className="text-2xl font-black">{product.name}</h4>
+                      <h4 className="text-xl font-black">{product.name}</h4>
 
-                      <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                      <p className="mt-2 text-sm leading-relaxed text-zinc-500">
                         {product.description ||
                           product.subtitle ||
                           "Solução FatorZ para melhorar sua presença digital."}
@@ -570,7 +563,7 @@ export default function Landing() {
                       <PaymentBadges product={product} />
                     </div>
 
-                    <div className="mb-6 rounded-3xl border border-white/10 bg-black/40 p-5">
+                    <div className="mb-5 rounded-2xl border border-white/10 bg-black/40 p-4">
                       <p className="text-sm font-bold text-zinc-500">Valor</p>
 
                       <div className="mt-1 flex items-end gap-3">
@@ -580,14 +573,14 @@ export default function Landing() {
                           </p>
                         )}
 
-                        <p className="text-3xl font-black text-white">
+                        <p className="text-2xl font-black text-white">
                           {formatMoney(product.price_cents)}
                         </p>
                       </div>
                     </div>
 
-                    <ul className="mb-6 space-y-3">
-                      {getProductBenefits(product).map((benefit) => (
+                    <ul className="mb-5 space-y-2.5">
+                      {getProductBenefits(product).slice(0, 4).map((benefit) => (
                         <li
                           key={benefit}
                           className="flex gap-3 text-sm leading-relaxed text-zinc-300"
@@ -601,7 +594,7 @@ export default function Landing() {
                     <button
                       onClick={() => handleBuy(product)}
                       disabled={buyingId === product.id}
-                      className="w-full rounded-2xl bg-white px-5 py-4 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-2xl bg-white px-5 py-3.5 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {buyingId === product.id
                         ? "Abrindo..."
@@ -618,8 +611,8 @@ export default function Landing() {
           )}
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">
-          <div className="overflow-hidden rounded-[42px] border border-white/10 bg-black p-8 md:p-12 relative">
+        <section className="mx-auto max-w-7xl px-4 py-14 md:px-8 md:py-20">
+          <div className="overflow-hidden rounded-[36px] border border-white/10 bg-black p-7 md:p-10 relative">
             <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/20 blur-3xl" />
             <div className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#005cff]/20 blur-3xl" />
 
@@ -629,11 +622,11 @@ export default function Landing() {
                   Próximo passo
                 </p>
 
-                <h2 className="text-4xl font-black leading-tight md:text-5xl">
+                <h2 className="text-3xl font-black leading-tight md:text-4xl">
                   Não sabe qual solução escolher?
                 </h2>
 
-                <p className="mt-5 max-w-3xl text-lg leading-relaxed text-zinc-400">
+                <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-400">
                   Chama a FatorZ no direct e manda o que você quer melhorar:
                   perfil, conteúdo, site, vendas, posicionamento ou Academy.
                 </p>
@@ -641,7 +634,7 @@ export default function Landing() {
 
               <button
                 onClick={openInstagram}
-                className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-8 py-5 text-lg font-black text-white transition hover:opacity-90"
+                className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-7 py-4 text-base font-black text-white transition hover:opacity-90"
               >
                 Chamar @fatorzhouse
               </button>
