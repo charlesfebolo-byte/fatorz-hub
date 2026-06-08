@@ -1,71 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-
-// FINANCEIRO_DASHBOARD_FATORZ_V4_METRICAS_COMPLETAS
+import { formatMoney, useDashboard } from "../hooks/useDashboard";
+import DashboardCards from "../components/DashboardCards";
+import FinanceiroResumo from "../components/FinanceiroResumo";
 
 type DashboardProps = {
   user: any;
   profile: any;
-};
-
-type Order = {
-  id: number;
-  created_at: string;
-  product_name: string | null;
-  product_id?: number | string | null;
-  product_category?: string | null;
-  product_price?: number | string | null;
-  product_price_cents?: number | string | null;
-  amount?: number | string | null;
-  total_amount?: number | string | null;
-  total?: number | string | null;
-  price?: number | string | null;
-  value?: number | string | null;
-  customer_name: string | null;
-  customer_email: string | null;
-  customer_whatsapp: string | null;
-  status: string | null;
-  notes?: string | null;
-};
-
-type CoursePurchase = {
-  id: number;
-  created_at: string;
-  user_id: string | null;
-  user_email: string | null;
-  course_id: number | null;
-  course_title: string | null;
-  payment_id: string | null;
-  payment_url: string | null;
-  status: string | null;
-  access_type: string | null;
-  approved_at: string | null;
-  notes: string | null;
-};
-
-type Course = {
-  id: number;
-  title: string;
-  subtitle: string | null;
-  description: string | null;
-  cover_url: string | null;
-  badge: string | null;
-  is_active: boolean | null;
-  price_cents: number | null;
-  payment_url: string | null;
-  is_paid: boolean | null;
-};
-
-type ProductMetric = {
-  name: string;
-  category: string;
-  totalOrders: number;
-  paidOrders: number;
-  pendingOrders: number;
-  revenue: number;
-  pendingValue: number;
-  lastSale: string | null;
 };
 
 const customerTagLabels: Record<string, string> = {
@@ -91,22 +32,6 @@ function getCustomerTag(profile: any) {
   return "free";
 }
 
-function getStaffRole(profile: any) {
-  if (profile?.staff_role) return profile.staff_role;
-  if (profile?.role === "admin") return "ceo_fatorz";
-  return "none";
-}
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
-
-  return new Date(value).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "—";
 
@@ -119,591 +44,153 @@ function formatDateTime(value: string | null | undefined) {
   });
 }
 
-function formatMoney(value: number | null | undefined) {
-  return Number(value || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+function getStatusLabel(status: string | null | undefined) {
+  const value = String(status || "").toLowerCase();
+
+  if (["paid", "pago", "approved", "aprovado"].includes(value)) return "Pago";
+  if (["completed", "concluido", "concluído"].includes(value)) return "Concluído";
+  if (["pending", "pendente", ""].includes(value)) return "Pendente";
+  if (["project_created"].includes(value)) return "Projeto criado";
+  if (["cancelled", "canceled", "cancelado"].includes(value)) return "Cancelado";
+
+  return status || "Em análise";
 }
 
-function formatMoneyFromCents(value: number | null | undefined) {
-  const cents = Number(value || 0);
+function getStatusClass(status: string | null | undefined) {
+  const value = String(status || "").toLowerCase();
 
-  return (cents / 100).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
-function parseMoneyValue(value: unknown) {
-  if (value === null || value === undefined || value === "") return 0;
-
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : 0;
-  }
-
-  const raw = String(value).trim();
-  if (!raw) return 0;
-
-  const normalized = raw
-    .replace(/R\$/gi, "")
-    .replace(/\s/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
-
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function getOrderValue(order: Order) {
-  const cents = parseMoneyValue(order.product_price_cents);
-  if (cents > 0) return cents / 100;
-
-  return (
-    parseMoneyValue(order.product_price) ||
-    parseMoneyValue(order.amount) ||
-    parseMoneyValue(order.total_amount) ||
-    parseMoneyValue(order.total) ||
-    parseMoneyValue(order.price) ||
-    parseMoneyValue(order.value)
-  );
-}
-
-function normalizeStatus(status: string | null | undefined) {
-  return String(status || "").toLowerCase().trim();
-}
-
-function isPaidOrder(order: Order) {
-  const status = normalizeStatus(order.status);
-
-  return [
-    "completed",
-    "concluido",
-    "concluído",
-    "approved",
-    "aprovado",
-    "paid",
-    "pago",
-    "success",
-    "succeeded",
-  ].includes(status);
-}
-
-function isCancelledOrder(order: Order) {
-  const status = normalizeStatus(order.status);
-
-  return [
-    "cancelled",
-    "cancelado",
-    "canceled",
-    "refunded",
-    "reembolsado",
-  ].includes(status);
-}
-
-function isPendingOrder(order: Order) {
-  const status = normalizeStatus(order.status);
-
-  return (
-    !isPaidOrder(order) &&
-    !isCancelledOrder(order) &&
-    [
-      "",
-      "pending",
-      "pendente",
-      "in_progress",
-      "andamento",
-      "em andamento",
-      "processing",
-    ].includes(status)
-  );
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function endOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 1);
-}
-
-function isDateBetween(value: string | null | undefined, start: Date, end: Date) {
-  if (!value) return false;
-  const date = new Date(value);
-  return date >= start && date < end;
-}
-
-function sumOrders(orders: Order[]) {
-  return orders.reduce((sum, order) => sum + getOrderValue(order), 0);
-}
-
-function getOrderStatusClass(status: string | null | undefined) {
   if (
-    status === "completed" ||
-    status === "concluido" ||
-    status === "concluído" ||
-    status === "approved" ||
-    status === "aprovado" ||
-    status === "paid" ||
-    status === "pago"
+    [
+      "paid",
+      "pago",
+      "approved",
+      "aprovado",
+      "completed",
+      "concluido",
+      "concluído",
+      "project_created",
+    ].includes(value)
   ) {
     return "border-emerald-400/30 bg-emerald-500/10 text-emerald-300";
   }
 
-  if (status === "pending" || status === "pendente") {
+  if (["pending", "pendente", ""].includes(value)) {
     return "border-orange-400/30 bg-orange-500/10 text-orange-300";
   }
 
-  if (status === "cancelled" || status === "cancelado") {
+  if (["cancelled", "canceled", "cancelado"].includes(value)) {
     return "border-red-400/30 bg-red-500/10 text-red-300";
   }
 
   return "border-blue-400/30 bg-blue-500/10 text-blue-300";
 }
 
-function getOrderStatusLabel(status: string | null | undefined) {
-  if (status === "completed" || status === "concluido" || status === "concluído") return "Concluído";
-  if (status === "approved" || status === "aprovado" || status === "paid" || status === "pago") return "Pago";
-  if (status === "pending" || status === "pendente") return "Pendente";
-  if (status === "cancelled" || status === "cancelado") return "Cancelado";
-  if (status === "in_progress" || status === "andamento") return "Em andamento";
-
-  return status || "Em análise";
-}
-
-function PanelIcon({
-  children,
-  color = "text-[#ff0096]",
-}: {
-  children: any;
-  color?: string;
-}) {
-  return (
-    <div
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl shadow-[0_0_24px_rgba(255,255,255,0.03)] ${color}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  trend,
-  color = "text-[#ff0096]",
-}: {
-  icon: string;
-  label: string;
-  value: string | number;
-  trend: string;
-  color?: string;
-}) {
-  return (
-    <div className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[#08080d]/90 p-5 shadow-[0_0_35px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-[#0d0d15]">
-      <div className="absolute -right-12 -top-12 h-28 w-28 rounded-full bg-white/5 blur-2xl transition group-hover:bg-white/10" />
-
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-zinc-500">
-            {label}
-          </p>
-
-          <h3 className="truncate text-2xl font-black tracking-tight text-white md:text-3xl">
-            {value}
-          </h3>
-
-          <p className="mt-2 text-[11px] font-black text-emerald-300">
-            {trend}
-          </p>
-        </div>
-
-        <PanelIcon color={color}>{icon}</PanelIcon>
-      </div>
-    </div>
-  );
-}
-
-function MiniChart({ label = "Resumo financeiro" }: { label?: string }) {
-  return (
-    <div className="relative h-[260px] overflow-hidden rounded-[28px] border border-white/10 bg-[#08080d]/90 p-5 shadow-[0_0_45px_rgba(124,58,237,0.08)]">
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm font-black text-zinc-200">{label}</p>
-
-        <span className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-zinc-500">
-          Este mês
-        </span>
-      </div>
-
-      <div className="absolute left-5 top-16 bottom-10 flex flex-col justify-between text-[10px] text-zinc-700">
-        <span>4K</span>
-        <span>3K</span>
-        <span>2K</span>
-        <span>1K</span>
-        <span>0</span>
-      </div>
-
-      <div className="absolute left-14 right-5 top-16 bottom-12">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:42px_42px]" />
-
-        <svg viewBox="0 0 520 180" className="relative h-full w-full">
-          <defs>
-            <linearGradient id="fatorzLine" x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0%" stopColor="#ff0096" />
-              <stop offset="48%" stopColor="#9123ff" />
-              <stop offset="100%" stopColor="#00a3ff" />
-            </linearGradient>
-
-            <linearGradient id="fatorzArea" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#9123ff" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#005cff" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
-          <path
-            d="M0 150 L35 120 L70 135 L110 80 L145 95 L185 45 L230 70 L275 32 L320 98 L365 58 L410 76 L460 24 L520 48 L520 180 L0 180 Z"
-            fill="url(#fatorzArea)"
-          />
-
-          <path
-            d="M0 150 C22 132 24 120 35 120 C52 120 54 138 70 135 C92 130 91 82 110 80 C134 78 124 96 145 95 C166 94 168 46 185 45 C211 44 204 72 230 70 C252 68 251 34 275 32 C302 30 293 98 320 98 C344 98 342 58 365 58 C386 58 389 78 410 76 C437 74 433 24 460 24 C487 24 492 48 520 48"
-            fill="none"
-            stroke="url(#fatorzLine)"
-            strokeWidth="5"
-            strokeLinecap="round"
-          />
-        </svg>
-      </div>
-
-      <div className="absolute bottom-5 left-14 right-5 flex justify-between text-[10px] text-zinc-700">
-        <span>01</span>
-        <span>05</span>
-        <span>10</span>
-        <span>15</span>
-        <span>20</span>
-        <span>25</span>
-        <span>30</span>
-      </div>
-    </div>
-  );
-}
-
-function ProductsRanking({ products }: { products: ProductMetric[] }) {
-  return (
-    <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-      <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
-            Produtos
-          </p>
-          <h2 className="mt-3 text-3xl font-black">Produtos mais vendidos</h2>
-          <p className="mt-2 text-sm text-zinc-500">
-            Ranking por receita recebida, vendas e valores pendentes.
-          </p>
-        </div>
-      </div>
-
-      {products.length ? (
-        <div className="space-y-3">
-          {products.slice(0, 8).map((product, index) => {
-            const maxRevenue = Math.max(products[0]?.revenue || 1, 1);
-            const percent = Math.min(100, Math.round((product.revenue / maxRevenue) * 100));
-
-            return (
-              <div
-                key={product.name}
-                className="rounded-[22px] border border-white/10 bg-black/35 p-4"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-black text-[#ff7bd0]">
-                        #{index + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="truncate font-black text-white">{product.name}</h3>
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {product.paidOrders} venda(s) paga(s) · {product.totalOrders} pedido(s) total
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-left md:text-right">
-                    <p className="text-lg font-black text-emerald-300">
-                      {formatMoney(product.revenue)}
-                    </p>
-                    <p className="text-xs font-bold text-orange-300">
-                      Pendente: {formatMoney(product.pendingValue)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
-          <h3 className="text-xl font-black">Sem vendas registradas ainda.</h3>
-          <p className="mt-2 text-sm text-zinc-500">
-            Quando pedidos pagos entrarem, o ranking aparece aqui automaticamente.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function Dashboard({ user, profile }: DashboardProps) {
   const navigate = useNavigate();
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [purchases, setPurchases] = useState<CoursePurchase[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    loading,
+    isTeam,
+    staffRole,
+    orders,
+    projects,
+    coursePurchases,
+    metrics,
+    productRanking,
+  } = useDashboard({ user, profile });
 
   const customerTag = getCustomerTag(profile);
-  const staffRole = getStaffRole(profile);
-
   const customerLabel = customerTagLabels[customerTag] || "Free";
   const staffLabel = staffRoleLabels[staffRole] || "Aluno/Cliente";
-
-  const isTeam = staffRole !== "none";
-
-  useEffect(() => {
-    loadDashboard();
-  }, [user?.id, user?.email, isTeam]);
-
-  async function loadDashboard() {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-
-    const ordersQuery = supabase
-      .from("orders")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(isTeam ? 1000 : 12);
-
-    const scopedOrdersQuery = isTeam
-      ? ordersQuery
-      : ordersQuery.or(`customer_email.eq.${user.email},user_id.eq.${user.id}`);
-
-    const [ordersResponse, purchasesResponse, coursesResponse] =
-      await Promise.all([
-        scopedOrdersQuery,
-
-        supabase
-          .from("course_purchases")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("courses")
-          .select("*")
-          .eq("is_active", true)
-          .order("order_index", { ascending: true })
-          .order("created_at", { ascending: true })
-          .limit(6),
-      ]);
-
-    setLoading(false);
-
-    if (ordersResponse.error) {
-      console.log("Erro ao carregar pedidos:", ordersResponse.error);
-    } else {
-      setOrders((ordersResponse.data || []) as Order[]);
-    }
-
-    if (purchasesResponse.error) {
-      console.log("Erro ao carregar compras Academy:", purchasesResponse.error);
-    } else {
-      setPurchases((purchasesResponse.data || []) as CoursePurchase[]);
-    }
-
-    if (coursesResponse.error) {
-      console.log("Erro ao carregar cursos:", coursesResponse.error);
-    } else {
-      setCourses((coursesResponse.data || []) as Course[]);
-    }
-  }
-
-  const approvedPurchases = useMemo(() => {
-    return purchases.filter((purchase) => purchase.status === "approved");
-  }, [purchases]);
-
-  const pendingPurchases = useMemo(() => {
-    return purchases.filter((purchase) => purchase.status === "pending");
-  }, [purchases]);
-
-  const availableCourses = useMemo(() => {
-    return courses.filter((course) => {
-      const alreadyBought = approvedPurchases.some(
-        (purchase) => Number(purchase.course_id) === Number(course.id)
-      );
-
-      return !alreadyBought;
-    });
-  }, [courses, approvedPurchases]);
-
-  const paidOrders = useMemo(() => orders.filter(isPaidOrder), [orders]);
-  const pendingOrders = useMemo(() => orders.filter(isPendingOrder), [orders]);
-  const completedOrders = paidOrders;
-
-  const financialMetrics = useMemo(() => {
-    const now = new Date();
-    const todayStart = startOfDay(now);
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-
-    const thisMonthStart = startOfMonth(now);
-    const nextMonthStart = endOfMonth(now);
-
-    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthStart = startOfMonth(lastMonthDate);
-    const lastMonthEnd = endOfMonth(lastMonthDate);
-
-    const revenueToday = sumOrders(
-      paidOrders.filter((order) => isDateBetween(order.created_at, todayStart, tomorrowStart))
-    );
-
-    const revenueYesterday = sumOrders(
-      paidOrders.filter((order) => isDateBetween(order.created_at, yesterdayStart, todayStart))
-    );
-
-    const revenueThisMonth = sumOrders(
-      paidOrders.filter((order) => isDateBetween(order.created_at, thisMonthStart, nextMonthStart))
-    );
-
-    const revenueLastMonth = sumOrders(
-      paidOrders.filter((order) => isDateBetween(order.created_at, lastMonthStart, lastMonthEnd))
-    );
-
-    const revenueTotal = sumOrders(paidOrders);
-    const pendingValue = sumOrders(pendingOrders);
-    const averageTicket = paidOrders.length ? revenueTotal / paidOrders.length : 0;
-
-    return {
-      revenueToday,
-      revenueYesterday,
-      revenueThisMonth,
-      revenueLastMonth,
-      revenueTotal,
-      pendingValue,
-      averageTicket,
-      paidOrdersCount: paidOrders.length,
-      pendingOrdersCount: pendingOrders.length,
-      activeOrdersCount: pendingOrders.length,
-    };
-  }, [paidOrders, pendingOrders]);
-
-  const productMetrics = useMemo(() => {
-    const map = new Map<string, ProductMetric>();
-
-    orders.forEach((order) => {
-      const name = order.product_name?.trim() || `Pedido #${order.id}`;
-      const category = order.product_category || "Sem categoria";
-      const current =
-        map.get(name) ||
-        {
-          name,
-          category,
-          totalOrders: 0,
-          paidOrders: 0,
-          pendingOrders: 0,
-          revenue: 0,
-          pendingValue: 0,
-          lastSale: null,
-        };
-
-      current.totalOrders += 1;
-
-      if (isPaidOrder(order)) {
-        current.paidOrders += 1;
-        current.revenue += getOrderValue(order);
-      }
-
-      if (isPendingOrder(order)) {
-        current.pendingOrders += 1;
-        current.pendingValue += getOrderValue(order);
-      }
-
-      if (!current.lastSale || new Date(order.created_at) > new Date(current.lastSale)) {
-        current.lastSale = order.created_at;
-      }
-
-      map.set(name, current);
-    });
-
-    return Array.from(map.values()).sort((a, b) => {
-      if (b.revenue !== a.revenue) return b.revenue - a.revenue;
-      if (b.paidOrders !== a.paidOrders) return b.paidOrders - a.paidOrders;
-      return b.totalOrders - a.totalOrders;
-    });
-  }, [orders]);
 
   const greetingName =
     profile?.nome || profile?.name || user?.email?.split("@")[0] || "cliente";
 
-  const totalSpent = formatMoney(profile?.total_spent);
+  const approvedPurchases = useMemo(() => {
+    return coursePurchases.filter((purchase) => purchase.status === "approved");
+  }, [coursePurchases]);
 
-  const recentActivities = [
-    {
-      icon: "🛒",
-      title: orders[0]?.product_name || "Novo pedido recebido",
-      subtitle: orders[0]
-        ? `${getOrderStatusLabel(orders[0].status)} · ${formatMoney(getOrderValue(orders[0]))}`
-        : "Nenhum pedido ainda",
-      time: orders[0] ? formatDate(orders[0].created_at) : "—",
-      color: "text-[#ff0096]",
-    },
-    {
-      icon: "📦",
-      title: productMetrics[0]?.name || "Produto em destaque",
-      subtitle: productMetrics[0]
-        ? `${productMetrics[0].paidOrders} venda(s) · ${formatMoney(productMetrics[0].revenue)}`
-        : "Sem vendas registradas",
-      time: productMetrics[0]?.lastSale ? formatDate(productMetrics[0].lastSale) : "—",
-      color: "text-[#9123ff]",
-    },
-    {
-      icon: "📅",
-      title: pendingOrders.length ? "Pedido em andamento" : "Sem pendências",
-      subtitle: pendingOrders.length
-        ? `${pendingOrders.length} ativo(s) · ${formatMoney(financialMetrics.pendingValue)}`
-        : "Tudo certo por enquanto",
-      time: pendingOrders.length ? "agora" : "—",
-      color: "text-[#00a3ff]",
-    },
-    {
-      icon: "💰",
-      title: isTeam ? "Receita do mês" : "Produtos FatorZ",
-      subtitle: isTeam
-        ? formatMoney(financialMetrics.revenueThisMonth)
-        : "Sites, landing pages, criativos e SEO",
-      time: "este mês",
-      color: "text-emerald-300",
-    },
-  ];
+  const pendingPurchases = useMemo(() => {
+    return coursePurchases.filter((purchase) => purchase.status === "pending");
+  }, [coursePurchases]);
+
+  const cards = isTeam
+    ? [
+        {
+          icon: "💰",
+          label: "Receita hoje",
+          value: formatMoney(metrics.revenueToday),
+          trend: "Pedidos pagos de hoje",
+        },
+        {
+          icon: "🚀",
+          label: "Este mês",
+          value: formatMoney(metrics.revenueMonth),
+          trend: "Receita mensal atual",
+        },
+        {
+          icon: "⏳",
+          label: "Pendente",
+          value: formatMoney(metrics.pendingValue),
+          trend: `${metrics.pendingOrders} pedido(s) pendente(s)`,
+        },
+        {
+          icon: "🎯",
+          label: "Ticket médio",
+          value: formatMoney(metrics.averageTicket),
+          trend: "Média por venda paga",
+        },
+        {
+          icon: "🛒",
+          label: "Pedidos pagos",
+          value: metrics.paidOrders,
+          trend: `${metrics.totalOrders} pedido(s) total`,
+        },
+        {
+          icon: "👥",
+          label: "Clientes ativos",
+          value: metrics.activeClients,
+          trend: `${metrics.totalClients} cliente(s) no CRM`,
+        },
+        {
+          icon: "📦",
+          label: "Projetos ativos",
+          value: metrics.activeProjects,
+          trend: `${metrics.totalProjects} projeto(s) total`,
+        },
+        {
+          icon: "🏆",
+          label: "Produtos vendidos",
+          value: productRanking.reduce((sum, item) => sum + item.paidOrders, 0),
+          trend: `${productRanking.length} produto(s) no ranking`,
+        },
+      ]
+    : [
+        {
+          icon: "🛒",
+          label: "Pedidos",
+          value: orders.length,
+          trend: `${metrics.pendingOrders} ativo(s)`,
+        },
+        {
+          icon: "📦",
+          label: "Cursos",
+          value: approvedPurchases.length,
+          trend: `${pendingPurchases.length} pendente(s)`,
+        },
+        {
+          icon: "📅",
+          label: "Entregas",
+          value: projects.length,
+          trend: "Acompanhamento de projetos",
+        },
+        {
+          icon: "🛍️",
+          label: "Produtos FatorZ",
+          value: "Acessar",
+          trend: "Sites, criativos, SEO e Academy",
+        },
+      ];
 
   if (loading) {
     return (
@@ -713,11 +200,11 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             FatorZ
           </p>
 
-          <h1 className="mt-4 text-4xl font-black">
-            Carregando dashboard...
-          </h1>
+          <h1 className="mt-4 text-4xl font-black">Carregando dashboard...</h1>
 
-          <p className="mt-3 text-zinc-500">Preparando seu painel premium.</p>
+          <p className="mt-3 text-zinc-500">
+            Preparando métricas, vendas, clientes e financeiro.
+          </p>
         </div>
       </div>
     );
@@ -733,7 +220,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.4em] text-[#ff0096]">
-              {isTeam ? "Dashboard financeiro" : "Hub FatorZ"}
+              {isTeam ? "Dashboard administrativo" : "Hub FatorZ"}
             </p>
 
             <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">
@@ -742,8 +229,8 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-500 md:text-base">
               {isTeam
-                ? `Bem-vindo ao centro de controle, ${greetingName}. Analise faturamento, pedidos, produtos mais vendidos, pendências e operação da FatorZ.`
-                : `Bem-vindo ao centro de controle, ${greetingName}. Acompanhe pedidos, cursos, entregas, serviços e movimentações da sua conta.`}
+                ? `Bem-vindo ao centro de controle, ${greetingName}. Aqui entram vendas, financeiro, clientes, projetos e produtos mais vendidos.`
+                : `Bem-vindo ao centro de controle, ${greetingName}. Acompanhe pedidos, cursos, entregas e movimentações da sua conta.`}
             </p>
           </div>
 
@@ -758,219 +245,106 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
             <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-emerald-300">
               {isTeam
-                ? `${financialMetrics.paidOrdersCount} venda(s) paga(s)`
+                ? `${metrics.paidOrders} venda(s) paga(s)`
                 : `${approvedPurchases.length} curso(s)`}
             </span>
           </div>
         </div>
 
-        {isTeam ? (
-          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
-            <StatCard
-              icon="💰"
-              label="Receita hoje"
-              value={formatMoney(financialMetrics.revenueToday)}
-              trend="Pedidos pagos de hoje"
-              color="text-emerald-300"
-            />
-
-            <StatCard
-              icon="📆"
-              label="Receita ontem"
-              value={formatMoney(financialMetrics.revenueYesterday)}
-              trend="Comparativo diário"
-              color="text-[#00a3ff]"
-            />
-
-            <StatCard
-              icon="🚀"
-              label="Este mês"
-              value={formatMoney(financialMetrics.revenueThisMonth)}
-              trend="Receita mensal atual"
-              color="text-[#ff0096]"
-            />
-
-            <StatCard
-              icon="📊"
-              label="Mês passado"
-              value={formatMoney(financialMetrics.revenueLastMonth)}
-              trend="Histórico mensal"
-              color="text-[#9123ff]"
-            />
-          </section>
-        ) : (
-          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
-            <StatCard
-              icon="🛒"
-              label="Pedidos"
-              value={orders.length}
-              trend={`+${pendingOrders.length} ativo(s)`}
-              color="text-[#ff0096]"
-            />
-
-            <StatCard
-              icon="📦"
-              label="Cursos"
-              value={approvedPurchases.length}
-              trend={`+${pendingPurchases.length} pendente(s)`}
-              color="text-[#9123ff]"
-            />
-
-            <StatCard
-              icon="📅"
-              label="Pedidos ativos"
-              value={pendingOrders.length}
-              trend="Acompanhamento de entregas"
-              color="text-[#ff0096]"
-            />
-
-            <button onClick={() => navigate("/")} className="text-left">
-              <StatCard
-                icon="🛍️"
-                label="Produtos FatorZ"
-                value="Acessar"
-                trend="Sites, criativos, SEO e Academy"
-                color="text-[#00a3ff]"
-              />
-            </button>
-          </section>
-        )}
-
-        {isTeam && (
-          <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
-            <StatCard
-              icon="🏦"
-              label="Receita total"
-              value={formatMoney(financialMetrics.revenueTotal)}
-              trend={`${financialMetrics.paidOrdersCount} venda(s) paga(s)`}
-              color="text-emerald-300"
-            />
-
-            <StatCard
-              icon="⏳"
-              label="Valor pendente"
-              value={formatMoney(financialMetrics.pendingValue)}
-              trend={`${financialMetrics.pendingOrdersCount} pedido(s) pendente(s)`}
-              color="text-orange-300"
-            />
-
-            <StatCard
-              icon="🎯"
-              label="Ticket médio"
-              value={formatMoney(financialMetrics.averageTicket)}
-              trend="Média por venda paga"
-              color="text-[#00a3ff]"
-            />
-
-            <StatCard
-              icon="🏆"
-              label="Produtos vendidos"
-              value={productMetrics.reduce((sum, product) => sum + product.paidOrders, 0)}
-              trend={`${productMetrics.length} produto(s) no ranking`}
-              color="text-[#ff0096]"
-            />
-          </section>
-        )}
-
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.9fr]">
-          <MiniChart label={isTeam ? "Resumo financeiro" : "Resumo de atividades"} />
-
-          <div className="rounded-[28px] border border-white/10 bg-[#08080d]/90 p-5">
-            <div className="mb-5 flex items-center justify-between">
-              <p className="text-sm font-black text-zinc-200">
-                Atividades recentes
-              </p>
-
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.8)]" />
-            </div>
-
-            <div className="space-y-4">
-              {recentActivities.map((item, index) => (
-                <div
-                  key={`${item.title}-${index}`}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-lg ${item.color}`}
-                    >
-                      {item.icon}
-                    </div>
-
-                    <div className="min-w-0">
-                      <h3 className="truncate text-sm font-black text-white">
-                        {item.title}
-                      </h3>
-
-                      <p className="mt-1 truncate text-xs text-zinc-500">
-                        {item.subtitle}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="whitespace-nowrap text-xs text-zinc-600">
-                    {item.time}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <DashboardCards cards={cards} />
       </section>
 
       {isTeam && (
-        <section className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-          <ProductsRanking products={productMetrics} />
-
-          <aside className="space-y-5">
-            <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+            <div className="mb-5">
               <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
-                Análise financeira
+                Produtos
               </p>
 
-              <div className="mt-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-500">Hoje</span>
-                  <span className="text-xl font-black text-emerald-300">
-                    {formatMoney(financialMetrics.revenueToday)}
-                  </span>
-                </div>
+              <h2 className="mt-3 text-3xl font-black">
+                Produtos mais vendidos
+              </h2>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-500">Ontem</span>
-                  <span className="text-xl font-black text-blue-300">
-                    {formatMoney(financialMetrics.revenueYesterday)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-500">Este mês</span>
-                  <span className="text-xl font-black text-[#ff7bd0]">
-                    {formatMoney(financialMetrics.revenueThisMonth)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-500">Mês passado</span>
-                  <span className="text-xl font-black text-[#b983ff]">
-                    {formatMoney(financialMetrics.revenueLastMonth)}
-                  </span>
-                </div>
-
-                <div className="h-px bg-white/10" />
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-500">Ticket médio</span>
-                  <span className="text-xl font-black text-yellow-300">
-                    {formatMoney(financialMetrics.averageTicket)}
-                  </span>
-                </div>
-              </div>
+              <p className="mt-2 text-sm text-zinc-500">
+                Ranking somando vendas de pedidos antigos, checkout de produtos
+                e lançamentos manuais.
+              </p>
             </div>
+
+            {productRanking.length ? (
+              <div className="space-y-3">
+                {productRanking.slice(0, 8).map((product, index) => {
+                  const maxRevenue = Math.max(productRanking[0]?.revenue || 1, 1);
+                  const percent = Math.min(
+                    100,
+                    Math.round((product.revenue / maxRevenue) * 100)
+                  );
+
+                  return (
+                    <div
+                      key={product.name}
+                      className="rounded-[22px] border border-white/10 bg-black/35 p-4"
+                    >
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-black text-[#ff7bd0]">
+                            #{index + 1}
+                          </span>
+
+                          <div className="min-w-0">
+                            <h3 className="truncate font-black text-white">
+                              {product.name}
+                            </h3>
+
+                            <p className="mt-1 text-xs text-zinc-500">
+                              {product.paidOrders} venda(s) paga(s) ·{" "}
+                              {product.totalOrders} pedido(s) total
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-left md:text-right">
+                          <p className="text-lg font-black text-emerald-300">
+                            {formatMoney(product.revenue)}
+                          </p>
+
+                          <p className="text-xs font-bold text-orange-300">
+                            Pendente: {formatMoney(product.pendingValue)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
+                <h3 className="text-xl font-black">
+                  Sem vendas registradas ainda.
+                </h3>
+
+                <p className="mt-2 text-sm text-zinc-500">
+                  Quando entrar venda paga em orders, site_product_orders ou
+                  payments, ela aparece aqui.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <aside className="space-y-5">
+            <FinanceiroResumo metrics={metrics} />
 
             <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
               <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
-                Ações de operação
+                Ações rápidas
               </p>
 
               <div className="mt-5 space-y-3">
@@ -980,7 +354,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 >
                   <h3 className="font-black">Abrir financeiro</h3>
                   <p className="mt-1 text-sm text-zinc-500">
-                    Ver lançamentos, pagamentos e análise completa.
+                    Ver pagamentos, pendências e lançamentos manuais.
                   </p>
                 </button>
 
@@ -990,17 +364,17 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 >
                   <h3 className="font-black">Gerenciar pedidos</h3>
                   <p className="mt-1 text-sm text-zinc-500">
-                    Acompanhar vendas, status e pendências.
+                    Acompanhar vendas, status e projetos gerados.
                   </p>
                 </button>
 
                 <button
-                  onClick={() => navigate("/admin/produtos")}
-                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#9123ff]/40 hover:bg-white/[0.07]"
+                  onClick={() => navigate("/clientes")}
+                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#00a3ff]/40 hover:bg-white/[0.07]"
                 >
-                  <h3 className="font-black">Gerenciar produtos</h3>
+                  <h3 className="font-black">CRM de clientes</h3>
                   <p className="mt-1 text-sm text-zinc-500">
-                    Editar ofertas, preços e links de pagamento.
+                    Ver clientes ativos, planos e contatos.
                   </p>
                 </button>
               </div>
@@ -1015,136 +389,22 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
-                  Academy
-                </p>
-
-                <h2 className="mt-3 text-3xl font-black">
-                  Seus cursos vitalícios
-                </h2>
-
-                <p className="mt-2 text-sm text-zinc-500">
-                  Cada curso comprado fica liberado individualmente na sua conta.
-                </p>
-              </div>
-
-              <button
-                onClick={() => navigate("/academy")}
-                className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-3 text-sm font-black text-white transition hover:scale-[1.02]"
-              >
-                Abrir Academy
-              </button>
-            </div>
-
-            {approvedPurchases.length ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {approvedPurchases.slice(0, 4).map((purchase) => (
-                  <div
-                    key={purchase.id}
-                    className="rounded-[22px] border border-emerald-400/20 bg-emerald-500/10 p-4"
-                  >
-                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">
-                      Acesso vitalício
-                    </p>
-
-                    <h3 className="mt-2 text-lg font-black">
-                      {purchase.course_title || `Curso #${purchase.course_id}`}
-                    </h3>
-
-                    <p className="mt-2 text-xs text-emerald-100/60">
-                      Liberado em {formatDate(purchase.approved_at)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
-                <h3 className="text-xl font-black">
-                  Você ainda não tem cursos liberados.
-                </h3>
-
-                <p className="mt-2 text-sm text-zinc-500">
-                  Acesse o catálogo da Academy, escolha um curso e compre acesso
-                  vitalício individual.
-                </p>
-
-                <button
-                  onClick={() => navigate("/academy")}
-                  className="mt-5 rounded-2xl bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-zinc-200"
-                >
-                  Ver cursos disponíveis
-                </button>
-              </div>
-            )}
-
-            {pendingPurchases.length > 0 && (
-              <div className="mt-5">
-                <p className="mb-3 text-xs font-black uppercase tracking-[0.25em] text-orange-300">
-                  Compras pendentes
-                </p>
-
-                <div className="space-y-3">
-                  {pendingPurchases.slice(0, 3).map((purchase) => (
-                    <div
-                      key={purchase.id}
-                      className="rounded-[20px] border border-orange-400/20 bg-orange-500/10 p-4"
-                    >
-                      <h3 className="font-black">
-                        {purchase.course_title || `Curso #${purchase.course_id}`}
-                      </h3>
-
-                      <p className="mt-1 text-sm text-orange-100/70">
-                        Criado em {formatDateTime(purchase.created_at)}. Após
-                        confirmação, a FatorZ libera o acesso vitalício.
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {!isTeam && (
-            <div className="rounded-[30px] border border-[#ff0096]/20 bg-gradient-to-br from-[#ff0096]/12 via-[#9123ff]/10 to-[#005cff]/12 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff7bd0]">
-                Produtos FatorZ
-              </p>
-
-              <h2 className="mt-3 text-3xl font-black">
-                Contrate soluções direto pelo painel
-              </h2>
-
-              <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-                Acesse sites, landing pages, criativos, SEO, Academy e serviços
-                digitais sem precisar procurar o link em outro lugar.
-              </p>
-
-              <button
-                onClick={() => navigate("/")}
-                className="mt-5 rounded-2xl bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-zinc-200"
-              >
-                Ver Produtos FatorZ
-              </button>
-            </div>
-          )}
-
-          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-            <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
                   Pedidos
                 </p>
 
                 <h2 className="mt-3 text-3xl font-black">
-                  Últimas solicitações
+                  Últimas movimentações
                 </h2>
 
                 <p className="mt-2 text-sm text-zinc-500">
-                  Acompanhe produtos, serviços e projetos solicitados na FatorZ.
+                  Pedidos, checkouts e lançamentos financeiros mais recentes.
                 </p>
               </div>
 
               <button
-                onClick={() => navigate(isTeam ? "/admin/pedidos" : "/minhas-entregas")}
+                onClick={() =>
+                  navigate(isTeam ? "/admin/pedidos" : "/minhas-entregas")
+                }
                 className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.08]"
               >
                 {isTeam ? "Ver pedidos" : "Ver entregas"}
@@ -1153,7 +413,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
             {orders.length ? (
               <div className="space-y-3">
-                {orders.slice(0, 5).map((order) => (
+                {orders.slice(0, 8).map((order) => (
                   <div
                     key={order.id}
                     className="rounded-[22px] border border-white/10 bg-black/35 p-4"
@@ -1161,20 +421,28 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
                         <h3 className="font-black">
-                          {order.product_name || `Pedido #${order.id}`}
+                          {order.product_name || "Movimentação sem nome"}
                         </h3>
 
                         <p className="mt-1 text-xs text-zinc-500">
-                          Criado em {formatDateTime(order.created_at)} · {formatMoney(getOrderValue(order))}
+                          {order.customer_name ||
+                            order.customer_email ||
+                            "Cliente não informado"}{" "}
+                          · {formatDateTime(order.created_at)} ·{" "}
+                          {formatMoney(order.amount)}
+                        </p>
+
+                        <p className="mt-1 text-[11px] uppercase tracking-widest text-zinc-600">
+                          Origem: {order.source}
                         </p>
                       </div>
 
                       <span
-                        className={`w-fit rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${getOrderStatusClass(
+                        className={`w-fit rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${getStatusClass(
                           order.status
                         )}`}
                       >
-                        {getOrderStatusLabel(order.status)}
+                        {getStatusLabel(order.status)}
                       </span>
                     </div>
                   </div>
@@ -1183,67 +451,15 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             ) : (
               <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
                 <h3 className="text-xl font-black">
-                  Nenhum pedido encontrado.
+                  Nenhuma movimentação encontrada.
                 </h3>
 
                 <p className="mt-2 text-sm text-zinc-500">
-                  Quando uma solução FatorZ for contratada, ela aparecerá aqui
-                  para acompanhamento.
+                  Quando entrar venda, pedido ou pagamento manual, aparece aqui.
                 </p>
-
-                <button
-                  onClick={() => navigate("/")}
-                  className="mt-5 rounded-2xl bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-zinc-200"
-                >
-                  Ver produtos
-                </button>
               </div>
             )}
           </div>
-
-          {availableCourses.length > 0 && (
-            <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
-                Próximos cursos
-              </p>
-
-              <h2 className="mt-3 text-3xl font-black">
-                Disponíveis para compra
-              </h2>
-
-              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {availableCourses.slice(0, 6).map((course) => (
-                  <button
-                    key={course.id}
-                    onClick={() =>
-                      navigate(`/checkout/academy?courseId=${course.id}`)
-                    }
-                    className="rounded-[22px] border border-white/10 bg-black/35 p-5 text-left transition hover:-translate-y-1 hover:border-[#ff0096]/30 hover:bg-white/[0.06]"
-                  >
-                    {course.badge && (
-                      <span className="mb-3 inline-flex rounded-full border border-[#ff0096]/25 bg-[#ff0096]/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#ff7bd0]">
-                        {course.badge}
-                      </span>
-                    )}
-
-                    <h3 className="text-lg font-black">{course.title}</h3>
-
-                    <p className="mt-2 text-sm text-zinc-500">
-                      {course.subtitle ||
-                        course.description ||
-                        "Curso FatorZ Academy com acesso vitalício."}
-                    </p>
-
-                    <p className="mt-4 text-lg font-black">
-                      {course.is_paid
-                        ? formatMoneyFromCents(course.price_cents)
-                        : "Gratuito"}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         <aside className="space-y-5">
@@ -1255,128 +471,20 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             <div className="mt-5 space-y-4">
               {isTeam ? (
                 <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-500">Receita total</span>
-                    <span className="text-xl font-black text-emerald-300">
-                      {formatMoney(financialMetrics.revenueTotal)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-500">Pendente</span>
-                    <span className="text-xl font-black text-orange-300">
-                      {formatMoney(financialMetrics.pendingValue)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-500">Pedidos ativos</span>
-                    <span className="text-xl font-black text-blue-300">
-                      {financialMetrics.activeOrdersCount}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-500">Produtos vendidos</span>
-                    <span className="text-xl font-black text-[#ff7bd0]">
-                      {productMetrics.reduce((sum, product) => sum + product.paidOrders, 0)}
-                    </span>
-                  </div>
+                  <Line label="Receita total" value={formatMoney(metrics.revenueTotal)} />
+                  <Line label="Valor pendente" value={formatMoney(metrics.pendingValue)} />
+                  <Line label="Pedidos totais" value={String(metrics.totalOrders)} />
+                  <Line label="Clientes ativos" value={String(metrics.activeClients)} />
+                  <Line label="Projetos ativos" value={String(metrics.activeProjects)} />
                 </>
               ) : (
                 <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-500">Cursos liberados</span>
-                    <span className="text-xl font-black text-emerald-300">
-                      {approvedPurchases.length}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-500">Compras pendentes</span>
-                    <span className="text-xl font-black text-orange-300">
-                      {pendingPurchases.length}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-500">Pedidos ativos</span>
-                    <span className="text-xl font-black text-blue-300">
-                      {pendingOrders.length}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-500">Entregas concluídas</span>
-                    <span className="text-xl font-black text-[#ff7bd0]">
-                      {completedOrders.length}
-                    </span>
-                  </div>
-
-                  <div className="h-px bg-white/10" />
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-500">Total gasto</span>
-                    <span className="text-xl font-black text-yellow-300">
-                      {totalSpent}
-                    </span>
-                  </div>
+                  <Line label="Cursos liberados" value={String(approvedPurchases.length)} />
+                  <Line label="Compras pendentes" value={String(pendingPurchases.length)} />
+                  <Line label="Pedidos ativos" value={String(metrics.pendingOrders)} />
+                  <Line label="Total gasto" value={formatMoney(profile?.total_spent || 0)} />
                 </>
               )}
-            </div>
-          </div>
-
-          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-            <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
-              Ações rápidas
-            </p>
-
-            <h2 className="mt-3 text-3xl font-black">
-              O que você quer fazer?
-            </h2>
-
-            <div className="mt-5 space-y-3">
-              {!isTeam && (
-                <button
-                  onClick={() => navigate("/")}
-                  className="w-full rounded-[20px] border border-[#ff0096]/20 bg-[#ff0096]/10 p-4 text-left transition hover:border-[#ff0096]/40 hover:bg-[#ff0096]/15"
-                >
-                  <h3 className="font-black">Produtos FatorZ</h3>
-                  <p className="mt-1 text-sm text-zinc-400">
-                    Contrate sites, landing pages, criativos, SEO e cursos.
-                  </p>
-                </button>
-              )}
-
-              <button
-                onClick={() => navigate("/academy")}
-                className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#9123ff]/40 hover:bg-white/[0.07]"
-              >
-                <h3 className="font-black">Abrir Academy</h3>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Veja cursos liberados e disponíveis.
-                </p>
-              </button>
-
-              <button
-                onClick={() => navigate(isTeam ? "/admin/pedidos" : "/minhas-entregas")}
-                className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#00a3ff]/40 hover:bg-white/[0.07]"
-              >
-                <h3 className="font-black">{isTeam ? "Pedidos admin" : "Minhas Entregas"}</h3>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Acompanhe status, pedidos e projetos.
-                </p>
-              </button>
-
-              <button
-                onClick={() => navigate("/configuracoes")}
-                className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#00a3ff]/40 hover:bg-white/[0.07]"
-              >
-                <h3 className="font-black">Configurações</h3>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Atualize seus dados da conta.
-                </p>
-              </button>
             </div>
           </div>
 
@@ -1388,7 +496,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             <div className="mt-5 space-y-4 text-sm">
               <div>
                 <p className="text-zinc-500">Email</p>
-                <p className="font-black break-all">{user?.email}</p>
+                <p className="break-all font-black">{user?.email}</p>
               </div>
 
               <div>
@@ -1400,17 +508,19 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 <p className="text-zinc-500">Cargo</p>
                 <p className="font-black">{staffLabel}</p>
               </div>
-
-              {!isTeam && (
-                <div>
-                  <p className="text-zinc-500">Total gasto</p>
-                  <p className="font-black text-yellow-300">{totalSpent}</p>
-                </div>
-              )}
             </div>
           </div>
         </aside>
       </section>
+    </div>
+  );
+}
+
+function Line({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm text-zinc-500">{label}</span>
+      <span className="text-xl font-black text-white">{value}</span>
     </div>
   );
 }
