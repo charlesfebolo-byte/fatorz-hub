@@ -9,8 +9,6 @@ import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Clients from "./pages/Clients";
-import Finance from "./pages/Finance";
 import Projects from "./pages/Projects";
 import Settings from "./pages/Settings";
 import Mural from "./pages/Mural";
@@ -91,12 +89,6 @@ const PROJECTS_ROLES: StaffRole[] = [
   "gestor_entregas",
   "criador_visual",
   "suporte_fatorz",
-];
-
-const FINANCE_ROLES: StaffRole[] = [
-  "ceo_fatorz",
-  "diretor_operacional",
-  "financeiro",
 ];
 
 function LoadingScreen({ text = "Carregando..." }: { text?: string }) {
@@ -514,17 +506,6 @@ export default function App() {
         />
 
         <Route
-          path="/clientes"
-          element={
-            <StaffRoute user={user} profile={profile} allowedRoles={USERS_ROLES}>
-              <DashboardLayout profile={profile}>
-                <Clients />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
-
-        <Route
           path="/projetos"
           element={
             <StaffRoute user={user} profile={profile} allowedRoles={PROJECTS_ROLES}>
@@ -535,16 +516,8 @@ export default function App() {
           }
         />
 
-        <Route
-          path="/financeiro"
-          element={
-            <StaffRoute user={user} profile={profile} allowedRoles={FINANCE_ROLES}>
-              <DashboardLayout profile={profile}>
-                <Finance />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
+        <Route path="/clientes" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/financeiro" element={<Navigate to="/dashboard" replace />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

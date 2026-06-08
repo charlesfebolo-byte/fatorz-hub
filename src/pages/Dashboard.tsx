@@ -1,8 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatMoney, useDashboard } from "../hooks/useDashboard";
+import { useClientes } from "../hooks/useClientes";
 import DashboardCards from "../components/DashboardCards";
 import FinanceiroResumo from "../components/FinanceiroResumo";
+import ManualSaleModal from "../components/ManualSaleModal";
 
 type DashboardProps = {
   user: any;
@@ -87,6 +89,10 @@ function getStatusClass(status: string | null | undefined) {
 
 export default function Dashboard({ user, profile }: DashboardProps) {
   const navigate = useNavigate();
+  const [manualSaleOpen, setManualSaleOpen] = useState(false);
+
+  const dashboard = useDashboard({ user, profile });
+  const crm = useClientes();
 
   const {
     loading,
@@ -97,7 +103,8 @@ export default function Dashboard({ user, profile }: DashboardProps) {
     coursePurchases,
     metrics,
     productRanking,
-  } = useDashboard({ user, profile });
+    reload,
+  } = dashboard;
 
   const customerTag = getCustomerTag(profile);
   const customerLabel = customerTagLabels[customerTag] || "Free";
@@ -113,6 +120,35 @@ export default function Dashboard({ user, profile }: DashboardProps) {
   const pendingPurchases = useMemo(() => {
     return coursePurchases.filter((purchase) => purchase.status === "pending");
   }, [coursePurchases]);
+
+  const recentClients = useMemo(() => {
+    return crm.clientes.slice(0, 5);
+  }, [crm.clientes]);
+
+  const recentProjects = useMemo(() => {
+    return projects.slice(0, 5);
+  }, [projects]);
+
+  const chartBars = useMemo(() => {
+    const values = [
+      metrics.revenueToday,
+      metrics.revenueYesterday,
+      metrics.revenueMonth,
+      metrics.revenueLastMonth,
+    ];
+
+    const max = Math.max(...values, 1);
+
+    return [
+      { label: "Hoje", value: metrics.revenueToday },
+      { label: "Ontem", value: metrics.revenueYesterday },
+      { label: "Mês", value: metrics.revenueMonth },
+      { label: "Mês ant.", value: metrics.revenueLastMonth },
+    ].map((item) => ({
+      ...item,
+      percent: Math.max(6, Math.round((item.value / max) * 100)),
+    }));
+  }, [metrics]);
 
   const cards = isTeam
     ? [
@@ -148,9 +184,9 @@ export default function Dashboard({ user, profile }: DashboardProps) {
         },
         {
           icon: "👥",
-          label: "Clientes ativos",
-          value: metrics.activeClients,
-          trend: `${metrics.totalClients} cliente(s) no CRM`,
+          label: "Clientes automáticos",
+          value: crm.metrics.totalClientes,
+          trend: `${crm.metrics.clientesPagantes} cliente(s) pagante(s)`,
         },
         {
           icon: "📦",
@@ -192,6 +228,10 @@ export default function Dashboard({ user, profile }: DashboardProps) {
         },
       ];
 
+  async function handleManualSaleSaved() {
+    await Promise.all([reload(), crm.reload()]);
+  }
+
   if (loading) {
     return (
       <div className="text-white">
@@ -212,6 +252,12 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
   return (
     <div className="relative text-white">
+      <ManualSaleModal
+        open={manualSaleOpen}
+        onClose={() => setManualSaleOpen(false)}
+        onSaved={handleManualSaleSaved}
+      />
+
       <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-[#9123ff]/10 blur-[120px]" />
       <div className="pointer-events-none absolute right-0 top-32 -z-10 h-[380px] w-[380px] rounded-full bg-[#005cff]/10 blur-[100px]" />
       <div className="pointer-events-none absolute bottom-0 left-0 -z-10 h-[380px] w-[380px] rounded-full bg-[#ff0096]/10 blur-[100px]" />
@@ -220,17 +266,17 @@ export default function Dashboard({ user, profile }: DashboardProps) {
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.4em] text-[#ff0096]">
-              {isTeam ? "Dashboard administrativo" : "Hub FatorZ"}
+              {isTeam ? "Dashboard FatorZ" : "Hub FatorZ"}
             </p>
 
             <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">
-              Dashboard
+              Centro de controle
             </h1>
 
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-500 md:text-base">
               {isTeam
-                ? `Bem-vindo ao centro de controle, ${greetingName}. Aqui entram vendas, financeiro, clientes, projetos e produtos mais vendidos.`
-                : `Bem-vindo ao centro de controle, ${greetingName}. Acompanhe pedidos, cursos, entregas e movimentações da sua conta.`}
+                ? `Bem-vindo, ${greetingName}. Aqui você acompanha vendas, clientes, projetos, produtos e movimentações da FatorZ em um só lugar.`
+                : `Bem-vindo, ${greetingName}. Acompanhe seus pedidos, cursos, entregas e movimentações da sua conta.`}
             </p>
           </div>
 
@@ -257,6 +303,225 @@ export default function Dashboard({ user, profile }: DashboardProps) {
       {isTeam && (
         <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
           <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+                  Performance
+                </p>
+
+                <h2 className="mt-3 text-3xl font-black">
+                  Resumo visual da receita
+                </h2>
+
+                <p className="mt-2 text-sm text-zinc-500">
+                  Leitura rápida dos principais períodos financeiros.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setManualSaleOpen(true)}
+                className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-3 text-sm font-black text-white transition hover:scale-[1.02]"
+              >
+                + Nova venda manual
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {chartBars.map((item) => (
+                <div key={item.label}>
+                  <div className="mb-2 flex items-center justify-between gap-4">
+                    <span className="text-sm font-black text-zinc-300">
+                      {item.label}
+                    </span>
+
+                    <span className="text-sm font-black text-white">
+                      {formatMoney(item.value)}
+                    </span>
+                  </div>
+
+                  <div className="h-4 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                      style={{ width: `${item.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <aside className="space-y-5">
+            <FinanceiroResumo metrics={metrics} />
+
+            <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+                Ações rápidas
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <button
+                  onClick={() => setManualSaleOpen(true)}
+                  className="w-full rounded-[20px] border border-emerald-400/20 bg-emerald-500/10 p-4 text-left transition hover:border-emerald-400/40 hover:bg-emerald-500/15"
+                >
+                  <h3 className="font-black text-emerald-300">
+                    Registrar venda manual
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Para vendas fechadas fora do site.
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => navigate("/admin/pedidos")}
+                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#ff0096]/40 hover:bg-white/[0.07]"
+                >
+                  <h3 className="font-black">Gerenciar pedidos</h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Acompanhar vendas, status e projetos gerados.
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => navigate("/projetos")}
+                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#00a3ff]/40 hover:bg-white/[0.07]"
+                >
+                  <h3 className="font-black">Projetos</h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Ver entregas e produção em andamento.
+                  </p>
+                </button>
+              </div>
+            </div>
+          </aside>
+        </section>
+      )}
+
+      {isTeam && (
+        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+            <div className="mb-5">
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+                CRM automático
+              </p>
+
+              <h2 className="mt-3 text-3xl font-black">Últimos clientes</h2>
+
+              <p className="mt-2 text-sm text-zinc-500">
+                Gerado automaticamente pelas vendas, pedidos e pagamentos manuais.
+              </p>
+            </div>
+
+            {recentClients.length ? (
+              <div className="space-y-3">
+                {recentClients.map((client) => (
+                  <div
+                    key={client.key}
+                    className="rounded-[22px] border border-white/10 bg-black/35 p-4"
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-lg font-black">
+                          {client.name}
+                        </h3>
+
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {client.email || client.phone || "Sem contato"} ·{" "}
+                          {client.totalOrders} compra(s)
+                        </p>
+
+                        <p className="mt-1 text-xs text-zinc-600">
+                          Último produto: {client.lastProduct || "—"}
+                        </p>
+                      </div>
+
+                      <div className="text-left md:text-right">
+                        <p className="text-xl font-black text-emerald-300">
+                          {formatMoney(client.totalSpent)}
+                        </p>
+
+                        <p className="text-xs text-zinc-500">
+                          {client.paidOrders} paga(s)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
+                <h3 className="text-xl font-black">
+                  Nenhum cliente detectado ainda.
+                </h3>
+
+                <p className="mt-2 text-sm text-zinc-500">
+                  Quando entrar venda, o CRM aparece automaticamente aqui.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+            <div className="mb-5">
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+                Operação
+              </p>
+
+              <h2 className="mt-3 text-3xl font-black">
+                Projetos em andamento
+              </h2>
+
+              <p className="mt-2 text-sm text-zinc-500">
+                Entregas e serviços que precisam de atenção.
+              </p>
+            </div>
+
+            {recentProjects.length ? (
+              <div className="space-y-3">
+                {recentProjects.map((project) => (
+                  <div
+                    key={project.id}
+                    className="rounded-[22px] border border-white/10 bg-black/35 p-4"
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <h3 className="font-black">
+                          {project.title || "Projeto sem título"}
+                        </h3>
+
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {project.client_name || project.client_email || "Cliente não informado"}
+                        </p>
+
+                        <p className="mt-1 text-xs text-zinc-600">
+                          Serviço: {project.service_type || "—"}
+                        </p>
+                      </div>
+
+                      <span className="w-fit rounded-full border border-blue-400/25 bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-300">
+                        {project.status || "sem status"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
+                <h3 className="text-xl font-black">
+                  Nenhum projeto encontrado.
+                </h3>
+
+                <p className="mt-2 text-sm text-zinc-500">
+                  Quando um pedido virar entrega, ele aparece aqui.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {isTeam && (
+        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
             <div className="mb-5">
               <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
                 Produtos
@@ -267,8 +532,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
               </h2>
 
               <p className="mt-2 text-sm text-zinc-500">
-                Ranking somando vendas de pedidos antigos, checkout de produtos
-                e lançamentos manuais.
+                Ranking somando pedidos antigos, checkout de produtos e lançamentos manuais.
               </p>
             </div>
 
@@ -332,53 +596,48 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 </h3>
 
                 <p className="mt-2 text-sm text-zinc-500">
-                  Quando entrar venda paga em orders, site_product_orders ou
-                  payments, ela aparece aqui.
+                  Quando entrar venda paga, ela aparece aqui.
                 </p>
               </div>
             )}
           </div>
 
-          <aside className="space-y-5">
-            <FinanceiroResumo metrics={metrics} />
+          <aside className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+            <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+              Maior cliente
+            </p>
 
-            <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
-                Ações rápidas
-              </p>
+            {crm.metrics.maiorCliente ? (
+              <div className="mt-5">
+                <h2 className="text-3xl font-black">
+                  {crm.metrics.maiorCliente.name}
+                </h2>
 
-              <div className="mt-5 space-y-3">
-                <button
-                  onClick={() => navigate("/financeiro")}
-                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-emerald-400/40 hover:bg-white/[0.07]"
-                >
-                  <h3 className="font-black">Abrir financeiro</h3>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    Ver pagamentos, pendências e lançamentos manuais.
+                <p className="mt-2 text-sm text-zinc-500">
+                  {crm.metrics.maiorCliente.email ||
+                    crm.metrics.maiorCliente.phone ||
+                    "Sem contato"}
+                </p>
+
+                <div className="mt-6 rounded-[24px] border border-emerald-400/20 bg-emerald-500/10 p-5">
+                  <p className="text-xs font-black uppercase tracking-widest text-emerald-300">
+                    Total gasto
                   </p>
-                </button>
 
-                <button
-                  onClick={() => navigate("/admin/pedidos")}
-                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#ff0096]/40 hover:bg-white/[0.07]"
-                >
-                  <h3 className="font-black">Gerenciar pedidos</h3>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    Acompanhar vendas, status e projetos gerados.
+                  <p className="mt-3 text-4xl font-black text-emerald-300">
+                    {formatMoney(crm.metrics.maiorCliente.totalSpent)}
                   </p>
-                </button>
+                </div>
 
-                <button
-                  onClick={() => navigate("/clientes")}
-                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#00a3ff]/40 hover:bg-white/[0.07]"
-                >
-                  <h3 className="font-black">CRM de clientes</h3>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    Ver clientes ativos, planos e contatos.
-                  </p>
-                </button>
+                <p className="mt-4 text-sm text-zinc-500">
+                  Último produto: {crm.metrics.maiorCliente.lastProduct || "—"}
+                </p>
               </div>
-            </div>
+            ) : (
+              <p className="mt-5 text-sm text-zinc-500">
+                Ainda não há cliente pagante registrado.
+              </p>
+            )}
           </aside>
         </section>
       )}
@@ -474,7 +733,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                   <Line label="Receita total" value={formatMoney(metrics.revenueTotal)} />
                   <Line label="Valor pendente" value={formatMoney(metrics.pendingValue)} />
                   <Line label="Pedidos totais" value={String(metrics.totalOrders)} />
-                  <Line label="Clientes ativos" value={String(metrics.activeClients)} />
+                  <Line label="Clientes automáticos" value={String(crm.metrics.totalClientes)} />
                   <Line label="Projetos ativos" value={String(metrics.activeProjects)} />
                 </>
               ) : (

@@ -1,6 +1,4 @@
 import { useState } from "react";
-
-// SIDEBAR_FATORZ_PRODUTOS_V4
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -31,16 +29,12 @@ const staffRoleLabels: Record<string, string> = {
 
 function getStaffRole(profile: any): StaffRole {
   if (profile?.staff_role) return profile.staff_role;
-
   if (profile?.role === "admin") return "ceo_fatorz";
-
   return "none";
 }
 
 function hasAnyRole(profile: any, roles: StaffRole[]) {
-  const staffRole = getStaffRole(profile);
-
-  return roles.includes(staffRole);
+  return roles.includes(getStaffRole(profile));
 }
 
 function isTeamMember(profile: any) {
@@ -57,7 +51,6 @@ function SidebarIcon({ children }: { children: any }) {
 
 export default function Sidebar({ profile }: SidebarProps) {
   const navigate = useNavigate();
-
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const staffRole = getStaffRole(profile);
@@ -99,12 +92,6 @@ export default function Sidebar({ profile }: SidebarProps) {
     "suporte_fatorz",
   ]);
 
-  const canSeeFinance = hasAnyRole(profile, [
-    "ceo_fatorz",
-    "diretor_operacional",
-    "financeiro",
-  ]);
-
   const canSeeSubscriptions = hasAnyRole(profile, [
     "ceo_fatorz",
     "diretor_operacional",
@@ -121,7 +108,6 @@ export default function Sidebar({ profile }: SidebarProps) {
 
   async function logout() {
     const confirmLogout = confirm("Tem certeza que quer sair da conta?");
-
     if (!confirmLogout) return;
 
     const { error } = await supabase.auth.signOut();
@@ -158,14 +144,12 @@ export default function Sidebar({ profile }: SidebarProps) {
   function AccountBox() {
     return (
       <div className="mb-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_0_35px_rgba(145,35,255,0.08)]">
-        <div className="absolute pointer-events-none h-24 w-24 rounded-full bg-[#ff0096]/10 blur-3xl" />
-
         <div className="relative">
           <p className="text-[10px] font-black uppercase tracking-[0.26em] text-zinc-500">
             Conta
           </p>
 
-          <h3 className="mt-2 text-sm font-black text-white break-all">
+          <h3 className="mt-2 break-all text-sm font-black text-white">
             {profile?.nome || profile?.name || profile?.email || "FatorZ"}
           </h3>
 
@@ -179,7 +163,7 @@ export default function Sidebar({ profile }: SidebarProps) {
 
   function SectionTitle({ children }: { children: string }) {
     return (
-      <div className="mt-6 mb-2 px-2 text-[10px] uppercase tracking-[0.28em] text-zinc-600 font-black">
+      <div className="mb-2 mt-6 px-2 text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600">
         {children}
       </div>
     );
@@ -210,20 +194,12 @@ export default function Sidebar({ profile }: SidebarProps) {
           <span>Mural</span>
         </NavLink>
 
-        <NavLink
-          to="/minhas-entregas"
-          className={linkClass}
-          onClick={closeMobileMenu}
-        >
+        <NavLink to="/minhas-entregas" className={linkClass} onClick={closeMobileMenu}>
           <SidebarIcon>□</SidebarIcon>
           <span>Minhas Entregas</span>
         </NavLink>
 
-        <NavLink
-          to="/configuracoes"
-          className={linkClass}
-          onClick={closeMobileMenu}
-        >
+        <NavLink to="/configuracoes" className={linkClass} onClick={closeMobileMenu}>
           <SidebarIcon>⚙</SidebarIcon>
           <span>Configurações</span>
         </NavLink>
@@ -233,79 +209,37 @@ export default function Sidebar({ profile }: SidebarProps) {
             <SectionTitle>Operação FatorZ</SectionTitle>
 
             {canSeeOrders && (
-              <NavLink
-                to="/admin/pedidos"
-                className={linkClass}
-                onClick={closeMobileMenu}
-              >
+              <NavLink to="/admin/pedidos" className={linkClass} onClick={closeMobileMenu}>
                 <SidebarIcon>🛒</SidebarIcon>
                 <span>Pedidos</span>
               </NavLink>
             )}
 
             {canSeeProducts && (
-              <NavLink
-                to="/admin/produtos"
-                className={linkClass}
-                onClick={closeMobileMenu}
-              >
+              <NavLink to="/admin/produtos" className={linkClass} onClick={closeMobileMenu}>
                 <SidebarIcon>▣</SidebarIcon>
                 <span>Produtos Admin</span>
               </NavLink>
             )}
 
             {canSeeProjects && (
-              <NavLink
-                to="/projetos"
-                className={linkClass}
-                onClick={closeMobileMenu}
-              >
+              <NavLink to="/projetos" className={linkClass} onClick={closeMobileMenu}>
                 <SidebarIcon>◆</SidebarIcon>
                 <span>Projetos</span>
               </NavLink>
             )}
 
             {canSeeUsers && (
-              <NavLink
-                to="/admin/usuarios"
-                className={linkClass}
-                onClick={closeMobileMenu}
-              >
+              <NavLink to="/admin/usuarios" className={linkClass} onClick={closeMobileMenu}>
                 <SidebarIcon>👥</SidebarIcon>
                 <span>Usuários</span>
               </NavLink>
             )}
 
             {canSeeSubscriptions && (
-              <NavLink
-                to="/admin/assinaturas"
-                className={linkClass}
-                onClick={closeMobileMenu}
-              >
+              <NavLink to="/admin/assinaturas" className={linkClass} onClick={closeMobileMenu}>
                 <SidebarIcon>✓</SidebarIcon>
                 <span>Acessos Academy</span>
-              </NavLink>
-            )}
-
-            {canSeeFinance && (
-              <NavLink
-                to="/financeiro"
-                className={linkClass}
-                onClick={closeMobileMenu}
-              >
-                <SidebarIcon>R$</SidebarIcon>
-                <span>Financeiro</span>
-              </NavLink>
-            )}
-
-            {canSeeUsers && (
-              <NavLink
-                to="/clientes"
-                className={linkClass}
-                onClick={closeMobileMenu}
-              >
-                <SidebarIcon>◎</SidebarIcon>
-                <span>Clientes</span>
               </NavLink>
             )}
           </>
@@ -315,36 +249,24 @@ export default function Sidebar({ profile }: SidebarProps) {
           <>
             <SectionTitle>Academy Admin</SectionTitle>
 
-            <NavLink
-              to="/admin/cursos"
-              className={linkClass}
-              onClick={closeMobileMenu}
-            >
+            <NavLink to="/admin/cursos" className={linkClass} onClick={closeMobileMenu}>
               <SidebarIcon>▤</SidebarIcon>
               <span>Cursos Academy</span>
             </NavLink>
 
-            <NavLink
-              to="/admin/aulas"
-              className={linkClass}
-              onClick={closeMobileMenu}
-            >
+            <NavLink to="/admin/aulas" className={linkClass} onClick={closeMobileMenu}>
               <SidebarIcon>▸</SidebarIcon>
               <span>Aulas Academy</span>
             </NavLink>
 
-            <NavLink
-              to="/admin/links"
-              className={linkClass}
-              onClick={closeMobileMenu}
-            >
+            <NavLink to="/admin/links" className={linkClass} onClick={closeMobileMenu}>
               <SidebarIcon>↗</SidebarIcon>
               <span>Links Academy</span>
             </NavLink>
           </>
         )}
 
-        <div className="mt-6 pt-5 border-t border-white/10">
+        <div className="mt-6 border-t border-white/10 pt-5">
           <button
             onClick={logout}
             className="flex w-full items-center gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-left font-black text-red-300 transition hover:bg-red-500/20"
@@ -359,7 +281,7 @@ export default function Sidebar({ profile }: SidebarProps) {
 
   return (
     <>
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-xl border-b border-white/10 px-4 py-4 flex items-center justify-between">
+      <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between border-b border-white/10 bg-black/90 px-4 py-4 backdrop-blur-xl lg:hidden">
         <BrandButton compact />
 
         <button
@@ -371,14 +293,14 @@ export default function Sidebar({ profile }: SidebarProps) {
       </div>
 
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-[60]">
+        <div className="fixed inset-0 z-[60] lg:hidden">
           <div
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
 
-          <aside className="absolute top-0 left-0 h-full w-[86vw] max-w-[360px] overflow-y-auto border-r border-white/10 bg-[#050509] p-6 shadow-[0_0_70px_rgba(0,0,0,0.8)]">
-            <div className="flex items-center justify-between mb-8">
+          <aside className="absolute left-0 top-0 h-full w-[86vw] max-w-[360px] overflow-y-auto border-r border-white/10 bg-[#050509] p-6 shadow-[0_0_70px_rgba(0,0,0,0.8)]">
+            <div className="mb-8 flex items-center justify-between">
               <button
                 onClick={() => {
                   navigate("/dashboard");
@@ -407,7 +329,7 @@ export default function Sidebar({ profile }: SidebarProps) {
         </div>
       )}
 
-      <aside className="hidden lg:block sticky top-0 h-screen w-[300px] shrink-0 overflow-y-auto border-r border-white/10 bg-[#050509]/95 p-6 shadow-[0_0_60px_rgba(0,0,0,0.65)]">
+      <aside className="sticky top-0 hidden h-screen w-[300px] shrink-0 overflow-y-auto border-r border-white/10 bg-[#050509]/95 p-6 shadow-[0_0_60px_rgba(0,0,0,0.65)] lg:block">
         <div className="pointer-events-none absolute left-0 top-0 h-40 w-40 rounded-full bg-[#ff0096]/10 blur-3xl" />
         <div className="pointer-events-none absolute right-0 top-40 h-40 w-40 rounded-full bg-[#005cff]/10 blur-3xl" />
 
