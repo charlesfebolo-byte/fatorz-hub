@@ -171,6 +171,9 @@ function Pill({ children, tone = "default" }: { children: string; tone?: "defaul
 export default function AdminProducts() {
   const [products, setProducts] = useState<SiteProduct[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [siteOrders, setSiteOrders] = useState<any[]>([]);
+  const [manualPayments, setManualPayments] = useState<any[]>([]);
+  const [legacyOrders, setLegacyOrders] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<Partial<SiteProduct>>(emptyProduct);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>("base");
@@ -188,13 +191,31 @@ export default function AdminProducts() {
   async function loadData() {
     setLoading(true);
 
-    const [productsResponse, coursesResponse] = await Promise.all([
+    const [
+      productsResponse,
+      coursesResponse,
+      siteOrdersResponse,
+      manualPaymentsResponse,
+      legacyOrdersResponse,
+    ] = await Promise.all([
       supabase
         .from("site_products")
         .select("*")
         .order("order_index", { ascending: true })
         .order("created_at", { ascending: true }),
       supabase.from("courses").select("id,title").order("id", { ascending: true }),
+      supabase
+        .from("site_product_orders")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("payments")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false }),
     ]);
 
     setLoading(false);
@@ -209,8 +230,23 @@ export default function AdminProducts() {
       console.log("Erro ao carregar cursos:", coursesResponse.error);
     }
 
+    if (siteOrdersResponse.error) {
+      console.log("Erro ao carregar pedidos de produtos:", siteOrdersResponse.error);
+    }
+
+    if (manualPaymentsResponse.error) {
+      console.log("Erro ao carregar pagamentos manuais:", manualPaymentsResponse.error);
+    }
+
+    if (legacyOrdersResponse.error) {
+      console.log("Erro ao carregar pedidos antigos:", legacyOrdersResponse.error);
+    }
+
     setProducts(productsResponse.data || []);
     setCourses(coursesResponse.data || []);
+    setSiteOrders(siteOrdersResponse.data || []);
+    setManualPayments(manualPaymentsResponse.data || []);
+    setLegacyOrders(legacyOrdersResponse.data || []);
   }
 
   function openNewProduct() {
@@ -485,15 +521,189 @@ export default function AdminProducts() {
     });
   }, [products, search, categoryFilter, statusFilter]);
 
+  function normalizeStatus(status: any) {
+    return String(status || "").toLowerCase().trim();
+  }
+
+  function isPaidStatus(status: any) {
+    return [
+      "paid",
+      "pago",
+      "approved",
+      "aprovado",
+      "completed",
+      "concluido",
+      "concluído",
+      "success",
+      "succeeded",
+      "project_created",
+    ].includes(normalizeStatus(status));
+  }
+
+  function isPendingStatus(status: any) {
+    return ["", "pending", "pendente", "processing"].includes(normalizeStatus(status));
+  }
+
+  function getMoneyValue(value: any) {
+    if (value === null || value === undefined || value === "") return 0;
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+    const clean = String(value)
+      .replace("R$", "")
+      .replace("/mês", "")
+      .replace("/mes", "")
+      .replace(/\s/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+
+    const parsed = Number(clean);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  const salesByProduct = useMemo(() => {
+    const map = new Map<string, any>();
+
+    function ensure(product: SiteProduct) {
+      const key = String(product.id);
+      const current =
+        map.get(key) || {
+          productId: product.id,
+          productName: product.name,
+          paidOrders: 0,
+          pendingOrders: 0,
+          totalOrders: 0,
+          revenue: 0,
+          pendingValue: 0,
+          lastSaleAt: null,
+        };
+
+      map.set(key, current);
+      return current;
+    }
+
+    products.forEach((product) => ensure(product));
+
+    siteOrders.forEach((order) => {
+      const product =
+        products.find((item) => String(item.id) === String(order.product_id)) ||
+        products.find(
+          (item) =>
+            item.name?.toLowerCase().trim() ===
+            String(order.product_name || "").toLowerCase().trim()
+        );
+
+      if (!product) return;
+
+      const current = ensure(product);
+      const amount = Number(order.amount_cents || 0) / 100;
+
+      current.totalOrders += 1;
+
+      if (isPaidStatus(order.status)) {
+        current.paidOrders += 1;
+        current.revenue += amount;
+      }
+
+      if (isPendingStatus(order.status)) {
+        current.pendingOrders += 1;
+        current.pendingValue += amount;
+      }
+
+      if (!current.lastSaleAt || new Date(order.created_at) > new Date(current.lastSaleAt)) {
+        current.lastSaleAt = order.created_at;
+      }
+    });
+
+    manualPayments.forEach((payment) => {
+      const product = products.find(
+        (item) =>
+          item.name?.toLowerCase().trim() ===
+          String(payment.product_name || "").toLowerCase().trim()
+      );
+
+      if (!product) return;
+
+      const current = ensure(product);
+      const amount = getMoneyValue(payment.amount);
+
+      current.totalOrders += 1;
+
+      if (isPaidStatus(payment.status)) {
+        current.paidOrders += 1;
+        current.revenue += amount;
+      }
+
+      if (isPendingStatus(payment.status)) {
+        current.pendingOrders += 1;
+        current.pendingValue += amount;
+      }
+
+      if (!current.lastSaleAt || new Date(payment.created_at) > new Date(current.lastSaleAt)) {
+        current.lastSaleAt = payment.created_at;
+      }
+    });
+
+    legacyOrders.forEach((order) => {
+      const product = products.find(
+        (item) =>
+          item.name?.toLowerCase().trim() ===
+          String(order.product_name || "").toLowerCase().trim()
+      );
+
+      if (!product) return;
+
+      const current = ensure(product);
+      const amount = getMoneyValue(
+        order.product_price ??
+          order.amount ??
+          order.total_amount ??
+          order.total ??
+          order.price ??
+          order.value
+      );
+
+      current.totalOrders += 1;
+
+      if (isPaidStatus(order.status)) {
+        current.paidOrders += 1;
+        current.revenue += amount;
+      }
+
+      if (isPendingStatus(order.status)) {
+        current.pendingOrders += 1;
+        current.pendingValue += amount;
+      }
+
+      if (!current.lastSaleAt || new Date(order.created_at) > new Date(current.lastSaleAt)) {
+        current.lastSaleAt = order.created_at;
+      }
+    });
+
+    return map;
+  }, [products, siteOrders, manualPayments, legacyOrders]);
+
+  const bestSellingProduct = useMemo(() => {
+    return Array.from(salesByProduct.values())
+      .filter((item) => item.totalOrders > 0)
+      .sort((a, b) => {
+        if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+        return b.paidOrders - a.paidOrders;
+      })[0];
+  }, [salesByProduct]);
+
   const stats = useMemo(() => {
+    const sales = Array.from(salesByProduct.values());
+
     return {
       total: products.length,
       active: products.filter((product) => product.is_active).length,
       inactive: products.filter((product) => !product.is_active).length,
       featured: products.filter((product) => product.is_featured).length,
       appmax: products.filter((product) => product.checkout_provider === "appmax").length,
+      sold: sales.reduce((sum, item) => sum + Number(item.paidOrders || 0), 0),
+      revenue: sales.reduce((sum, item) => sum + Number(item.revenue || 0), 0),
     };
-  }, [products]);
+  }, [products, salesByProduct]);
 
   const previewBenefits = useMemo(() => {
     return String(editingProduct.notes || "")
@@ -545,13 +755,14 @@ export default function AdminProducts() {
         </div>
       </section>
 
-      <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">
+      <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {[
           { label: "Total", value: stats.total, tone: "text-white" },
           { label: "Ativos", value: stats.active, tone: "text-emerald-300" },
           { label: "Ocultos", value: stats.inactive, tone: "text-zinc-300" },
           { label: "Destaques", value: stats.featured, tone: "text-yellow-300" },
-          { label: "Appmax", value: stats.appmax, tone: "text-pink-300" },
+          { label: "Vendas", value: stats.sold, tone: "text-blue-300" },
+          { label: "Receita", value: formatMoney(Math.round(stats.revenue * 100)), tone: "text-emerald-300" },
         ].map((stat) => (
           <div key={stat.label} className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4 md:p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{stat.label}</p>
@@ -559,6 +770,21 @@ export default function AdminProducts() {
           </div>
         ))}
       </section>
+
+      {bestSellingProduct && (
+        <section className="mb-6 rounded-[28px] border border-emerald-400/20 bg-emerald-500/10 p-5">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-300">Produto campeão</p>
+          <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-2xl font-black text-white">{bestSellingProduct.productName}</h2>
+              <p className="mt-1 text-sm text-emerald-100/70">
+                {bestSellingProduct.paidOrders} venda(s) paga(s) · {bestSellingProduct.totalOrders} pedido(s) total
+              </p>
+            </div>
+            <strong className="text-3xl font-black text-emerald-300">{formatMoney(Math.round(bestSellingProduct.revenue * 100))}</strong>
+          </div>
+        </section>
+      )}
 
       <section className="mb-6 rounded-[28px] border border-white/10 bg-black/50 p-4">
         <div className="grid gap-3 lg:grid-cols-[1fr_220px_220px_auto]">
@@ -613,7 +839,7 @@ export default function AdminProducts() {
                   <h2 className="truncate text-2xl font-black">{product.name}</h2>
                   <p className="mt-1 text-sm text-zinc-500">{product.subtitle || product.description || "Sem texto de apoio cadastrado."}</p>
 
-                  <div className="mt-4 grid gap-3 text-xs text-zinc-500 sm:grid-cols-3">
+                  <div className="mt-4 grid gap-3 text-xs text-zinc-500 sm:grid-cols-2 lg:grid-cols-5">
                     <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
                       <span className="block font-black uppercase tracking-widest text-zinc-600">Slug</span>
                       <span className="mt-1 block truncate text-zinc-300">{product.slug}</span>
@@ -625,6 +851,14 @@ export default function AdminProducts() {
                     <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
                       <span className="block font-black uppercase tracking-widest text-zinc-600">Ordem</span>
                       <span className="mt-1 block text-zinc-300">{product.order_index || 1}</span>
+                    </div>
+                    <div className="rounded-2xl border border-emerald-400/10 bg-emerald-500/5 p-3">
+                      <span className="block font-black uppercase tracking-widest text-zinc-600">Vendas</span>
+                      <span className="mt-1 block text-emerald-300">{salesByProduct.get(String(product.id))?.paidOrders || 0} pagas</span>
+                    </div>
+                    <div className="rounded-2xl border border-blue-400/10 bg-blue-500/5 p-3">
+                      <span className="block font-black uppercase tracking-widest text-zinc-600">Receita</span>
+                      <span className="mt-1 block text-blue-300">{formatMoney(Math.round((salesByProduct.get(String(product.id))?.revenue || 0) * 100))}</span>
                     </div>
                   </div>
                 </div>
