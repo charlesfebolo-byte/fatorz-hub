@@ -741,22 +741,19 @@ export default function Landing() {
           )}
         </section>
 
-        <section className="fz-reveal mx-auto max-w-7xl px-4 py-14 md:px-8 md:py-20">
-          <div className="fz-neon-card relative p-7 md:p-10">
-            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/10 blur-3xl" />
-            <div className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#005cff]/10 blur-3xl" />
-
-            <div className="relative grid gap-8 lg:grid-cols-[1fr_360px] lg:items-center">
+        <section className="fz-reveal mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-10">
+          <div className="fz-neon-card relative p-5 md:p-7">
+            <div className="relative grid gap-6 lg:grid-cols-[1fr_320px] lg:items-center">
               <div>
-                <p className="mb-3 text-sm font-black uppercase tracking-[0.25em] text-pink-400">
+                <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
                   Próximo passo
                 </p>
 
-                <h2 className="text-3xl font-black leading-tight md:text-4xl">
+                <h2 className="text-2xl font-black leading-tight md:text-3xl">
                   Não sabe qual solução escolher?
                 </h2>
 
-                <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-400">
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">
                   Chama a FatorZ no direct e manda o que você quer melhorar:
                   perfil, conteúdo, site, vendas, posicionamento ou Academy.
                 </p>
@@ -764,7 +761,7 @@ export default function Landing() {
 
               <button
                 onClick={openInstagram}
-                className="fz-shine-btn px-7 py-4 text-base"
+                className="fz-shine-btn px-6 py-3.5 text-sm md:text-base"
               >
                 Chamar @fatorzhouse
               </button>
