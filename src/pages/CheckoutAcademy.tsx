@@ -17,7 +17,6 @@ type Course = {
   is_paid: boolean | null;
 };
 
-
 type AcademyProduct = {
   id: number;
   name: string;
@@ -30,8 +29,6 @@ type AcademyProduct = {
   checkout_provider: string | null;
   external_payment_url: string | null;
 };
-
-type PaymentMethod = "pix" | "boleto" | "card";
 
 type CoursePurchase = {
   id: number;
@@ -49,39 +46,12 @@ type CoursePurchase = {
   payment_provider?: string | null;
   payment_method?: string | null;
   amount_cents?: number | null;
-  pix_qr_code?: string | null;
-  pix_copy_paste?: string | null;
   appmax_customer_id?: string | null;
   appmax_order_id?: string | null;
   appmax_payment_id?: string | null;
 };
 
-function onlyNumbers(value: string) {
-  return String(value || "").replace(/\D/g, "");
-}
-
-function formatCpf(value: string) {
-  const numbers = onlyNumbers(value).slice(0, 11);
-
-  return numbers
-    .replace(/^(\d{3})(\d)/, "$1.$2")
-    .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/\.(\d{3})(\d)/, ".$1-$2");
-}
-
-function formatPhone(value: string) {
-  const numbers = onlyNumbers(value).slice(0, 11);
-
-  if (numbers.length <= 10) {
-    return numbers
-      .replace(/^(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{4})(\d)/, "$1-$2");
-  }
-
-  return numbers
-    .replace(/^(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{5})(\d)/, "$1-$2");
-}
+type PaymentMethod = "pix" | "boleto" | "card";
 
 function formatMoneyFromCents(cents: number | null | undefined) {
   const value = Number(cents || 0) / 100;
@@ -128,59 +98,19 @@ function getPurchaseStatusClass(status: string | null | undefined) {
   return "border-white/10 bg-white/[0.05] text-zinc-300";
 }
 
-function isQrImage(value: string | null | undefined) {
-  if (!value) return false;
-
-  return (
-    value.startsWith("data:image") ||
-    value.startsWith("http://") ||
-    value.startsWith("https://")
-  );
+function getMethodLabel(method: PaymentMethod) {
+  if (method === "pix") return "Pix";
+  if (method === "boleto") return "Boleto";
+  return "Cartão";
 }
 
-
-const CHECKOUT_CUSTOMER_STORAGE_KEY = "fatorz_checkout_customer";
-
-type SavedCheckoutCustomer = {
-  name?: string;
-  email?: string;
-  phone?: string;
-  documentNumber?: string;
-};
-
-function readSavedCheckoutCustomer(): SavedCheckoutCustomer | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.localStorage.getItem(CHECKOUT_CUSTOMER_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+function getMethodDescription(method: PaymentMethod) {
+  if (method === "pix") return "Gera o Pix no checkout completo e registra a compra.";
+  if (method === "boleto") return "Gera boleto no checkout completo da FatorZ.";
+  return "Pagamento com cartão no checkout completo da FatorZ.";
 }
 
-function saveCheckoutCustomer(data: SavedCheckoutCustomer) {
-  if (typeof window === "undefined") return;
-
-  try {
-    const current = readSavedCheckoutCustomer() || {};
-    window.localStorage.setItem(
-      CHECKOUT_CUSTOMER_STORAGE_KEY,
-      JSON.stringify({
-        ...current,
-        ...data,
-        phone: data.phone ? onlyNumbers(data.phone) : current.phone || "",
-        documentNumber: data.documentNumber
-          ? onlyNumbers(data.documentNumber)
-          : current.documentNumber || "",
-      })
-    );
-  } catch {
-    // Não trava o checkout se o navegador bloquear localStorage.
-  }
-}
-
-export default function CheckoutAcademy({ user, profile }: any) {
+export default function CheckoutAcademy({ user }: any) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -190,74 +120,43 @@ export default function CheckoutAcademy({ user, profile }: any) {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [purchases, setPurchases] = useState<CoursePurchase[]>([]);
   const [courseProducts, setCourseProducts] = useState<AcademyProduct[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
-
-  const [customerName, setCustomerName] = useState(
-    profile?.nome || profile?.name || ""
-  );
-  const [customerPhone, setCustomerPhone] = useState(profile?.whatsapp || "");
-  const [documentNumber, setDocumentNumber] = useState("");
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("pix");
 
   const [loading, setLoading] = useState(true);
-  const [loadingPix, setLoadingPix] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(false);
   const [message, setMessage] = useState("");
-
-  const [pixCopyPaste, setPixCopyPaste] = useState("");
-  const [pixQrCode, setPixQrCode] = useState("");
-  const [appmaxOrderId, setAppmaxOrderId] = useState("");
-
-  useEffect(() => {
-    const savedCustomer = readSavedCheckoutCustomer();
-
-    if (savedCustomer?.name && !customerName) {
-      setCustomerName(savedCustomer.name);
-    }
-
-    if (savedCustomer?.phone && !customerPhone) {
-      setCustomerPhone(formatPhone(savedCustomer.phone));
-    }
-
-    if (savedCustomer?.documentNumber && !documentNumber) {
-      setDocumentNumber(formatCpf(savedCustomer.documentNumber));
-    }
-  }, []);
-
-  useEffect(() => {
-    saveCheckoutCustomer({
-      name: customerName,
-      email: user?.email || profile?.email || "",
-      phone: customerPhone,
-      documentNumber,
-    });
-  }, [customerName, customerPhone, documentNumber, user?.email, profile?.email]);
 
   useEffect(() => {
     loadCheckoutData();
   }, [user?.id, courseIdFromUrl]);
 
   async function loadCheckoutData() {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
-    const coursesQuery = supabase
-      .from("courses")
-      .select("*")
-      .eq("is_active", true)
-      .order("order_index", { ascending: true })
-      .order("created_at", { ascending: true });
-
     const [coursesResponse, purchasesResponse, productsResponse] = await Promise.all([
-      coursesQuery,
-      user?.id
-        ? supabase
-            .from("course_purchases")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-        : Promise.resolve({ data: [], error: null } as any),
+      supabase
+        .from("courses")
+        .select("*")
+        .eq("is_active", true)
+        .order("order_index", { ascending: true })
+        .order("created_at", { ascending: true }),
+
+      supabase
+        .from("course_purchases")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+
       supabase
         .from("site_products")
-        .select("id,name,slug,course_id,is_active,accepts_pix,accepts_boleto,accepts_card,checkout_provider,external_payment_url")
+        .select(
+          "id,name,slug,course_id,is_active,accepts_pix,accepts_boleto,accepts_card,checkout_provider,external_payment_url"
+        )
         .eq("category", "academy")
         .eq("product_type", "course")
         .eq("is_active", true),
@@ -281,11 +180,11 @@ export default function CheckoutAcademy({ user, profile }: any) {
 
     const activeCourses = coursesResponse.data || [];
     const userPurchases = purchasesResponse.data || [];
-    const academyProducts = productsResponse.data || [];
+    const products = productsResponse.data || [];
 
     setCourses(activeCourses);
     setPurchases(userPurchases);
-    setCourseProducts(academyProducts);
+    setCourseProducts(products);
 
     let course: Course | null = null;
 
@@ -297,19 +196,6 @@ export default function CheckoutAcademy({ user, profile }: any) {
     }
 
     setSelectedCourse(course || activeCourses[0] || null);
-
-    const currentPurchase =
-      userPurchases.find(
-        (purchase: CoursePurchase) =>
-          Number(purchase.course_id) === Number(course?.id || courseIdFromUrl) &&
-          purchase.status === "pending"
-      ) || null;
-
-    if (currentPurchase?.pix_copy_paste) {
-      setPixCopyPaste(currentPurchase.pix_copy_paste);
-      setPixQrCode(currentPurchase.pix_qr_code || "");
-      setAppmaxOrderId(currentPurchase.appmax_order_id || "");
-    }
   }
 
   const selectedPurchase = useMemo(() => {
@@ -330,9 +216,6 @@ export default function CheckoutAcademy({ user, profile }: any) {
     );
   }, [purchases, selectedCourse]);
 
-  const hasApprovedAccess = selectedPurchase?.status === "approved";
-  const hasPendingPurchase = selectedPurchase?.status === "pending";
-
   const selectedCourseProduct = useMemo(() => {
     if (!selectedCourse) return null;
 
@@ -344,200 +227,51 @@ export default function CheckoutAcademy({ user, profile }: any) {
   }, [courseProducts, selectedCourse]);
 
   const paymentOptions = useMemo(() => {
-    const options: { id: PaymentMethod; label: string; description: string }[] = [];
+    if (!selectedCourseProduct) return [];
 
-    options.push({
-      id: "pix",
-      label: "Pix",
-      description: "Gera o Pix dentro do Hub e registra a compra na sua conta.",
-    });
+    const options: PaymentMethod[] = [];
 
-    if (selectedCourseProduct?.accepts_boleto) {
-      options.push({
-        id: "boleto",
-        label: "Boleto",
-        description: "Abre o checkout completo do produto vinculado ao curso.",
-      });
-    }
-
-    if (selectedCourseProduct?.accepts_card) {
-      options.push({
-        id: "card",
-        label: "Cartão",
-        description: "Abre o checkout completo com pagamento por cartão.",
-      });
-    }
+    if (selectedCourseProduct.accepts_pix) options.push("pix");
+    if (selectedCourseProduct.accepts_boleto) options.push("boleto");
+    if (selectedCourseProduct.accepts_card) options.push("card");
 
     return options;
   }, [selectedCourseProduct]);
 
-  function openLinkedProductCheckout(method: "boleto" | "card") {
+  useEffect(() => {
+    if (!paymentOptions.length) return;
+
+    if (!paymentOptions.includes(selectedMethod)) {
+      setSelectedMethod(paymentOptions[0]);
+    }
+  }, [paymentOptions, selectedMethod]);
+
+  function openUnifiedCheckout(method: PaymentMethod) {
     if (!selectedCourse) {
       alert("Escolha um curso primeiro.");
+      return;
+    }
+
+    if (selectedPurchase?.status === "approved") {
+      navigate("/academy");
       return;
     }
 
     if (!selectedCourseProduct?.slug) {
       alert(
-        "Esse curso ainda não tem um produto Academy vinculado no catálogo. Crie/edite o produto em Produtos, categoria Academy, tipo Curso, e vincule ao curso correto."
+        "Esse curso ainda não tem um produto Academy vinculado. Vá em Produtos, categoria Academy, tipo Curso, e vincule o produto ao curso correto."
       );
       return;
     }
 
-    const cleanCpf = onlyNumbers(documentNumber);
-    const cleanPhone = onlyNumbers(customerPhone);
-
-    if (!customerName.trim()) {
-      alert("Informe seu nome completo.");
+    if (selectedCourseProduct.checkout_provider === "manual") {
+      alert("Esse curso está configurado para atendimento manual.");
       return;
     }
-
-    if (cleanPhone.length < 10) {
-      alert("Informe seu WhatsApp com DDD.");
-      return;
-    }
-
-    if (cleanCpf.length !== 11) {
-      alert("Informe um CPF válido com 11 números.");
-      return;
-    }
-
-    saveCheckoutCustomer({
-      name: customerName.trim(),
-      email: user?.email || profile?.email || "",
-      phone: cleanPhone,
-      documentNumber: cleanCpf,
-    });
 
     navigate(
       `/checkout/produto?slug=${selectedCourseProduct.slug}&method=${method}&source=academy`
     );
-  }
-
-  function handlePayment() {
-    if (paymentMethod === "pix") {
-      createAppmaxPix();
-      return;
-    }
-
-    openLinkedProductCheckout(paymentMethod);
-  }
-
-  async function createAppmaxPix() {
-    if (!selectedCourse) {
-      alert("Escolha um curso primeiro.");
-      return;
-    }
-
-    if (!user?.email || !user?.id) {
-      alert("Você precisa estar logado para comprar.");
-      navigate("/login");
-      return;
-    }
-
-    if (hasApprovedAccess) {
-      navigate("/academy");
-      return;
-    }
-
-    const cleanCpf = onlyNumbers(documentNumber);
-    const cleanPhone = onlyNumbers(customerPhone);
-
-    if (!customerName.trim()) {
-      alert("Informe seu nome completo.");
-      return;
-    }
-
-    if (cleanPhone.length < 10) {
-      alert("Informe seu WhatsApp com DDD.");
-      return;
-    }
-
-    if (cleanCpf.length !== 11) {
-      alert("Informe um CPF válido com 11 números.");
-      return;
-    }
-
-    setMessage("");
-    setPixCopyPaste("");
-    setPixQrCode("");
-    setAppmaxOrderId("");
-    setLoadingPix(true);
-
-    try {
-      const response = await fetch("/api/create-academy-pix", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          userEmail: user.email,
-          customerName,
-          customerPhone: cleanPhone,
-          documentNumber: cleanCpf,
-          courseId: selectedCourse.id,
-        }),
-      });
-
-      const data = await response.json();
-
-      setLoadingPix(false);
-
-      if (!response.ok || data.error) {
-        console.log("Erro Pix Appmax:", data);
-        setMessage(data.error || "Erro ao gerar Pix.");
-        return;
-      }
-
-      if (data.alreadyApproved) {
-        setMessage("Esse curso já está liberado na sua conta.");
-        navigate("/academy");
-        return;
-      }
-
-      const copyPaste =
-        data?.pix?.copy_paste ||
-        data?.purchase?.pix_copy_paste ||
-        data?.pix?.qr_code ||
-        "";
-
-      const qrCode =
-        data?.pix?.qr_code ||
-        data?.purchase?.pix_qr_code ||
-        "";
-
-      setPixCopyPaste(copyPaste || "");
-      setPixQrCode(qrCode || "");
-      setAppmaxOrderId(String(data?.appmax?.order_id || ""));
-
-      if (data.purchase) {
-        setPurchases((prev) => {
-          const withoutCurrent = prev.filter((item) => item.id !== data.purchase.id);
-          return [data.purchase, ...withoutCurrent];
-        });
-      }
-
-      setMessage(
-        "Pix gerado com sucesso. Após o pagamento ser confirmado, a FatorZ libera seu acesso vitalício."
-      );
-    } catch (error: any) {
-      setLoadingPix(false);
-      console.log("Erro ao chamar API Pix:", error);
-      setMessage(
-        "Erro ao conectar com a função de pagamento. Verifique se você está rodando com npx vercel dev."
-      );
-    }
-  }
-
-  async function copyPix() {
-    if (!pixCopyPaste) {
-      alert("Nenhum código Pix disponível.");
-      return;
-    }
-
-    await navigator.clipboard.writeText(pixCopyPaste);
-    alert("Código Pix copiado.");
   }
 
   async function checkAccess() {
@@ -572,9 +306,7 @@ export default function CheckoutAcademy({ user, profile }: any) {
     }
 
     if (!data) {
-      setMessage(
-        "Ainda não encontramos uma compra registrada para esse curso. Gere o pagamento primeiro."
-      );
+      setMessage("Ainda não encontramos uma compra registrada para esse curso.");
       return;
     }
 
@@ -582,12 +314,6 @@ export default function CheckoutAcademy({ user, profile }: any) {
       const withoutCurrent = prev.filter((item) => item.id !== data.id);
       return [data, ...withoutCurrent];
     });
-
-    if (data.pix_copy_paste) {
-      setPixCopyPaste(data.pix_copy_paste);
-      setPixQrCode(data.pix_qr_code || "");
-      setAppmaxOrderId(data.appmax_order_id || "");
-    }
 
     if (data.status === "approved") {
       setMessage("Acesso vitalício confirmado. Redirecionando para o Academy...");
@@ -655,10 +381,10 @@ export default function CheckoutAcademy({ user, profile }: any) {
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_12%_8%,rgba(0,92,255,0.18),transparent_28%),radial-gradient(circle_at_88%_12%,rgba(255,0,150,0.16),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(145,35,255,0.14),transparent_34%)]" />
 
       <header className="relative z-10 border-b border-white/10 bg-black/80 px-4 py-5 backdrop-blur-2xl md:px-8">
-        <div className="max-w-7xl mx-auto flex justify-between items-center gap-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <button
             onClick={() => navigate("/academy")}
-            className="text-zinc-400 hover:text-white font-black"
+            className="font-black text-zinc-400 transition hover:text-white"
           >
             ← Voltar para Academy
           </button>
@@ -669,356 +395,230 @@ export default function CheckoutAcademy({ user, profile }: any) {
         </div>
       </header>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 py-10 md:px-8 md:py-14">
-        <section className="relative overflow-hidden rounded-[42px] border border-white/10 bg-black p-6 md:p-10 mb-8">
-          <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-[#ff0096]/15 blur-3xl" />
+      <main className="relative z-10 mx-auto max-w-7xl px-4 py-10 md:px-8 md:py-14">
+        <section className="relative mb-8 overflow-hidden rounded-[42px] border border-white/10 bg-black p-6 md:p-10">
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/15 blur-3xl" />
           <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[#005cff]/15 blur-3xl" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(145,35,255,0.18),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.06),transparent_32%)]" />
 
           <div className="relative">
-            <p className="text-pink-500 font-black uppercase tracking-[0.28em] text-sm mb-4">
-              Checkout FatorZ
+            <p className="mb-4 text-sm font-black uppercase tracking-[0.28em] text-pink-500">
+              Checkout FatorZ Academy
             </p>
 
-            <h2 className="text-4xl md:text-6xl font-black leading-tight mb-4">
-              Pagamento{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]">
-                Academy.
-              </span>
-            </h2>
+            <h1 className="text-4xl font-black leading-tight md:text-6xl">
+              Escolha o curso e siga para o pagamento.
+            </h1>
 
-            <p className="max-w-4xl text-zinc-400 text-lg leading-relaxed">
-              Escolha Pix, boleto ou cartão conforme o produto vinculado ao curso.
-              O acesso vitalício fica ligado à sua conta após aprovação.
+            <p className="mt-5 max-w-3xl text-zinc-400 md:text-lg">
+              Os dados do cliente são preenchidos apenas no checkout final. Aqui
+              você só escolhe o curso e a forma de pagamento.
             </p>
           </div>
         </section>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_420px]">
-          <section className="space-y-5">
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.045] p-5 md:p-6">
-              <p className="mb-4 text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
-                Escolha o curso
-              </p>
+          <section className="rounded-[36px] border border-white/10 bg-white/[0.045] p-6">
+            <p className="mb-5 text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
+              Escolha o curso
+            </p>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                {courses.map((course) => {
-                  const active = selectedCourse?.id === course.id;
-                  const approved = purchases.find(
-                    (item) =>
-                      Number(item.course_id) === Number(course.id) &&
-                      item.status === "approved"
-                  );
+            <div className="grid gap-5 md:grid-cols-2">
+              {courses.map((course) => {
+                const active = Number(selectedCourse?.id) === Number(course.id);
 
-                  const pending = purchases.find(
-                    (item) =>
-                      Number(item.course_id) === Number(course.id) &&
-                      item.status === "pending"
-                  );
-
-                  return (
-                    <button
-                      key={course.id}
-                      onClick={() => {
-                        setSelectedCourse(course);
-                        setPaymentMethod("pix");
-                        setMessage("");
-                        setPixCopyPaste(pending?.pix_copy_paste || "");
-                        setPixQrCode(pending?.pix_qr_code || "");
-                        setAppmaxOrderId(pending?.appmax_order_id || "");
-                      }}
-                      className={`overflow-hidden rounded-[28px] border text-left transition hover:-translate-y-1 ${
-                        active
-                          ? "border-pink-500/45 bg-pink-500/[0.08] shadow-[0_0_35px_rgba(255,0,150,0.12)]"
-                          : "border-white/10 bg-black/40 hover:border-white/20"
-                      }`}
-                    >
-                      {course.cover_url && (
-                        <div className="h-36 w-full overflow-hidden bg-zinc-900">
-                          <img
-                            src={course.cover_url}
-                            alt={course.title}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                      )}
-
-                      <div className="p-5">
-                        <div className="mb-3 flex flex-wrap gap-2">
-                          {course.badge && (
-                            <span className="rounded-full border border-pink-500/25 bg-pink-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-pink-300">
-                              {course.badge}
-                            </span>
-                          )}
-
-                          {approved && (
-                            <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-emerald-300">
-                              Liberado
-                            </span>
-                          )}
-
-                          {pending && (
-                            <span className="rounded-full border border-orange-400/25 bg-orange-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-orange-300">
-      Pagamento pendente
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="text-xl font-black">{course.title}</h3>
-
-                        <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                          {course.subtitle ||
-                            course.description ||
-                            "Curso FatorZ Academy com acesso vitalício."}
-                        </p>
-
-                        <p className="mt-4 text-2xl font-black">
-                          {course.is_paid
-                            ? formatMoneyFromCents(course.price_cents)
-                            : "Gratuito"}
-                        </p>
+                return (
+                  <button
+                    key={course.id}
+                    onClick={() => setSelectedCourse(course)}
+                    className={`overflow-hidden rounded-[28px] border text-left transition hover:-translate-y-1 ${
+                      active
+                        ? "border-pink-500/55 bg-pink-500/10 shadow-[0_0_30px_rgba(255,0,150,0.15)]"
+                        : "border-white/10 bg-black/35 hover:border-pink-500/30"
+                    }`}
+                  >
+                    {course.cover_url && (
+                      <div className="h-44 overflow-hidden bg-zinc-900">
+                        <img
+                          src={course.cover_url}
+                          alt={course.title}
+                          className="h-full w-full object-cover"
+                        />
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
+                    )}
+
+                    <div className="p-5">
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {course.badge && (
+                          <span className="rounded-full border border-pink-500/25 bg-pink-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-pink-300">
+                            {course.badge}
+                          </span>
+                        )}
+
+                        {active && (
+                          <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[11px] font-black uppercase tracking-widest text-white">
+                            Selecionado
+                          </span>
+                        )}
+                      </div>
+
+                      <h2 className="text-2xl font-black">{course.title}</h2>
+
+                      <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                        {course.subtitle ||
+                          course.description ||
+                          "Curso com acesso vitalício dentro da FatorZ Academy."}
+                      </p>
+
+                      <p className="mt-4 text-2xl font-black">
+                        {course.is_paid
+                          ? formatMoneyFromCents(course.price_cents)
+                          : "Gratuito"}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </section>
 
-          <aside className="lg:sticky lg:top-8 h-fit">
-            <div className="overflow-hidden rounded-[36px] border border-white/10 bg-black/70 p-6">
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
-                Resumo da compra
-              </p>
+          <aside className="h-fit rounded-[36px] border border-white/10 bg-black/70 p-6 lg:sticky lg:top-8">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
+              Resumo da compra
+            </p>
 
-              {selectedCourse ? (
-                <>
-                  {selectedCourse.cover_url && (
-                    <div className="mb-5 h-44 overflow-hidden rounded-[26px] border border-white/10 bg-zinc-900">
-                      <img
-                        src={selectedCourse.cover_url}
-                        alt={selectedCourse.title}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
+            {selectedCourse ? (
+              <>
+                {selectedCourse.cover_url && (
+                  <div className="mb-5 h-44 overflow-hidden rounded-[26px] border border-white/10 bg-zinc-900">
+                    <img
+                      src={selectedCourse.cover_url}
+                      alt={selectedCourse.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
 
-                  <h3 className="text-3xl font-black">{selectedCourse.title}</h3>
+                <h2 className="text-3xl font-black">{selectedCourse.title}</h2>
 
-                  <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                    {selectedCourse.description ||
-                      selectedCourse.subtitle ||
-                      "Curso com acesso vitalício dentro da FatorZ Academy."}
+                <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                  {selectedCourse.description ||
+                    selectedCourse.subtitle ||
+                    "Curso com acesso vitalício dentro da FatorZ Academy."}
+                </p>
+
+                <div className="my-6 rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                    Valor
                   </p>
 
-                  <div className="my-6 rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
-                    <p className="text-xs uppercase tracking-widest font-black text-zinc-500">
-                      Valor
-                    </p>
+                  <p className="mt-2 text-4xl font-black">
+                    {selectedCourse.is_paid
+                      ? formatMoneyFromCents(selectedCourse.price_cents)
+                      : "Gratuito"}
+                  </p>
 
-                    <p className="mt-2 text-4xl font-black">
-                      {selectedCourse.is_paid
-                        ? formatMoneyFromCents(selectedCourse.price_cents)
-                        : "Gratuito"}
-                    </p>
+                  <p className="mt-2 text-sm text-zinc-500">
+                    Acesso vitalício após aprovação.
+                  </p>
+                </div>
 
-                    <p className="mt-2 text-sm text-zinc-500">
-                      Acesso vitalício após aprovação.
-                    </p>
+                <div
+                  className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-black ${getPurchaseStatusClass(
+                    selectedPurchase?.status
+                  )}`}
+                >
+                  {getPurchaseStatusLabel(selectedPurchase?.status)}
+                  {selectedPurchase?.created_at && (
+                    <span className="mt-1 block text-xs font-bold opacity-80">
+                      Registro: {formatDateTime(selectedPurchase.created_at)}
+                    </span>
+                  )}
+                </div>
+
+                {!selectedCourseProduct && (
+                  <div className="mb-5 rounded-2xl border border-orange-400/25 bg-orange-500/10 p-4 text-sm font-bold leading-relaxed text-orange-200">
+                    Esse curso ainda não tem produto vinculado no catálogo. Crie
+                    ou edite um produto em Produtos → Categoria Academy → Tipo
+                    Curso → vincule o Course ID correto.
                   </div>
+                )}
 
-                  <div
-                    className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-black ${getPurchaseStatusClass(
-                      selectedPurchase?.status
-                    )}`}
-                  >
-                    {getPurchaseStatusLabel(selectedPurchase?.status)}
-                    {selectedPurchase?.created_at && (
-                      <span className="block mt-1 text-xs font-bold opacity-80">
-                        Registro: {formatDateTime(selectedPurchase.created_at)}
-                      </span>
-                    )}
-                  </div>
+                {!!paymentOptions.length && selectedPurchase?.status !== "approved" && (
+                  <div className="mb-5 rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
+                    <p className="mb-4 text-xs font-black uppercase tracking-widest text-zinc-500">
+                      Forma de pagamento
+                    </p>
 
+                    <div className="grid gap-3">
+                      {paymentOptions.map((method) => {
+                        const active = selectedMethod === method;
 
-
-                  {!hasApprovedAccess && paymentOptions.length > 0 && (
-                    <div className="mb-5 rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
-                      <p className="text-xs uppercase tracking-widest font-black text-zinc-500 mb-4">
-                        Forma de pagamento
-                      </p>
-
-                      <div className="grid grid-cols-1 gap-3">
-                        {paymentOptions.map((option) => (
+                        return (
                           <button
-                            key={option.id}
-                            onClick={() => setPaymentMethod(option.id)}
-                            className={`rounded-2xl border px-4 py-4 text-left transition ${
-                              paymentMethod === option.id
-                                ? "border-pink-500/50 bg-pink-500/10 text-white"
-                                : "border-white/10 bg-black/35 text-zinc-300 hover:bg-white/[0.06]"
+                            key={method}
+                            type="button"
+                            onClick={() => setSelectedMethod(method)}
+                            className={`rounded-2xl border p-4 text-left transition ${
+                              active
+                                ? "border-pink-500/45 bg-pink-500/10"
+                                : "border-white/10 bg-black/30 hover:bg-white/[0.05]"
                             }`}
                           >
-                            <span className="block text-sm font-black uppercase tracking-widest">
-                              {option.label}
-                            </span>
-                            <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
-                              {option.description}
-                            </span>
+                            <p className="text-lg font-black uppercase">
+                              {getMethodLabel(method)}
+                            </p>
+                            <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                              {getMethodDescription(method)}
+                            </p>
                           </button>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  )}
-
-                  {!hasApprovedAccess && (
-                    <div className="mb-5 rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
-                      <p className="text-xs uppercase tracking-widest font-black text-zinc-500 mb-4">
-                        Dados para pagamento
-                      </p>
-
-                      <div className="space-y-3">
-                        <input
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          placeholder="Nome completo"
-                          className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
-                        />
-
-                        <input
-                          value={customerPhone}
-                          onChange={(e) => setCustomerPhone(formatPhone(e.target.value))}
-                          placeholder="WhatsApp com DDD"
-                          className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
-                        />
-
-                        <input
-                          value={documentNumber}
-                          onChange={(e) =>
-                            setDocumentNumber(formatCpf(e.target.value))
-                          }
-                          placeholder="CPF"
-                          className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    <button
-                      onClick={handlePayment}
-                      disabled={loadingPix}
-                      className="w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white transition hover:opacity-90 disabled:opacity-60"
-                    >
-                      {loadingPix
-                        ? "Gerando Pix..."
-                        : hasApprovedAccess
-                        ? "Abrir Academy"
-                        : paymentMethod === "pix" && hasPendingPurchase
-                        ? "Gerar novo Pix"
-                        : paymentMethod === "pix"
-                        ? "Gerar Pix"
-                        : paymentMethod === "boleto"
-                        ? "Pagar por boleto"
-                        : "Pagar com cartão"}
-                    </button>
-
-                    <button
-                      onClick={checkAccess}
-                      disabled={checkingAccess}
-                      className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-4 font-black text-white transition hover:bg-white/[0.08] disabled:opacity-60"
-                    >
-                      {checkingAccess ? "Verificando..." : "Verificar acesso"}
-                    </button>
                   </div>
+                )}
 
-                  {(pixCopyPaste || pixQrCode) && (
-                    <div className="mt-5 rounded-[26px] border border-emerald-400/20 bg-emerald-500/10 p-5">
-                      <p className="text-xs uppercase tracking-widest font-black text-emerald-300 mb-3">
-                        Pix gerado
-                      </p>
+                {selectedPurchase?.status === "approved" ? (
+                  <button
+                    onClick={() => navigate("/academy")}
+                    className="w-full rounded-2xl bg-emerald-500 px-5 py-4 font-black text-black transition hover:opacity-90"
+                  >
+                    Abrir curso
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => openUnifiedCheckout(selectedMethod)}
+                    disabled={!selectedCourseProduct || !paymentOptions.length}
+                    className="w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-4 font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Continuar para pagamento
+                  </button>
+                )}
 
-                      {appmaxOrderId && (
-                        <p className="mb-3 text-xs text-emerald-100/70">
-                          Pedido Appmax: {appmaxOrderId}
-                        </p>
-                      )}
+                <button
+                  onClick={checkAccess}
+                  disabled={checkingAccess}
+                  className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 font-black text-white transition hover:bg-white/[0.08] disabled:opacity-60"
+                >
+                  {checkingAccess ? "Verificando..." : "Verificar acesso"}
+                </button>
 
-                      {isQrImage(pixQrCode) && (
-                        <div className="mb-4 overflow-hidden rounded-2xl bg-white p-3">
-                          <img
-                            src={pixQrCode}
-                            alt="QR Code Pix"
-                            className="mx-auto h-56 w-56 object-contain"
-                          />
-                        </div>
-                      )}
-
-                      {pixCopyPaste && (
-                        <>
-                          <textarea
-                            value={pixCopyPaste}
-                            readOnly
-                            rows={5}
-                            className="w-full resize-none rounded-2xl border border-white/10 bg-black/50 p-4 text-xs text-zinc-300 outline-none"
-                          />
-
-                          <button
-                            onClick={copyPix}
-                            className="mt-3 w-full rounded-2xl bg-emerald-500 px-5 py-4 font-black text-black transition hover:opacity-90"
-                          >
-                            Copiar código Pix
-                          </button>
-                        </>
-                      )}
-
-                      {!pixCopyPaste && pixQrCode && !isQrImage(pixQrCode) && (
-                        <>
-                          <textarea
-                            value={pixQrCode}
-                            readOnly
-                            rows={5}
-                            className="w-full resize-none rounded-2xl border border-white/10 bg-black/50 p-4 text-xs text-zinc-300 outline-none"
-                          />
-
-                          <button
-                            onClick={async () => {
-                              await navigator.clipboard.writeText(pixQrCode);
-                              alert("Código Pix copiado.");
-                            }}
-                            className="mt-3 w-full rounded-2xl bg-emerald-500 px-5 py-4 font-black text-black transition hover:opacity-90"
-                          >
-                            Copiar código Pix
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {message && (
-                    <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-relaxed text-zinc-300">
-                      {message}
-                    </div>
-                  )}
-
-                  <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
-                    <p className="text-xs uppercase tracking-widest font-black text-zinc-500 mb-3">
-                      Conta
-                    </p>
-
-                    <p className="break-all text-sm font-black text-white">
-                      {user.email}
-                    </p>
-
-                    <p className="mt-2 text-sm text-zinc-500">
-                      O curso será vinculado a esta conta.
-                    </p>
+                {message && (
+                  <div className="mt-5 rounded-2xl border border-blue-400/25 bg-blue-500/10 p-4 text-sm font-bold leading-relaxed text-blue-100">
+                    {message}
                   </div>
-                </>
-              ) : (
-                <p className="text-zinc-400">Escolha um curso para continuar.</p>
-              )}
-            </div>
+                )}
+
+                <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-xs leading-relaxed text-zinc-500">
+                  Nome, e-mail, WhatsApp e CPF serão solicitados uma única vez
+                  no checkout final. Dados de cartão nunca ficam salvos no Hub.
+                </div>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-zinc-400">
+                Nenhum curso disponível.
+              </div>
+            )}
           </aside>
         </div>
       </main>
