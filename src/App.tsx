@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { supabase } from "./lib/supabase";
 
 import Landing from "./pages/Landing";
@@ -27,6 +33,7 @@ import ThankYou from "./pages/ThankYou";
 
 import Sidebar from "./components/Sidebar";
 import FatorzAssistant from "./components/FatorzAssistant";
+import FatorZEffects from "./components/FatorZEffects";
 
 type StaffRole =
   | "none"
@@ -152,6 +159,230 @@ function StaffRoute({
   }
 
   return children;
+}
+
+function AppContent({ user, profile }: any) {
+  const location = useLocation();
+
+  return (
+    <>
+      <FatorZEffects key={location.pathname} />
+
+      <Routes>
+        <Route path="/" element={<Landing />} />
+
+        <Route path="/servicos" element={<Services />} />
+        <Route path="/servicos/:slug" element={<ServicePage />} />
+        <Route
+          path="/agencia-de-marketing-em-pelotas"
+          element={<ServicePage />}
+        />
+
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/blog/:slug" element={<BlogPost />} />
+
+        <Route path="/obrigado" element={<ThankYou />} />
+
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/dashboard" replace /> : <Login />}
+        />
+
+        <Route
+          path="/checkout/academy"
+          element={<CheckoutAcademy user={user} profile={profile} />}
+        />
+
+        <Route
+          path="/checkout/produto"
+          element={<ProductCheckout user={user} profile={profile} />}
+        />
+
+        <Route
+          path="/academy"
+          element={
+            <ProtectedRoute user={user} profile={profile}>
+              <Academy user={user} profile={profile} />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute user={user} profile={profile}>
+              <DashboardLayout profile={profile}>
+                <Dashboard user={user} profile={profile} />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/minhas-entregas"
+          element={
+            <ProtectedRoute user={user} profile={profile}>
+              <DashboardLayout profile={profile}>
+                <MyDeliveries />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/configuracoes"
+          element={
+            <ProtectedRoute user={user} profile={profile}>
+              <DashboardLayout profile={profile}>
+                <Settings user={user} profile={profile} />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/mural"
+          element={
+            <ProtectedRoute user={user} profile={profile}>
+              <DashboardLayout profile={profile}>
+                <Mural user={user} profile={profile} />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/pedidos"
+          element={
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={ORDERS_ROLES}
+            >
+              <DashboardLayout profile={profile}>
+                <AdminOrders />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/admin/produtos"
+          element={
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={PRODUCTS_ROLES}
+            >
+              <DashboardLayout profile={profile}>
+                <AdminProducts />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/admin/assinaturas"
+          element={
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={ACADEMY_ACCESS_ROLES}
+            >
+              <DashboardLayout profile={profile}>
+                <AdminSubscriptions />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/admin/usuarios"
+          element={
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={USERS_ROLES}
+            >
+              <DashboardLayout profile={profile}>
+                <AdminUsers />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/admin/cursos"
+          element={
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={ACADEMY_ADMIN_ROLES}
+            >
+              <DashboardLayout profile={profile}>
+                <AdminCourses />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/admin/aulas"
+          element={
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={ACADEMY_ADMIN_ROLES}
+            >
+              <DashboardLayout profile={profile}>
+                <AdminLessons />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/admin/links"
+          element={
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={ACADEMY_ADMIN_ROLES}
+            >
+              <DashboardLayout profile={profile}>
+                <AdminLinks />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/projetos"
+          element={
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={PROJECTS_ROLES}
+            >
+              <DashboardLayout profile={profile}>
+                <Projects />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route path="/clientes" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/financeiro"
+          element={<Navigate to="/dashboard" replace />}
+        />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      <FatorzAssistant user={user} profile={profile} />
+    </>
+  );
 }
 
 export default function App() {
@@ -329,200 +560,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-
-        <Route path="/servicos" element={<Services />} />
-        <Route path="/servicos/:slug" element={<ServicePage />} />
-        <Route
-          path="/agencia-de-marketing-em-pelotas"
-          element={<ServicePage />}
-        />
-
-        <Route path="/blog" element={<Blog />} />
-        <Route path="/blog/:slug" element={<BlogPost />} />
-
-        <Route path="/obrigado" element={<ThankYou />} />
-
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/dashboard" replace /> : <Login />}
-        />
-
-        <Route
-          path="/checkout/academy"
-          element={<CheckoutAcademy user={user} profile={profile} />}
-        />
-
-        <Route
-          path="/checkout/produto"
-          element={<ProductCheckout user={user} profile={profile} />}
-        />
-
-        <Route
-          path="/academy"
-          element={
-            <ProtectedRoute user={user} profile={profile}>
-              <Academy user={user} profile={profile} />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute user={user} profile={profile}>
-              <DashboardLayout profile={profile}>
-                <Dashboard user={user} profile={profile} />
-              </DashboardLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/minhas-entregas"
-          element={
-            <ProtectedRoute user={user} profile={profile}>
-              <DashboardLayout profile={profile}>
-                <MyDeliveries />
-              </DashboardLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/configuracoes"
-          element={
-            <ProtectedRoute user={user} profile={profile}>
-              <DashboardLayout profile={profile}>
-                <Settings user={user} profile={profile} />
-              </DashboardLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/mural"
-          element={
-            <ProtectedRoute user={user} profile={profile}>
-              <DashboardLayout profile={profile}>
-                <Mural user={user} profile={profile} />
-              </DashboardLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin/pedidos"
-          element={
-            <StaffRoute user={user} profile={profile} allowedRoles={ORDERS_ROLES}>
-              <DashboardLayout profile={profile}>
-                <AdminOrders />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
-
-        <Route
-          path="/admin/produtos"
-          element={
-            <StaffRoute user={user} profile={profile} allowedRoles={PRODUCTS_ROLES}>
-              <DashboardLayout profile={profile}>
-                <AdminProducts />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
-
-        <Route
-          path="/admin/assinaturas"
-          element={
-            <StaffRoute
-              user={user}
-              profile={profile}
-              allowedRoles={ACADEMY_ACCESS_ROLES}
-            >
-              <DashboardLayout profile={profile}>
-                <AdminSubscriptions />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
-
-        <Route
-          path="/admin/usuarios"
-          element={
-            <StaffRoute user={user} profile={profile} allowedRoles={USERS_ROLES}>
-              <DashboardLayout profile={profile}>
-                <AdminUsers />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
-
-        <Route
-          path="/admin/cursos"
-          element={
-            <StaffRoute
-              user={user}
-              profile={profile}
-              allowedRoles={ACADEMY_ADMIN_ROLES}
-            >
-              <DashboardLayout profile={profile}>
-                <AdminCourses />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
-
-        <Route
-          path="/admin/aulas"
-          element={
-            <StaffRoute
-              user={user}
-              profile={profile}
-              allowedRoles={ACADEMY_ADMIN_ROLES}
-            >
-              <DashboardLayout profile={profile}>
-                <AdminLessons />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
-
-        <Route
-          path="/admin/links"
-          element={
-            <StaffRoute
-              user={user}
-              profile={profile}
-              allowedRoles={ACADEMY_ADMIN_ROLES}
-            >
-              <DashboardLayout profile={profile}>
-                <AdminLinks />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
-
-        <Route
-          path="/projetos"
-          element={
-            <StaffRoute user={user} profile={profile} allowedRoles={PROJECTS_ROLES}>
-              <DashboardLayout profile={profile}>
-                <Projects />
-              </DashboardLayout>
-            </StaffRoute>
-          }
-        />
-
-        <Route path="/clientes" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/financeiro" element={<Navigate to="/dashboard" replace />} />
-
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-
-      <FatorzAssistant user={user} profile={profile} />
+      <AppContent user={user} profile={profile} />
     </BrowserRouter>
   );
 }

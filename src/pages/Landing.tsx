@@ -305,7 +305,7 @@ export default function Landing() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050506] text-white overflow-x-hidden">
+    <div className="fz-grid-bg min-h-screen bg-[#050506] text-white overflow-x-hidden">
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_12%_8%,rgba(0,92,255,0.18),transparent_28%),radial-gradient(circle_at_88%_12%,rgba(255,0,150,0.16),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(145,35,255,0.14),transparent_34%)]" />
       <div className="fixed inset-0 pointer-events-none opacity-30 bg-[linear-gradient(115deg,transparent_0%,rgba(0,92,255,0.08)_32%,transparent_56%,rgba(255,0,150,0.08)_80%,transparent_100%)]" />
 
@@ -313,7 +313,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 md:px-8">
           <button
             onClick={() => navigate("/")}
-            className="text-2xl md:text-3xl font-black tracking-tight text-white shrink-0"
+            className="text-2xl md:text-3xl font-black tracking-tight text-white shrink-0 transition hover:scale-[1.02]"
           >
             Fator<span className="text-pink-500">Z</span>
           </button>
@@ -352,7 +352,7 @@ export default function Landing() {
 
             <button
               onClick={openInstagram}
-              className="hidden rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-3 text-sm font-black text-white transition hover:opacity-90 lg:block md:px-6"
+              className="fz-shine-btn hidden px-5 py-3 text-sm lg:block md:px-6"
             >
               @fatorzhouse
             </button>
@@ -361,7 +361,7 @@ export default function Landing() {
       </header>
 
       <main className="relative z-10">
-        <section className="mx-auto max-w-7xl px-4 pb-14 pt-12 md:px-8 md:pb-20 md:pt-20">
+        <section className="fz-reveal mx-auto max-w-7xl px-4 pb-14 pt-12 md:px-8 md:pb-20 md:pt-20">
           <div className="grid items-center gap-9 lg:grid-cols-[1fr_0.9fr] lg:gap-14">
             <div>
               <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2">
@@ -384,24 +384,24 @@ export default function Landing() {
               <div className="flex flex-col gap-4 sm:flex-row">
                 <button
                   onClick={scrollToProducts}
-                  className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-7 py-4 text-base font-black text-white shadow-[0_0_35px_rgba(255,0,150,0.16)] transition hover:opacity-90"
+                  className="fz-shine-btn px-7 py-4 text-base"
                 >
                   Ver soluções
                 </button>
 
                 <button
                   onClick={openInstagram}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-7 py-4 text-base font-black text-white transition hover:bg-white/10"
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-7 py-4 text-base font-black text-white transition hover:bg-white/10 hover:border-pink-500/30"
                 >
                   Chamar no direct
                 </button>
               </div>
             </div>
 
-            <div className="relative">
+            <div className="relative fz-reveal fz-reveal-delay-1">
               <div className="absolute -inset-5 rounded-[46px] bg-gradient-to-r from-[#005cff]/16 via-[#9123ff]/16 to-[#ff0096]/16 blur-2xl" />
 
-              <div className="relative overflow-hidden rounded-[34px] border border-white/10 bg-black/65 p-5 shadow-2xl">
+              <div className="fz-neon-card relative p-5 shadow-2xl">
                 <div className="mb-5 flex items-center justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.25em] text-pink-400">
@@ -453,7 +453,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="produtos" className="mx-auto max-w-7xl px-4 py-10 md:px-8">
+        <section id="produtos" className="fz-reveal mx-auto max-w-7xl px-4 py-10 md:px-8">
           <div className="mb-8">
             <p className="mb-3 text-sm font-black uppercase tracking-[0.28em] text-pink-500">
               Central de soluções
@@ -470,11 +470,11 @@ export default function Landing() {
           </div>
 
           {loadingProducts ? (
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.045] p-8 text-zinc-400">
+            <div className="fz-neon-card p-8 text-zinc-400">
               Carregando produtos...
             </div>
           ) : !products.length ? (
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.045] p-8 text-zinc-400">
+            <div className="fz-neon-card p-8 text-zinc-400">
               Nenhum produto ativo no momento.
             </div>
           ) : (
@@ -487,7 +487,7 @@ export default function Landing() {
                     <button
                       key={category}
                       onClick={() => setSelectedCategory(category)}
-                      className={`shrink-0 rounded-2xl border px-4 py-3 text-xs font-black transition ${
+                      className={`shrink-0 rounded-full border px-4 py-3 text-xs font-black transition ${
                         active
                           ? "border-pink-500/50 bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-[0_0_25px_rgba(255,0,150,0.18)]"
                           : "border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
@@ -499,7 +499,7 @@ export default function Landing() {
                 })}
               </div>
 
-              <div className="mb-7 overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
+              <div className="fz-neon-card mb-7 p-5 md:p-6">
                 <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
                   Setor selecionado
                 </p>
@@ -517,10 +517,8 @@ export default function Landing() {
                 {selectedProducts.map((product) => (
                   <article
                     key={product.id}
-                    className={`relative overflow-hidden rounded-[30px] border p-5 transition hover:-translate-y-1 ${
-                      product.is_featured
-                        ? "border-pink-500/45 bg-pink-500/[0.08] shadow-[0_0_35px_rgba(255,0,150,0.12)]"
-                        : "border-white/10 bg-white/[0.045]"
+                    className={`fz-neon-card p-5 ${
+                      product.is_featured ? "fz-plan-featured" : ""
                     }`}
                   >
                     {product.image_url && (
@@ -528,14 +526,14 @@ export default function Landing() {
                         <img
                           src={product.image_url}
                           alt={product.name}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition duration-500 hover:scale-105"
                         />
                       </div>
                     )}
 
                     <div className="mb-3 flex flex-wrap gap-2">
                       {product.is_featured && (
-                        <div className="inline-flex rounded-full border border-pink-500/30 bg-pink-500/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-pink-300">
+                        <div className="fz-plan-badge">
                           Destaque FatorZ
                         </div>
                       )}
@@ -594,7 +592,7 @@ export default function Landing() {
                     <button
                       onClick={() => handleBuy(product)}
                       disabled={buyingId === product.id}
-                      className="w-full rounded-2xl bg-white px-5 py-3.5 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="fz-shine-btn w-full px-5 py-3.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {buyingId === product.id
                         ? "Abrindo..."
@@ -611,8 +609,8 @@ export default function Landing() {
           )}
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-14 md:px-8 md:py-20">
-          <div className="overflow-hidden rounded-[36px] border border-white/10 bg-black p-7 md:p-10 relative">
+        <section className="fz-reveal mx-auto max-w-7xl px-4 py-14 md:px-8 md:py-20">
+          <div className="fz-neon-card relative p-7 md:p-10">
             <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/20 blur-3xl" />
             <div className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#005cff]/20 blur-3xl" />
 
@@ -634,7 +632,7 @@ export default function Landing() {
 
               <button
                 onClick={openInstagram}
-                className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-7 py-4 text-base font-black text-white transition hover:opacity-90"
+                className="fz-shine-btn px-7 py-4 text-base"
               >
                 Chamar @fatorzhouse
               </button>
