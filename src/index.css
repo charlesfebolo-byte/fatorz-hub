@@ -1,4 +1,5 @@
 @import "tailwindcss";
+
 /* ============================= */
 /* FATORZ — EFEITOS PREMIUM */
 /* ============================= */
@@ -13,18 +14,19 @@
   --fz-white: #ffffff;
 }
 
-/* 1. BORDA NEON ANIMADA NOS CARDS */
+/* ============================= */
+/* CARDS COM BORDA NEON */
+/* ============================= */
 
 .fz-neon-card {
   position: relative;
+  z-index: 0;
   overflow: hidden;
   border: 1px solid rgba(139, 92, 246, 0.18);
   border-radius: 24px;
-  background: linear-gradient(
-    145deg,
-    rgba(15, 10, 30, 0.94),
-    rgba(5, 3, 10, 0.92)
-  );
+  background:
+    linear-gradient(145deg, rgba(15, 10, 30, 0.94), rgba(5, 3, 10, 0.92)),
+    rgba(5, 3, 10, 0.92);
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.03),
     0 20px 60px rgba(0, 0, 0, 0.45);
@@ -34,10 +36,16 @@
     border-color 0.35s ease;
 }
 
+.fz-neon-card > * {
+  position: relative;
+  z-index: 2;
+}
+
 .fz-neon-card::before {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 1;
   padding: 1px;
   border-radius: inherit;
   background: linear-gradient(
@@ -83,7 +91,9 @@
   }
 }
 
-/* 2. BOTÕES COM BRILHO PASSANDO */
+/* ============================= */
+/* BOTÕES COM BRILHO PASSANDO */
+/* ============================= */
 
 .fz-shine-btn {
   position: relative;
@@ -136,7 +146,9 @@
   transform: translateX(70%) rotate(18deg);
 }
 
-/* 3. SEÇÕES ENTRANDO NO SCROLL */
+/* ============================= */
+/* SEÇÕES ENTRANDO NO SCROLL */
+/* ============================= */
 
 .fz-reveal {
   opacity: 0;
@@ -164,73 +176,215 @@
   transition-delay: 0.32s;
 }
 
-/* 4. FUNDO COM GRID DIGITAL */
+/* ============================= */
+/* FUNDO ESPACIAL-DIGITAL */
+/* ============================= */
 
 .fz-grid-bg {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   background:
-    radial-gradient(circle at 20% 10%, rgba(139, 92, 246, 0.18), transparent 32%),
-    radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.14), transparent 30%),
-    radial-gradient(circle at 50% 95%, rgba(56, 189, 248, 0.12), transparent 36%),
-    var(--fz-bg);
+    radial-gradient(circle at 15% 18%, rgba(56, 189, 248, 0.16), transparent 23%),
+    radial-gradient(circle at 82% 16%, rgba(236, 72, 153, 0.15), transparent 25%),
+    radial-gradient(circle at 68% 76%, rgba(139, 92, 246, 0.14), transparent 30%),
+    linear-gradient(135deg, #05030a 0%, #080615 44%, #13061f 100%);
 }
 
 .fz-grid-bg::before {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: -3;
+  pointer-events: none;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 52px 52px;
-  mask-image: linear-gradient(to bottom, black, transparent 88%);
-  pointer-events: none;
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.45), transparent 96%);
 }
 
 .fz-grid-bg::after {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0.8;
   background:
-    linear-gradient(
-      120deg,
-      transparent,
-      rgba(139, 92, 246, 0.07),
-      transparent
-    );
+    radial-gradient(circle at 12% 22%, rgba(255,255,255,0.9) 0px, rgba(255,255,255,0.9) 1px, transparent 1.8px),
+    radial-gradient(circle at 18% 68%, rgba(255,255,255,0.62) 0px, rgba(255,255,255,0.62) 1px, transparent 1.8px),
+    radial-gradient(circle at 32% 34%, rgba(255,255,255,0.8) 0px, rgba(255,255,255,0.8) 1px, transparent 1.8px),
+    radial-gradient(circle at 44% 72%, rgba(255,255,255,0.52) 0px, rgba(255,255,255,0.52) 1px, transparent 1.8px),
+    radial-gradient(circle at 58% 26%, rgba(255,255,255,0.78) 0px, rgba(255,255,255,0.78) 1px, transparent 1.8px),
+    radial-gradient(circle at 72% 62%, rgba(255,255,255,0.68) 0px, rgba(255,255,255,0.68) 1px, transparent 1.8px),
+    radial-gradient(circle at 84% 30%, rgba(255,255,255,0.85) 0px, rgba(255,255,255,0.85) 1px, transparent 1.8px),
+    radial-gradient(circle at 91% 78%, rgba(255,255,255,0.58) 0px, rgba(255,255,255,0.58) 1px, transparent 1.8px);
+}
+
+/* planetas / orbes leves */
+
+.fz-space-orbs {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fz-space-orbs::before,
+.fz-space-orbs::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
   pointer-events: none;
 }
 
-/* 5. LUZ SUAVE SEGUINDO O MOUSE */
+.fz-space-orbs::before {
+  width: 210px;
+  height: 210px;
+  top: 118px;
+  right: 8%;
+  background:
+    radial-gradient(circle at 34% 32%, rgba(255,255,255,0.32), transparent 9%),
+    radial-gradient(circle at 44% 44%, rgba(236,72,153,0.28), rgba(139,92,246,0.15) 36%, rgba(56,189,248,0.08) 58%, transparent 73%);
+  box-shadow:
+    0 0 60px rgba(139, 92, 246, 0.18),
+    0 0 130px rgba(236, 72, 153, 0.12);
+  opacity: 0.72;
+  filter: blur(0.4px);
+}
 
-.fz-cursor-glow {
+.fz-space-orbs::after {
+  width: 130px;
+  height: 130px;
+  left: 7%;
+  bottom: 12%;
+  background:
+    radial-gradient(circle at 34% 32%, rgba(255,255,255,0.24), transparent 10%),
+    radial-gradient(circle at 44% 44%, rgba(56,189,248,0.2), rgba(139,92,246,0.12) 42%, transparent 72%);
+  box-shadow:
+    0 0 50px rgba(56, 189, 248, 0.11),
+    0 0 110px rgba(139, 92, 246, 0.1);
+  opacity: 0.65;
+  filter: blur(0.6px);
+}
+
+/* ============================= */
+/* CURSOR — FREQUÊNCIA DIGITAL */
+/* ============================= */
+
+.fz-cursor-frequency,
+.fz-cursor-dot {
   position: fixed;
   left: 0;
   top: 0;
-  width: 320px;
-  height: 320px;
-  margin-left: -160px;
-  margin-top: -160px;
-  border-radius: 999px;
   pointer-events: none;
-  z-index: 20;
-  opacity: 0.38;
-  background: radial-gradient(
-    circle,
-    rgba(139, 92, 246, 0.32),
-    rgba(236, 72, 153, 0.18),
-    rgba(56, 189, 248, 0.08),
-    transparent 68%
-  );
-  filter: blur(4px);
+  z-index: 99999;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.fz-cursor-frequency.is-active,
+.fz-cursor-dot.is-active {
+  opacity: 1;
+}
+
+.fz-cursor-frequency {
+  width: 86px;
+  height: 86px;
+  margin-left: -43px;
+  margin-top: -43px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle, rgba(255,255,255,0.16) 0 7%, transparent 8% 100%),
+    repeating-conic-gradient(
+      from 0deg,
+      rgba(236, 72, 153, 0.18) 0deg 8deg,
+      transparent 8deg 18deg
+    );
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.2),
+    0 0 24px rgba(139, 92, 246, 0.2),
+    0 0 46px rgba(56, 189, 248, 0.12);
+  backdrop-filter: blur(2px);
   mix-blend-mode: screen;
 }
 
-/* 6. ANTES / DEPOIS INTERATIVO */
+.fz-cursor-frequency::before,
+.fz-cursor-frequency::after {
+  content: "";
+  position: absolute;
+  inset: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.fz-cursor-frequency::before {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(236, 72, 153, 0.34);
+  animation: fzPulseOuter 2s ease-out infinite;
+}
+
+.fz-cursor-frequency::after {
+  width: 58px;
+  height: 58px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  box-shadow:
+    inset 0 0 14px rgba(56, 189, 248, 0.08),
+    0 0 18px rgba(56, 189, 248, 0.14);
+  animation: fzPulseInner 1.5s ease-in-out infinite;
+}
+
+.fz-cursor-dot {
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: -5px;
+  border-radius: 999px;
+  background: radial-gradient(circle, #ffffff 0%, #ec4899 45%, #8b5cf6 100%);
+  box-shadow:
+    0 0 10px rgba(255,255,255,0.9),
+    0 0 18px rgba(236,72,153,0.55),
+    0 0 28px rgba(139,92,246,0.38);
+}
+
+@keyframes fzPulseOuter {
+  0% {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.85;
+  }
+
+  70% {
+    transform: translate(-50%, -50%) scale(1.14);
+    opacity: 0.18;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes fzPulseInner {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.98);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+    opacity: 0.95;
+  }
+}
+
+/* ============================= */
+/* ANTES / DEPOIS INTERATIVO */
+/* ============================= */
 
 .fz-before-after {
   --fz-ba-position: 50%;
@@ -336,7 +490,9 @@
   right: 16px;
 }
 
-/* 7. PLANO RECOMENDADO COM GLOW PREMIUM */
+/* ============================= */
+/* PLANO / PRODUTO DESTACADO */
+/* ============================= */
 
 .fz-plan-featured {
   position: relative;
@@ -352,16 +508,17 @@
   content: "";
   position: absolute;
   inset: -2px;
-  z-index: -1;
+  z-index: 0;
   border-radius: inherit;
   background: linear-gradient(
     135deg,
-    rgba(139, 92, 246, 0.7),
-    rgba(236, 72, 153, 0.65),
-    rgba(56, 189, 248, 0.45)
+    rgba(139, 92, 246, 0.62),
+    rgba(236, 72, 153, 0.58),
+    rgba(56, 189, 248, 0.4)
   );
-  opacity: 0.28;
+  opacity: 0.24;
   filter: blur(20px);
+  pointer-events: none;
   animation: fzPlanGlow 2.8s ease-in-out infinite;
 }
 
@@ -388,29 +545,62 @@
 @keyframes fzPlanGlow {
   0%,
   100% {
-    opacity: 0.22;
+    opacity: 0.2;
     transform: scale(1);
   }
 
   50% {
-    opacity: 0.42;
+    opacity: 0.38;
     transform: scale(1.025);
   }
 }
 
-/* ACESSIBILIDADE */
+/* ============================= */
+/* ACESSIBILIDADE / MOBILE */
+/* ============================= */
+
+@media (max-width: 1024px) {
+  .fz-cursor-frequency {
+    width: 64px;
+    height: 64px;
+    margin-left: -32px;
+    margin-top: -32px;
+  }
+
+  .fz-cursor-frequency::after {
+    width: 42px;
+    height: 42px;
+  }
+
+  .fz-space-orbs::before {
+    width: 150px;
+    height: 150px;
+    right: -25px;
+    top: 120px;
+  }
+
+  .fz-space-orbs::after {
+    width: 95px;
+    height: 95px;
+  }
+}
+
+@media (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .fz-cursor-frequency,
+  .fz-cursor-dot {
+    display: none;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .fz-neon-card,
   .fz-shine-btn,
   .fz-reveal,
   .fz-plan-featured::after,
-  .fz-neon-card::before {
+  .fz-neon-card::before,
+  .fz-cursor-frequency::before,
+  .fz-cursor-frequency::after {
     animation: none !important;
     transition: none !important;
-  }
-
-  .fz-cursor-glow {
-    display: none;
   }
 }

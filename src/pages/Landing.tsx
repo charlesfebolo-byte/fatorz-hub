@@ -306,19 +306,18 @@ export default function Landing() {
 
   return (
     <div className="fz-grid-bg min-h-screen bg-[#050506] text-white overflow-x-hidden">
-      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_12%_8%,rgba(0,92,255,0.18),transparent_28%),radial-gradient(circle_at_88%_12%,rgba(255,0,150,0.16),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(145,35,255,0.14),transparent_34%)]" />
-      <div className="fixed inset-0 pointer-events-none opacity-30 bg-[linear-gradient(115deg,transparent_0%,rgba(0,92,255,0.08)_32%,transparent_56%,rgba(255,0,150,0.08)_80%,transparent_100%)]" />
+      <div className="fz-space-orbs" aria-hidden="true" />
 
       <header className="sticky top-0 z-50 border-b border-white/10 bg-black/75 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 md:px-8">
           <button
             onClick={() => navigate("/")}
-            className="text-2xl md:text-3xl font-black tracking-tight text-white shrink-0 transition hover:scale-[1.02]"
+            className="shrink-0 text-2xl font-black tracking-tight text-white transition hover:scale-[1.02] md:text-3xl"
           >
             Fator<span className="text-pink-500">Z</span>
           </button>
 
-          <nav className="hidden lg:flex items-center gap-7 text-sm font-black text-zinc-500">
+          <nav className="hidden items-center gap-7 text-sm font-black text-zinc-500 lg:flex">
             <button onClick={scrollToProducts} className="transition hover:text-white">
               Soluções
             </button>
@@ -352,7 +351,7 @@ export default function Landing() {
 
             <button
               onClick={openInstagram}
-              className="fz-shine-btn hidden px-5 py-3 text-sm lg:block md:px-6"
+              className="fz-shine-btn hidden px-5 py-3 text-sm md:px-6 lg:block"
             >
               @fatorzhouse
             </button>
@@ -364,7 +363,7 @@ export default function Landing() {
         <section className="fz-reveal mx-auto max-w-7xl px-4 pb-14 pt-12 md:px-8 md:pb-20 md:pt-20">
           <div className="grid items-center gap-9 lg:grid-cols-[1fr_0.9fr] lg:gap-14">
             <div>
-              <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2">
+              <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2 backdrop-blur-xl">
                 <span className="h-2.5 w-2.5 rounded-full bg-pink-500 shadow-[0_0_18px_rgba(255,0,150,0.9)]" />
                 <p className="text-xs font-black uppercase tracking-[0.28em] text-zinc-300">
                   Marketing, IA e presença digital
@@ -391,14 +390,14 @@ export default function Landing() {
 
                 <button
                   onClick={openInstagram}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-7 py-4 text-base font-black text-white transition hover:bg-white/10 hover:border-pink-500/30"
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-7 py-4 text-base font-black text-white transition hover:border-pink-500/30 hover:bg-white/10"
                 >
                   Chamar no direct
                 </button>
               </div>
             </div>
 
-            <div className="relative fz-reveal fz-reveal-delay-1">
+            <div className="fz-reveal fz-reveal-delay-1 relative">
               <div className="absolute -inset-5 rounded-[46px] bg-gradient-to-r from-[#005cff]/16 via-[#9123ff]/16 to-[#ff0096]/16 blur-2xl" />
 
               <div className="fz-neon-card relative p-5 shadow-2xl">
@@ -453,7 +452,10 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="produtos" className="fz-reveal mx-auto max-w-7xl px-4 py-10 md:px-8">
+        <section
+          id="produtos"
+          className="fz-reveal mx-auto max-w-7xl px-4 py-10 md:px-8"
+        >
           <div className="mb-8">
             <p className="mb-3 text-sm font-black uppercase tracking-[0.28em] text-pink-500">
               Central de soluções
@@ -533,9 +535,7 @@ export default function Landing() {
 
                     <div className="mb-3 flex flex-wrap gap-2">
                       {product.is_featured && (
-                        <div className="fz-plan-badge">
-                          Destaque FatorZ
-                        </div>
+                        <div className="fz-plan-badge">Destaque FatorZ</div>
                       )}
 
                       {product.badge && (
@@ -597,10 +597,10 @@ export default function Landing() {
                       {buyingId === product.id
                         ? "Abrindo..."
                         : product.checkout_provider === "manual"
-                        ? "Chamar no direct"
-                        : product.checkout_provider === "external"
-                        ? "Abrir pagamento"
-                        : "Comprar agora"}
+                          ? "Chamar no direct"
+                          : product.checkout_provider === "external"
+                            ? "Abrir pagamento"
+                            : "Comprar agora"}
                     </button>
                   </article>
                 ))}
