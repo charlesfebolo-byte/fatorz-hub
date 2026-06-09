@@ -138,6 +138,48 @@ function isQrImage(value: string | null | undefined) {
   );
 }
 
+
+const CHECKOUT_CUSTOMER_STORAGE_KEY = "fatorz_checkout_customer";
+
+type SavedCheckoutCustomer = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  documentNumber?: string;
+};
+
+function readSavedCheckoutCustomer(): SavedCheckoutCustomer | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(CHECKOUT_CUSTOMER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCheckoutCustomer(data: SavedCheckoutCustomer) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const current = readSavedCheckoutCustomer() || {};
+    window.localStorage.setItem(
+      CHECKOUT_CUSTOMER_STORAGE_KEY,
+      JSON.stringify({
+        ...current,
+        ...data,
+        phone: data.phone ? onlyNumbers(data.phone) : current.phone || "",
+        documentNumber: data.documentNumber
+          ? onlyNumbers(data.documentNumber)
+          : current.documentNumber || "",
+      })
+    );
+  } catch {
+    // Não trava o checkout se o navegador bloquear localStorage.
+  }
+}
+
 export default function CheckoutAcademy({ user, profile }: any) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -164,6 +206,31 @@ export default function CheckoutAcademy({ user, profile }: any) {
   const [pixCopyPaste, setPixCopyPaste] = useState("");
   const [pixQrCode, setPixQrCode] = useState("");
   const [appmaxOrderId, setAppmaxOrderId] = useState("");
+
+  useEffect(() => {
+    const savedCustomer = readSavedCheckoutCustomer();
+
+    if (savedCustomer?.name && !customerName) {
+      setCustomerName(savedCustomer.name);
+    }
+
+    if (savedCustomer?.phone && !customerPhone) {
+      setCustomerPhone(formatPhone(savedCustomer.phone));
+    }
+
+    if (savedCustomer?.documentNumber && !documentNumber) {
+      setDocumentNumber(formatCpf(savedCustomer.documentNumber));
+    }
+  }, []);
+
+  useEffect(() => {
+    saveCheckoutCustomer({
+      name: customerName,
+      email: user?.email || profile?.email || "",
+      phone: customerPhone,
+      documentNumber,
+    });
+  }, [customerName, customerPhone, documentNumber, user?.email, profile?.email]);
 
   useEffect(() => {
     loadCheckoutData();
@@ -317,7 +384,34 @@ export default function CheckoutAcademy({ user, profile }: any) {
       return;
     }
 
-    navigate(`/checkout/produto?slug=${selectedCourseProduct.slug}&method=${method}`);
+    const cleanCpf = onlyNumbers(documentNumber);
+    const cleanPhone = onlyNumbers(customerPhone);
+
+    if (!customerName.trim()) {
+      alert("Informe seu nome completo.");
+      return;
+    }
+
+    if (cleanPhone.length < 10) {
+      alert("Informe seu WhatsApp com DDD.");
+      return;
+    }
+
+    if (cleanCpf.length !== 11) {
+      alert("Informe um CPF válido com 11 números.");
+      return;
+    }
+
+    saveCheckoutCustomer({
+      name: customerName.trim(),
+      email: user?.email || profile?.email || "",
+      phone: cleanPhone,
+      documentNumber: cleanCpf,
+    });
+
+    navigate(
+      `/checkout/produto?slug=${selectedCourseProduct.slug}&method=${method}&source=academy`
+    );
   }
 
   function handlePayment() {

@@ -147,11 +147,65 @@ function getInstallmentLabel(cents: number, installments: number) {
   return `${installments}x de ${formatMoney(installmentValue)}`;
 }
 
+
+const CHECKOUT_CUSTOMER_STORAGE_KEY = "fatorz_checkout_customer";
+
+type SavedCheckoutCustomer = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  documentNumber?: string;
+};
+
+function readSavedCheckoutCustomer(): SavedCheckoutCustomer | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(CHECKOUT_CUSTOMER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCheckoutCustomer(data: SavedCheckoutCustomer) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const current = readSavedCheckoutCustomer() || {};
+    window.localStorage.setItem(
+      CHECKOUT_CUSTOMER_STORAGE_KEY,
+      JSON.stringify({
+        ...current,
+        ...data,
+        phone: data.phone ? onlyNumbers(data.phone) : current.phone || "",
+        documentNumber: data.documentNumber
+          ? onlyNumbers(data.documentNumber)
+          : current.documentNumber || "",
+      })
+    );
+  } catch {
+    // Não trava o checkout se o navegador bloquear localStorage.
+  }
+}
+
+function getRequestedPaymentMethod(value: string | null): PaymentMethod | null {
+  if (value === "pix" || value === "boleto" || value === "card") return value;
+  return null;
+}
+
+function productAcceptsPaymentMethod(product: SiteProduct, method: PaymentMethod) {
+  if (method === "pix") return Boolean(product.accepts_pix);
+  if (method === "boleto") return Boolean(product.accepts_boleto);
+  return Boolean(product.accepts_card);
+}
+
 export default function ProductCheckout({ user: userFromApp }: any) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const slug = searchParams.get("slug") || "";
+  const requestedMethod = getRequestedPaymentMethod(searchParams.get("method"));
 
   const [product, setProduct] = useState<SiteProduct | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(userFromApp || null);
@@ -177,7 +231,16 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
   useEffect(() => {
     startPage();
-  }, [slug]);
+  }, [slug, requestedMethod]);
+
+  useEffect(() => {
+    saveCheckoutCustomer({
+      name: customerName,
+      email: customerEmail,
+      phone: customerPhone,
+      documentNumber,
+    });
+  }, [customerName, customerEmail, customerPhone, documentNumber]);
 
   async function startPage() {
     setLoading(true);
@@ -188,17 +251,23 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
     setCurrentUser(user || userFromApp || null);
 
-    if (user) {
-      const userName =
-        user.user_metadata?.nome ||
-        user.user_metadata?.name ||
-        user.user_metadata?.full_name ||
-        "";
+    const savedCustomer = readSavedCheckoutCustomer();
+    const userName =
+      user?.user_metadata?.nome ||
+      user?.user_metadata?.name ||
+      user?.user_metadata?.full_name ||
+      "";
 
-      setCustomerEmail(user.email || "");
-      setCustomerName(userName);
-      setCardHolderName(userName);
-    }
+    const savedName = savedCustomer?.name || "";
+    const savedEmail = savedCustomer?.email || "";
+    const savedPhone = savedCustomer?.phone || "";
+    const savedDocument = savedCustomer?.documentNumber || "";
+
+    setCustomerEmail(savedEmail || user?.email || "");
+    setCustomerName(savedName || userName || "");
+    setCardHolderName(savedName || userName || "");
+    setCustomerPhone(savedPhone ? maskPhone(savedPhone) : "");
+    setDocumentNumber(savedDocument ? maskCpf(savedDocument) : "");
 
     if (!slug) {
       setLoading(false);
@@ -222,6 +291,11 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
     setProduct(data);
 
+    if (requestedMethod && productAcceptsPaymentMethod(data, requestedMethod)) {
+      setPaymentMethod(requestedMethod);
+      return;
+    }
+
     if (!data.accepts_pix && data.accepts_boleto) {
       setPaymentMethod("boleto");
       return;
@@ -229,7 +303,10 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
     if (!data.accepts_pix && !data.accepts_boleto && data.accepts_card) {
       setPaymentMethod("card");
+      return;
     }
+
+    setPaymentMethod("pix");
   }
 
   const paymentOptions = useMemo(() => {
