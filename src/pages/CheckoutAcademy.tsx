@@ -40,6 +40,8 @@ type CoursePurchase = {
   appmax_payment_id?: string | null;
 };
 
+type PaymentMethod = "pix" | "card" | "boleto";
+
 function onlyNumbers(value: string) {
   return String(value || "").replace(/\D/g, "");
 }
@@ -146,6 +148,7 @@ export default function CheckoutAcademy({ user, profile }: any) {
   const [pixCopyPaste, setPixCopyPaste] = useState("");
   const [pixQrCode, setPixQrCode] = useState("");
   const [appmaxOrderId, setAppmaxOrderId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
 
   useEffect(() => {
     loadCheckoutData();
@@ -353,6 +356,35 @@ export default function CheckoutAcademy({ user, profile }: any) {
     alert("Código Pix copiado.");
   }
 
+  function openExternalCoursePayment(method: "card" | "boleto") {
+    if (!selectedCourse) {
+      alert("Escolha um curso primeiro.");
+      return;
+    }
+
+    if (hasApprovedAccess) {
+      navigate("/academy");
+      return;
+    }
+
+    if (!selectedCourse.payment_url) {
+      alert(
+        method === "card"
+          ? "Cadastre o link de pagamento por cartão neste curso."
+          : "Cadastre o link de pagamento por boleto neste curso."
+      );
+      return;
+    }
+
+    setMessage(
+      method === "card"
+        ? "Abrindo pagamento por cartão. Depois do pagamento, volte aqui e clique em Verificar acesso."
+        : "Abrindo pagamento por boleto. Depois do pagamento, volte aqui e clique em Verificar acesso."
+    );
+
+    window.open(selectedCourse.payment_url, "_blank", "noopener,noreferrer");
+  }
+
   async function checkAccess() {
     if (!user?.id) {
       navigate("/login");
@@ -386,7 +418,7 @@ export default function CheckoutAcademy({ user, profile }: any) {
 
     if (!data) {
       setMessage(
-        "Ainda não encontramos uma compra registrada para esse curso. Gere o Pix primeiro."
+        "Ainda não encontramos uma compra registrada para esse curso. Gere o Pix ou pague pelo link de cartão/boleto primeiro."
       );
       return;
     }
@@ -494,15 +526,15 @@ export default function CheckoutAcademy({ user, profile }: any) {
             </p>
 
             <h2 className="text-4xl md:text-6xl font-black leading-tight mb-4">
-              Pagamento via{" "}
+              Escolha como pagar{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]">
-                Pix Appmax.
+                seu curso.
               </span>
             </h2>
 
             <p className="max-w-4xl text-zinc-400 text-lg leading-relaxed">
-              Gere o Pix dentro do Hub, pague com segurança e aguarde a liberação
-              vitalícia do curso na sua conta.
+              Use Pix dentro do Hub ou abra o pagamento externo por cartão ou boleto,
+              conforme o link configurado no curso.
             </p>
           </div>
         </section>
@@ -538,6 +570,7 @@ export default function CheckoutAcademy({ user, profile }: any) {
                         setPixCopyPaste(pending?.pix_copy_paste || "");
                         setPixQrCode(pending?.pix_qr_code || "");
                         setAppmaxOrderId(pending?.appmax_order_id || "");
+                        setPaymentMethod("pix");
                       }}
                       className={`overflow-hidden rounded-[28px] border text-left transition hover:-translate-y-1 ${
                         active
@@ -571,7 +604,7 @@ export default function CheckoutAcademy({ user, profile }: any) {
 
                           {pending && (
                             <span className="rounded-full border border-orange-400/25 bg-orange-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-orange-300">
-                              Pix pendente
+                              Pagamento pendente
                             </span>
                           )}
                         </div>
@@ -655,6 +688,59 @@ export default function CheckoutAcademy({ user, profile }: any) {
                   {!hasApprovedAccess && (
                     <div className="mb-5 rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
                       <p className="text-xs uppercase tracking-widest font-black text-zinc-500 mb-4">
+                        Forma de pagamento
+                      </p>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("pix")}
+                          className={`rounded-2xl border px-3 py-3 text-xs font-black uppercase tracking-widest transition ${
+                            paymentMethod === "pix"
+                              ? "border-pink-500/50 bg-pink-500/15 text-pink-200"
+                              : "border-white/10 bg-black/40 text-zinc-400 hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          Pix
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("card")}
+                          className={`rounded-2xl border px-3 py-3 text-xs font-black uppercase tracking-widest transition ${
+                            paymentMethod === "card"
+                              ? "border-blue-500/50 bg-blue-500/15 text-blue-200"
+                              : "border-white/10 bg-black/40 text-zinc-400 hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          Cartão
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("boleto")}
+                          className={`rounded-2xl border px-3 py-3 text-xs font-black uppercase tracking-widest transition ${
+                            paymentMethod === "boleto"
+                              ? "border-yellow-500/50 bg-yellow-500/15 text-yellow-200"
+                              : "border-white/10 bg-black/40 text-zinc-400 hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          Boleto
+                        </button>
+                      </div>
+
+                      {paymentMethod !== "pix" && (
+                        <p className="mt-4 text-xs leading-relaxed text-zinc-500">
+                          Cartão e boleto usam o link de pagamento configurado no curso.
+                          Após pagar, volte aqui e clique em Verificar acesso.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {!hasApprovedAccess && paymentMethod === "pix" && (
+                    <div className="mb-5 rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
+                      <p className="text-xs uppercase tracking-widest font-black text-zinc-500 mb-4">
                         Dados para gerar Pix
                       </p>
 
@@ -686,19 +772,39 @@ export default function CheckoutAcademy({ user, profile }: any) {
                   )}
 
                   <div className="space-y-3">
-                    <button
-                      onClick={createAppmaxPix}
-                      disabled={loadingPix}
-                      className="w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white transition hover:opacity-90 disabled:opacity-60"
-                    >
-                      {loadingPix
-                        ? "Gerando Pix..."
-                        : hasApprovedAccess
-                        ? "Abrir Academy"
-                        : hasPendingPurchase
-                        ? "Gerar novo Pix"
-                        : "Gerar Pix"}
-                    </button>
+                    {paymentMethod === "pix" && (
+                      <button
+                        onClick={createAppmaxPix}
+                        disabled={loadingPix}
+                        className="w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white transition hover:opacity-90 disabled:opacity-60"
+                      >
+                        {loadingPix
+                          ? "Gerando Pix..."
+                          : hasApprovedAccess
+                          ? "Abrir Academy"
+                          : hasPendingPurchase
+                          ? "Gerar novo Pix"
+                          : "Gerar Pix"}
+                      </button>
+                    )}
+
+                    {paymentMethod === "card" && (
+                      <button
+                        onClick={() => openExternalCoursePayment("card")}
+                        className="w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white transition hover:opacity-90"
+                      >
+                        {hasApprovedAccess ? "Abrir Academy" : "Pagar com cartão"}
+                      </button>
+                    )}
+
+                    {paymentMethod === "boleto" && (
+                      <button
+                        onClick={() => openExternalCoursePayment("boleto")}
+                        className="w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white transition hover:opacity-90"
+                      >
+                        {hasApprovedAccess ? "Abrir Academy" : "Pagar com boleto"}
+                      </button>
+                    )}
 
                     <button
                       onClick={checkAccess}
