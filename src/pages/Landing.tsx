@@ -264,6 +264,10 @@ export default function Landing() {
 
   const selectedProducts = groupedProducts[selectedCategory] || [];
 
+  const totalProducts = products.length;
+  const featuredProduct = products.find((product) => product.is_featured);
+  const firstSelectedProduct = selectedProducts[0];
+
   function openInstagram() {
     window.open(INSTAGRAM_URL, "_blank");
   }
@@ -308,35 +312,44 @@ export default function Landing() {
     <div className="fz-grid-bg min-h-screen bg-[#050506] text-white overflow-x-hidden">
       <div className="fz-space-orbs" aria-hidden="true" />
 
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/75 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 md:px-8">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8">
           <button
             onClick={() => navigate("/")}
-            className="shrink-0 text-2xl font-black tracking-tight text-white transition hover:scale-[1.02] md:text-3xl"
+            className="group relative shrink-0 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-2xl font-black tracking-tight text-white shadow-[0_0_28px_rgba(236,72,153,0.08)] transition hover:scale-[1.02] hover:border-pink-500/30 md:text-3xl"
           >
-            Fator<span className="text-pink-500">Z</span>
+            <span className="relative z-10">
+              Fator<span className="text-pink-500">Z</span>
+            </span>
+            <span className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-pink-500/10 to-transparent opacity-0 transition group-hover:opacity-100" />
           </button>
 
-          <nav className="hidden items-center gap-7 text-sm font-black text-zinc-500 lg:flex">
-            <button onClick={scrollToProducts} className="transition hover:text-white">
+          <nav className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.035] p-1.5 text-sm font-black backdrop-blur-xl lg:flex">
+            <button
+              onClick={scrollToProducts}
+              className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
+            >
               Soluções
             </button>
 
             <button
               onClick={() => navigate("/academy")}
-              className="transition hover:text-white"
+              className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
             >
               Academy
             </button>
 
             <button
               onClick={() => navigate("/minhas-entregas")}
-              className="transition hover:text-white"
+              className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
             >
               Entregas
             </button>
 
-            <button onClick={openInstagram} className="transition hover:text-white">
+            <button
+              onClick={openInstagram}
+              className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
+            >
               Contato
             </button>
           </nav>
@@ -344,7 +357,7 @@ export default function Landing() {
           <div className="flex items-center gap-2 md:gap-3">
             <button
               onClick={() => navigate("/login")}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:bg-white/10 md:px-6"
+              className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:border-white/20 hover:bg-white/10 md:px-6"
             >
               Entrar
             </button>
@@ -360,8 +373,8 @@ export default function Landing() {
       </header>
 
       <main className="relative z-10">
-        <section className="fz-reveal mx-auto max-w-7xl px-4 pb-14 pt-12 md:px-8 md:pb-20 md:pt-20">
-          <div className="grid items-center gap-9 lg:grid-cols-[1fr_0.9fr] lg:gap-14">
+        <section className="fz-reveal mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-10 lg:min-h-[calc(100vh-76px)] lg:py-12">
+          <div className="grid h-full items-center gap-9 lg:grid-cols-[0.94fr_1.06fr] lg:gap-14">
             <div>
               <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2 backdrop-blur-xl">
                 <span className="h-2.5 w-2.5 rounded-full bg-pink-500 shadow-[0_0_18px_rgba(255,0,150,0.9)]" />
@@ -370,11 +383,14 @@ export default function Landing() {
                 </p>
               </div>
 
-              <h1 className="mb-6 max-w-[780px] text-5xl font-black leading-[0.98] tracking-tight md:text-6xl lg:text-7xl">
-                Sua marca precisa parecer pronta para ser escolhida.
+              <h1 className="mb-6 max-w-[790px] text-5xl font-black leading-[0.95] tracking-tight text-white md:text-6xl lg:text-7xl">
+                Sua marca precisa parecer{" "}
+                <span className="bg-gradient-to-r from-white via-fuchsia-200 to-sky-200 bg-clip-text text-transparent">
+                  pronta para ser escolhida.
+                </span>
               </h1>
 
-              <p className="mb-7 max-w-[620px] text-base leading-relaxed text-zinc-400 md:text-lg">
+              <p className="mb-7 max-w-[630px] text-base leading-relaxed text-zinc-400 md:text-lg">
                 A FatorZ organiza conteúdo, posicionamento, landing pages,
                 Academy e estrutura digital para sua marca sair do improviso e
                 ganhar presença com direção.
@@ -395,24 +411,60 @@ export default function Landing() {
                   Chamar no direct
                 </button>
               </div>
+
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 backdrop-blur-xl">
+                  <strong className="block text-lg font-black text-white">
+                    Perfil
+                  </strong>
+                  <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
+                    mais claro, profissional e confiável.
+                  </span>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 backdrop-blur-xl">
+                  <strong className="block text-lg font-black text-white">
+                    Conteúdo
+                  </strong>
+                  <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
+                    com direção, frequência e intenção.
+                  </span>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 backdrop-blur-xl">
+                  <strong className="block text-lg font-black text-white">
+                    Estrutura
+                  </strong>
+                  <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
+                    site, checkout, Academy e presença.
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="fz-reveal fz-reveal-delay-1 relative">
-              <div className="absolute -inset-5 rounded-[46px] bg-gradient-to-r from-[#005cff]/16 via-[#9123ff]/16 to-[#ff0096]/16 blur-2xl" />
+              <div className="absolute -inset-5 rounded-[46px] bg-gradient-to-r from-[#005cff]/10 via-[#9123ff]/10 to-[#ff0096]/10 blur-2xl" />
 
-              <div className="fz-neon-card relative p-5 shadow-2xl">
-                <div className="mb-5 flex items-center justify-between">
+              <div className="fz-neon-card relative p-5 shadow-2xl md:p-6">
+                <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.25em] text-pink-400">
                       FatorZ Hub
                     </p>
 
-                    <h2 className="mt-2 text-2xl font-black">
-                      Soluções por setor
+                    <h2 className="mt-2 text-2xl font-black md:text-3xl">
+                      Escolha o ponto que trava sua marca
                     </h2>
+
+                    <p className="mt-2 max-w-md text-sm leading-relaxed text-zinc-500">
+                      Cada setor resolve uma parte da sua presença digital:
+                      conteúdo, perfil, site, posicionamento ou aprendizado.
+                    </p>
                   </div>
 
-                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#005cff] via-[#9123ff] to-[#ff0096] shadow-[0_0_24px_rgba(255,0,150,0.22)]" />
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#005cff] via-[#9123ff] to-[#ff0096] text-lg font-black shadow-[0_0_24px_rgba(255,0,150,0.22)]">
+                    Z
+                  </div>
                 </div>
 
                 {loadingProducts ? (
@@ -420,33 +472,72 @@ export default function Landing() {
                     Carregando soluções...
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {visibleCategories.map((category) => (
-                      <button
-                        key={category}
-                        onClick={() => {
-                          setSelectedCategory(category);
-                          setTimeout(scrollToProducts, 80);
-                        }}
-                        className="group flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-pink-500/35 hover:bg-white/[0.07]"
-                      >
-                        <div>
-                          <h3 className="text-base font-black text-white">
-                            {getCategoryLabel(category)}
-                          </h3>
+                  <div className="grid gap-3">
+                    {visibleCategories.map((category) => {
+                      const active = selectedCategory === category;
 
-                          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-                            {getCategoryDescription(category)}
-                          </p>
-                        </div>
+                      return (
+                        <button
+                          key={category}
+                          onClick={() => {
+                            setSelectedCategory(category);
+                            setTimeout(scrollToProducts, 80);
+                          }}
+                          className={`group relative flex w-full items-center justify-between overflow-hidden rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:border-pink-500/35 hover:bg-white/[0.06] ${
+                            active
+                              ? "border-pink-500/45 bg-pink-500/[0.075] shadow-[0_0_28px_rgba(236,72,153,0.12)]"
+                              : "border-white/10 bg-white/[0.035]"
+                          }`}
+                        >
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(236,72,153,0.12),transparent_36%),radial-gradient(circle_at_90%_80%,rgba(56,189,248,0.09),transparent_34%)] opacity-0 transition group-hover:opacity-100" />
 
-                        <span className="ml-4 shrink-0 rounded-full border border-white/10 px-3 py-1 text-sm font-black text-zinc-300 group-hover:text-white">
-                          {groupedProducts[category]?.length || 0}
-                        </span>
-                      </button>
-                    ))}
+                          <div className="relative z-10">
+                            <h3 className="text-base font-black text-white">
+                              {getCategoryLabel(category)}
+                            </h3>
+
+                            <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                              {getCategoryDescription(category)}
+                            </p>
+                          </div>
+
+                          <span className="relative z-10 ml-4 grid h-9 min-w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] px-3 text-sm font-black text-white">
+                            {groupedProducts[category]?.length || 0}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
+
+                <div className="mt-5 grid gap-3 rounded-3xl border border-white/10 bg-black/30 p-4 md:grid-cols-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                      Ativos
+                    </p>
+                    <p className="mt-1 text-xl font-black text-white">
+                      {loadingProducts ? "..." : totalProducts}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                      Categorias
+                    </p>
+                    <p className="mt-1 text-xl font-black text-white">
+                      {loadingProducts ? "..." : visibleCategories.length}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                      Destaque
+                    </p>
+                    <p className="mt-1 truncate text-sm font-black text-white">
+                      {featuredProduct?.name || firstSelectedProduct?.name || "FatorZ"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -454,21 +545,33 @@ export default function Landing() {
 
         <section
           id="produtos"
-          className="fz-reveal mx-auto max-w-7xl px-4 py-10 md:px-8"
+          className="fz-reveal mx-auto max-w-7xl px-4 py-10 md:px-8 md:py-14"
         >
-          <div className="mb-8">
-            <p className="mb-3 text-sm font-black uppercase tracking-[0.28em] text-pink-500">
-              Central de soluções
-            </p>
+          <div className="mb-8 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+            <div>
+              <div className="mb-4 inline-flex items-center gap-3 rounded-full border border-pink-500/20 bg-pink-500/[0.07] px-4 py-2">
+                <span className="h-2 w-2 rounded-full bg-pink-500 shadow-[0_0_14px_rgba(236,72,153,0.85)]" />
+                <p className="text-sm font-black uppercase tracking-[0.28em] text-pink-400">
+                  Central de soluções
+                </p>
+              </div>
 
-            <h2 className="max-w-4xl text-4xl font-black leading-tight md:text-5xl">
-              Escolha pela necessidade, não por catálogo.
-            </h2>
+              <h2 className="max-w-4xl text-4xl font-black leading-tight md:text-5xl">
+                Escolha pela necessidade. A FatorZ encaixa a solução.
+              </h2>
 
-            <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-400">
-              Agora os produtos da FatorZ vêm direto do painel. Mudou preço,
-              ativou, ocultou ou destacou: o site acompanha.
-            </p>
+              <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-400">
+                Produtos conectados ao painel, organizados por objetivo e
+                prontos para transformar presença digital em percepção
+                profissional.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 text-sm leading-relaxed text-zinc-400 backdrop-blur-xl lg:max-w-[320px]">
+              <strong className="block text-white">Direção antes de estética.</strong>
+              O foco não é só ficar bonito. É deixar claro por que sua marca
+              merece ser escolhida.
+            </div>
           </div>
 
           {loadingProducts ? (
@@ -481,38 +584,67 @@ export default function Landing() {
             </div>
           ) : (
             <>
-              <div className="mb-8 flex gap-3 overflow-x-auto pb-2">
-                {visibleCategories.map((category) => {
-                  const active = selectedCategory === category;
+              <div className="mb-8 rounded-[30px] border border-white/10 bg-white/[0.035] p-4 backdrop-blur-xl">
+                <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-400">
+                      Navegue por objetivo
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Clique em uma categoria para trocar os produtos abaixo.
+                    </p>
+                  </div>
 
-                  return (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className={`shrink-0 rounded-full border px-4 py-3 text-xs font-black transition ${
-                        active
-                          ? "border-pink-500/50 bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-[0_0_25px_rgba(255,0,150,0.18)]"
-                          : "border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
-                      }`}
-                    >
-                      {getCategoryLabel(category)}
-                    </button>
-                  );
-                })}
+                  <span className="w-fit rounded-full border border-white/10 bg-black/30 px-3 py-1.5 text-xs font-black text-zinc-400">
+                    {selectedProducts.length} solução
+                    {selectedProducts.length === 1 ? "" : "ões"} nesse setor
+                  </span>
+                </div>
+
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {visibleCategories.map((category) => {
+                    const active = selectedCategory === category;
+
+                    return (
+                      <button
+                        key={category}
+                        onClick={() => setSelectedCategory(category)}
+                        className={`shrink-0 rounded-full border px-4 py-3 text-xs font-black transition hover:-translate-y-0.5 ${
+                          active
+                            ? "border-pink-500/50 bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-[0_0_25px_rgba(255,0,150,0.18)]"
+                            : "border-white/10 bg-white/[0.04] text-zinc-400 hover:border-pink-500/25 hover:bg-white/[0.08] hover:text-white"
+                        }`}
+                      >
+                        {getCategoryLabel(category)}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="fz-neon-card mb-7 p-5 md:p-6">
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
-                  Setor selecionado
-                </p>
+                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+                  <div>
+                    <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
+                      Setor selecionado
+                    </p>
 
-                <h3 className="text-2xl font-black md:text-3xl">
-                  {getCategoryLabel(selectedCategory)}
-                </h3>
+                    <h3 className="text-2xl font-black md:text-3xl">
+                      {getCategoryLabel(selectedCategory)}
+                    </h3>
 
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
-                  {getCategoryDescription(selectedCategory)}
-                </p>
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+                      {getCategoryDescription(selectedCategory)}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={openInstagram}
+                    className="w-fit rounded-full border border-white/10 bg-white/[0.045] px-5 py-3 text-sm font-black text-white transition hover:border-pink-500/30 hover:bg-white/10"
+                  >
+                    Pedir indicação
+                  </button>
+                </div>
               </div>
 
               <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -611,8 +743,8 @@ export default function Landing() {
 
         <section className="fz-reveal mx-auto max-w-7xl px-4 py-14 md:px-8 md:py-20">
           <div className="fz-neon-card relative p-7 md:p-10">
-            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/20 blur-3xl" />
-            <div className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#005cff]/20 blur-3xl" />
+            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#005cff]/10 blur-3xl" />
 
             <div className="relative grid gap-8 lg:grid-cols-[1fr_360px] lg:items-center">
               <div>
