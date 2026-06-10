@@ -5,11 +5,20 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  function camposVazios() {
+    return !email.trim() || !password.trim();
+  }
+
   async function handleRegister() {
-    const { error } = await signUp(email, password);
+    if (camposVazios()) {
+      alert('Preencha antes de clicar em "Criar Conta"');
+      return;
+    }
+
+    const { error } = await signUp(email.trim(), password);
 
     if (error) {
-      alert(error.message);
+      alert('Preencha antes de clicar em "Criar Conta"');
       return;
     }
 
@@ -17,10 +26,15 @@ export default function Login() {
   }
 
   async function handleLogin() {
-    const { error } = await signIn(email, password);
+    if (camposVazios()) {
+      alert("Preencha seu email e senha antes de entrar.");
+      return;
+    }
+
+    const { error } = await signIn(email.trim(), password);
 
     if (error) {
-      alert(error.message);
+      alert("Email ou senha incorretos.");
       return;
     }
 
@@ -28,8 +42,8 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="bg-zinc-900 p-8 rounded-2xl w-[350px] flex flex-col gap-4">
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
+      <div className="bg-zinc-900 p-8 rounded-2xl w-full max-w-[350px] flex flex-col gap-4">
         <h1 className="text-white text-3xl font-bold text-center">
           FatorZ
         </h1>
@@ -52,14 +66,14 @@ export default function Login() {
 
         <button
           onClick={handleRegister}
-          className="bg-purple-600 p-3 rounded-lg"
+          className="bg-purple-600 text-black font-semibold p-3 rounded-lg"
         >
           Criar Conta
         </button>
 
         <button
           onClick={handleLogin}
-          className="bg-white text-black p-3 rounded-lg"
+          className="bg-white text-black font-semibold p-3 rounded-lg"
         >
           Entrar
         </button>
