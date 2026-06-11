@@ -146,13 +146,11 @@ function getDeliveryType(product: SiteProduct) {
   return "Serviço FatorZ";
 }
 
-
 function getProductBenefits(product: SiteProduct) {
   return String(product.notes || "")
     .split("\n")
     .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 4);
+    .filter(Boolean);
 }
 
 function normalize(value: string | null | undefined) {
@@ -547,7 +545,10 @@ export default function ServicePage() {
                   {getProductBenefits(product).length > 0 && (
                     <ul className="mt-5 space-y-2">
                       {getProductBenefits(product).map((benefit) => (
-                        <li key={benefit} className="flex gap-3 text-xs leading-relaxed text-zinc-400">
+                        <li
+                          key={benefit}
+                          className="flex gap-3 text-xs leading-relaxed text-zinc-400"
+                        >
                           <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-pink-500" />
                           <span>{benefit}</span>
                         </li>
@@ -563,10 +564,10 @@ export default function ServicePage() {
                     {buyingId === product.id
                       ? "Abrindo..."
                       : product.checkout_provider === "manual"
-                      ? "Chamar no direct"
-                      : product.checkout_provider === "external"
-                      ? "Abrir pagamento"
-                      : "Comprar agora"}
+                        ? "Chamar no direct"
+                        : product.checkout_provider === "external"
+                          ? "Abrir pagamento"
+                          : "Comprar agora"}
                   </button>
                 </article>
               ))}

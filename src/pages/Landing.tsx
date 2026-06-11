@@ -710,7 +710,7 @@ export default function Landing() {
                     </div>
 
                     <ul className="mb-5 space-y-2.5">
-                      {getProductBenefits(product).slice(0, 4).map((benefit) => (
+                      {getProductBenefits(product).map((benefit) => (
                         <li
                           key={benefit}
                           className="flex gap-3 text-sm leading-relaxed text-zinc-300"
