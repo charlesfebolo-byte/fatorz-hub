@@ -88,7 +88,6 @@ function getStatusClass(status: string | null | undefined) {
 }
 
 
-const JACK_IMAGE_URL = "/jack-fatorz.png";
 
 const clientJourneySteps = [
   "Briefing",
@@ -369,7 +368,7 @@ function ClientExperienceSection({
         <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/15 blur-[90px]" />
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[#005cff]/15 blur-[90px]" />
 
-        <div className="relative z-10 grid gap-6 lg:grid-cols-[1fr_220px] lg:items-center">
+        <div className="relative z-10">
           <div>
             <span className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-zinc-400">
               Experiência FatorZ
@@ -402,17 +401,6 @@ function ClientExperienceSection({
               >
                 Falar com o Jack
               </button>
-            </div>
-          </div>
-
-          <div className="relative mx-auto flex w-full max-w-[240px] justify-center lg:max-w-none">
-            <div className="absolute inset-6 rounded-full bg-[#9123ff]/25 blur-[60px]" />
-            <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black/45 p-2 shadow-[0_0_50px_rgba(0,0,0,0.55)]">
-              <img
-                src={JACK_IMAGE_URL}
-                alt="Jack, assistente FatorZ"
-                className="h-[230px] w-[190px] rounded-[26px] object-cover object-top"
-              />
             </div>
           </div>
         </div>

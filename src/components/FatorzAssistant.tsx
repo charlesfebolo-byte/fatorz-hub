@@ -21,7 +21,19 @@ type FatorzAssistantEvent = CustomEvent<{
   autoSend?: boolean;
 }>;
 
+type JackMood = "idle" | "listening" | "thinking" | "talking" | "happy";
+
 const JACK_AVATAR = "/jack-avatar.png";
+
+const JACK_POSES: Record<JackMood, string> = {
+  idle: "/jack-body-idle.png",
+  listening: "/jack-body-listening.png",
+  thinking: "/jack-body-thinking.png",
+  talking: "/jack-body-talking.png",
+  happy: "/jack-body-happy.png",
+};
+
+const JACK_BODY_FALLBACK = "/jack-fatorz.png";
 
 const STARTER_MESSAGES: ChatMessage[] = [
   {
@@ -79,6 +91,57 @@ function JackAvatar({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   );
 }
 
+function JackStage({ mood, dailyLabel }: { mood: JackMood; dailyLabel: string }) {
+  const imageSrc = JACK_POSES[mood] || JACK_BODY_FALLBACK;
+
+  return (
+    <div className="relative overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_50%_10%,rgba(145,35,255,0.24),rgba(5,5,8,0.96)_58%)] px-4 pt-3">
+      <div className="pointer-events-none absolute -left-16 top-8 h-44 w-44 rounded-full bg-[#005cff]/25 blur-[70px]" />
+      <div className="pointer-events-none absolute -right-16 top-0 h-52 w-52 rounded-full bg-[#ff0096]/20 blur-[80px]" />
+      <div className="pointer-events-none absolute bottom-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-[#ff0096]/50 to-transparent" />
+
+      <div className="relative z-10 grid grid-cols-[145px_1fr] items-end gap-3">
+        <div className="relative flex h-[185px] items-end justify-center overflow-hidden">
+          <div className="absolute bottom-3 h-20 w-20 rounded-full bg-[#9123ff]/45 blur-[35px]" />
+          <img
+            src={imageSrc}
+            alt="Jack, assistente FatorZ em atendimento"
+            className="relative z-10 h-[190px] w-full object-contain object-bottom drop-shadow-[0_0_28px_rgba(255,0,150,0.32)]"
+            loading="lazy"
+            onError={(event) => {
+              if (event.currentTarget.src.endsWith("jack-fatorz.png")) {
+                event.currentTarget.style.display = "none";
+                return;
+              }
+
+              event.currentTarget.src = JACK_BODY_FALLBACK;
+            }}
+          />
+        </div>
+
+        <div className="pb-5">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
+            Jack online
+          </div>
+
+          <h3 className="text-2xl font-black leading-tight text-white">
+            Estou aqui para te guiar.
+          </h3>
+
+          <p className="mt-2 text-xs leading-5 text-zinc-400">
+            Pergunte sobre briefing, conteúdo, entregas, Instagram ou próximo passo.
+          </p>
+
+          <p className="mt-3 text-[11px] font-black uppercase tracking-[0.2em] text-[#ff7bd0]">
+            {dailyLabel}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FatorzAssistant({ user, profile }: any) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -116,9 +179,16 @@ export default function FatorzAssistant({ user, profile }: any) {
 
   const dailyLabel = useMemo(() => {
     if (!isLogged) return "Entre para usar";
-    if (usage.remaining === null || usage.limit === null) return "Jack online";
+    if (usage.remaining === null || usage.limit === null) return "IA FatorZ";
     return `${usage.remaining}/${usage.limit} usos hoje`;
   }, [isLogged, usage.remaining, usage.limit]);
+
+  const jackMood: JackMood = useMemo(() => {
+    if (loading) return "thinking";
+    if (input.trim()) return "listening";
+    if (messages.length > 1) return "talking";
+    return "idle";
+  }, [input, loading, messages.length]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -352,30 +422,26 @@ export default function FatorzAssistant({ user, profile }: any) {
   return (
     <div className="fixed bottom-4 right-4 z-[80] pointer-events-none md:bottom-6 md:right-6">
       {open && !minimized && (
-        <div className="pointer-events-auto mb-4 h-[650px] max-h-[calc(100vh-120px)] w-[calc(100vw-32px)] max-w-[430px] overflow-hidden rounded-[34px] border border-white/10 bg-[#050508]/95 text-white shadow-[0_30px_120px_rgba(0,0,0,0.78)] backdrop-blur-2xl">
-          <div className="relative overflow-hidden border-b border-white/10 p-5">
+        <div className="pointer-events-auto mb-4 h-[760px] max-h-[calc(100vh-96px)] w-[calc(100vw-32px)] max-w-[460px] overflow-hidden rounded-[34px] border border-white/10 bg-[#050508]/95 text-white shadow-[0_30px_120px_rgba(0,0,0,0.78)] backdrop-blur-2xl">
+          <div className="relative overflow-hidden border-b border-white/10 p-4">
             <div className="absolute -right-16 -top-20 h-44 w-44 rounded-full bg-[#ff0096]/20 blur-3xl" />
             <div className="absolute -left-16 -bottom-20 h-44 w-44 rounded-full bg-[#005cff]/20 blur-3xl" />
 
-            <div className="relative z-10 flex items-start justify-between gap-4">
-              <div className="flex min-w-0 items-start gap-3">
-                <JackAvatar size="lg" />
+            <div className="relative z-10 flex items-center justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <JackAvatar size="md" />
 
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.28em] text-pink-400">
                     Assistente FatorZ
                   </p>
 
-                  <h2 className="mt-1 text-2xl font-black leading-tight">
+                  <h2 className="mt-1 text-xl font-black leading-tight">
                     Jack
                   </h2>
 
                   <p className="mt-1 text-xs font-bold text-emerald-300">
-                    Online agora · {dailyLabel}
-                  </p>
-
-                  <p className="mt-2 max-w-[250px] text-xs leading-5 text-zinc-500">
-                    Presença, conteúdo, briefing e próximos passos da sua marca.
+                    Online agora
                   </p>
                 </div>
               </div>
@@ -400,7 +466,9 @@ export default function FatorzAssistant({ user, profile }: any) {
             </div>
           </div>
 
-          <div className="flex h-[calc(100%-142px)] flex-col">
+          <JackStage mood={jackMood} dailyLabel={dailyLabel} />
+
+          <div className="flex h-[calc(100%-331px)] flex-col">
             <div className="flex-1 overflow-y-auto px-4 py-5">
               <div className="space-y-4">
                 {messages.map((message, index) => (
