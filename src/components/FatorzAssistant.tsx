@@ -39,14 +39,12 @@ const STARTER_MESSAGES: ChatMessage[] = [
   {
     role: "assistant",
     content:
-      "Oi, eu sou o Jack, assistente da FatorZ. Posso te ajudar com conteúdo, Instagram, briefing, entregas, Academy e próximos passos da sua marca.",
+      "Oi, eu sou o Jack, assistente da FatorZ. Me diga o que você precisa: conteúdo, briefing, entregas, Instagram, Academy ou próximo passo da sua marca.",
   },
 ];
 
 const QUICK_PROMPTS = [
   "Jack, qual é meu próximo passo no Hub?",
-  "Me dê ideias de post para meu nicho",
-  "Como melhorar meu Instagram hoje?",
   "Crie um roteiro de Reels simples",
 ];
 
@@ -95,18 +93,18 @@ function JackStage({ mood, dailyLabel }: { mood: JackMood; dailyLabel: string })
   const imageSrc = JACK_POSES[mood] || JACK_BODY_FALLBACK;
 
   return (
-    <div className="relative overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_50%_10%,rgba(145,35,255,0.24),rgba(5,5,8,0.96)_58%)] px-4 pt-3">
-      <div className="pointer-events-none absolute -left-16 top-8 h-44 w-44 rounded-full bg-[#005cff]/25 blur-[70px]" />
-      <div className="pointer-events-none absolute -right-16 top-0 h-52 w-52 rounded-full bg-[#ff0096]/20 blur-[80px]" />
+    <div className="relative shrink-0 overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_22%_20%,rgba(145,35,255,0.22),rgba(5,5,8,0.96)_62%)] px-4 py-3 sm:px-5">
+      <div className="pointer-events-none absolute -left-16 top-8 h-44 w-44 rounded-full bg-[#005cff]/20 blur-[70px]" />
+      <div className="pointer-events-none absolute -right-16 top-0 h-52 w-52 rounded-full bg-[#ff0096]/18 blur-[80px]" />
       <div className="pointer-events-none absolute bottom-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-[#ff0096]/50 to-transparent" />
 
-      <div className="relative z-10 grid grid-cols-[145px_1fr] items-end gap-3">
-        <div className="relative flex h-[185px] items-end justify-center overflow-hidden">
-          <div className="absolute bottom-3 h-20 w-20 rounded-full bg-[#9123ff]/45 blur-[35px]" />
+      <div className="relative z-10 grid grid-cols-[96px_1fr] items-center gap-4 sm:grid-cols-[115px_1fr]">
+        <div className="relative flex h-[132px] items-end justify-center overflow-hidden sm:h-[148px]">
+          <div className="absolute bottom-3 h-20 w-20 rounded-full bg-[#9123ff]/40 blur-[35px]" />
           <img
             src={imageSrc}
             alt="Jack, assistente FatorZ em atendimento"
-            className="relative z-10 h-[190px] w-full object-contain object-bottom drop-shadow-[0_0_28px_rgba(255,0,150,0.32)]"
+            className="relative z-10 h-[150px] w-full object-contain object-bottom drop-shadow-[0_0_28px_rgba(255,0,150,0.32)] sm:h-[170px]"
             loading="lazy"
             onError={(event) => {
               if (event.currentTarget.src.endsWith("jack-fatorz.png")) {
@@ -119,21 +117,21 @@ function JackStage({ mood, dailyLabel }: { mood: JackMood; dailyLabel: string })
           />
         </div>
 
-        <div className="pb-5">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">
+        <div className="min-w-0">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">
             <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
             Jack online
           </div>
 
-          <h3 className="text-2xl font-black leading-tight text-white">
-            Estou aqui para te guiar.
+          <h3 className="text-xl font-black leading-tight text-white sm:text-2xl">
+            Como posso te ajudar agora?
           </h3>
 
-          <p className="mt-2 text-xs leading-5 text-zinc-400">
-            Pergunte sobre briefing, conteúdo, entregas, Instagram ou próximo passo.
+          <p className="mt-2 max-w-[360px] text-xs leading-5 text-zinc-400">
+            Escreva livremente. Pode mandar pedido grande, roteiro, legenda, análise ou dúvida sobre sua entrega.
           </p>
 
-          <p className="mt-3 text-[11px] font-black uppercase tracking-[0.2em] text-[#ff7bd0]">
+          <p className="mt-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#ff7bd0]">
             {dailyLabel}
           </p>
         </div>
@@ -422,8 +420,8 @@ export default function FatorzAssistant({ user, profile }: any) {
   return (
     <div className="fixed bottom-4 right-4 z-[80] pointer-events-none md:bottom-6 md:right-6">
       {open && !minimized && (
-        <div className="pointer-events-auto mb-4 h-[760px] max-h-[calc(100vh-96px)] w-[calc(100vw-32px)] max-w-[460px] overflow-hidden rounded-[34px] border border-white/10 bg-[#050508]/95 text-white shadow-[0_30px_120px_rgba(0,0,0,0.78)] backdrop-blur-2xl">
-          <div className="relative overflow-hidden border-b border-white/10 p-4">
+        <div className="pointer-events-auto mb-4 flex h-[820px] max-h-[calc(100vh-48px)] w-[calc(100vw-24px)] max-w-[640px] flex-col overflow-hidden rounded-[34px] border border-white/10 bg-[#050508]/95 text-white shadow-[0_30px_120px_rgba(0,0,0,0.78)] backdrop-blur-2xl sm:w-[min(640px,calc(100vw-32px))]">
+          <div className="relative shrink-0 overflow-hidden border-b border-white/10 p-4">
             <div className="absolute -right-16 -top-20 h-44 w-44 rounded-full bg-[#ff0096]/20 blur-3xl" />
             <div className="absolute -left-16 -bottom-20 h-44 w-44 rounded-full bg-[#005cff]/20 blur-3xl" />
 
@@ -468,8 +466,8 @@ export default function FatorzAssistant({ user, profile }: any) {
 
           <JackStage mood={jackMood} dailyLabel={dailyLabel} />
 
-          <div className="flex h-[calc(100%-331px)] flex-col">
-            <div className="flex-1 overflow-y-auto px-4 py-5">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-5">
               <div className="space-y-4">
                 {messages.map((message, index) => (
                   <div
@@ -481,7 +479,7 @@ export default function FatorzAssistant({ user, profile }: any) {
                     {message.role === "assistant" && <JackAvatar size="sm" />}
 
                     <div
-                      className={`max-w-[82%] whitespace-pre-line rounded-[24px] px-4 py-3 text-sm leading-6 ${
+                      className={`max-w-[92%] whitespace-pre-line rounded-[24px] px-4 py-3 text-sm leading-6 sm:max-w-[88%] ${
                         message.role === "user"
                           ? "bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white"
                           : "border border-white/10 bg-white/[0.055] text-zinc-200"
@@ -506,13 +504,13 @@ export default function FatorzAssistant({ user, profile }: any) {
             </div>
 
             {messages.length <= 1 && (
-              <div className="border-t border-white/10 px-4 py-3">
-                <div className="grid grid-cols-1 gap-2">
+              <div className="shrink-0 border-t border-white/10 px-4 py-3 sm:px-5">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   {QUICK_PROMPTS.map((prompt) => (
                     <button
                       key={prompt}
                       onClick={() => handleQuickPrompt(prompt)}
-                      className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-left text-xs font-bold text-zinc-300 transition hover:border-pink-500/60 hover:text-white"
+                      className="flex-1 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-left text-xs font-bold text-zinc-300 transition hover:border-pink-500/60 hover:text-white"
                     >
                       {prompt}
                     </button>
@@ -521,7 +519,7 @@ export default function FatorzAssistant({ user, profile }: any) {
               </div>
             )}
 
-            <div className="border-t border-white/10 p-4">
+            <div className="shrink-0 border-t border-white/10 p-4 sm:p-5">
               {!isLogged && (
                 <div className="mb-3 rounded-2xl border border-pink-500/20 bg-pink-500/10 p-3">
                   <div className="flex items-start gap-2">
@@ -540,7 +538,7 @@ export default function FatorzAssistant({ user, profile }: any) {
                 </div>
               )}
 
-              <div className="flex items-end gap-2">
+              <div className="flex items-end gap-3">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -548,21 +546,21 @@ export default function FatorzAssistant({ user, profile }: any) {
                   onKeyDown={handleKeyDown}
                   placeholder={
                     isLogged
-                      ? "Fale com o Jack sobre conteúdo, entregas, briefing..."
+                      ? "Escreva aqui. Pode pedir roteiro completo, legenda, análise, briefing ou próximos passos..."
                       : "Entre para usar o Jack..."
                   }
-                  rows={2}
+                  rows={4}
                   disabled={loading}
-                  className="max-h-28 min-h-[52px] flex-1 resize-none rounded-2xl border border-[#ff0096]/50 bg-black/55 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-400 disabled:opacity-60"
+                  className="max-h-52 min-h-[116px] flex-1 resize-y rounded-2xl border border-[#ff0096]/50 bg-black/55 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-400 disabled:opacity-60"
                 />
 
                 <button
                   onClick={() => sendMessage()}
                   disabled={loading || !input.trim()}
-                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-[0_0_28px_rgba(255,0,150,0.24)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-[0_0_28px_rgba(255,0,150,0.24)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   title="Enviar"
                 >
-                  <Send size={19} />
+                  <Send size={20} />
                 </button>
               </div>
 
