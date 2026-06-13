@@ -214,10 +214,43 @@ function getAdvisoryCycle(orderDate: string | null | undefined) {
   const end = new Date(start);
   end.setDate(end.getDate() + 30);
 
+  const now = new Date();
+  const totalDays = 30;
+  const diffMs = end.getTime() - now.getTime();
+  const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  const elapsedDays = Math.min(totalDays, Math.max(0, totalDays - daysRemaining));
+  const progress = Math.min(100, Math.max(0, Math.round((elapsedDays / totalDays) * 100)));
+  const isExpired = daysRemaining <= 0;
+
   return {
     start: start.toLocaleDateString("pt-BR"),
     end: end.toLocaleDateString("pt-BR"),
+    daysRemaining,
+    elapsedDays,
+    progress,
+    isExpired,
   };
+}
+
+function isPaymentPending(order: SiteProductOrder) {
+  const status = normalizeText(order.status);
+
+  return status === "pending" || status === "pendente" || status === "processing";
+}
+
+function isPaidOrStarted(order: SiteProductOrder) {
+  const status = normalizeText(order.status);
+
+  return [
+    "approved",
+    "aprovado",
+    "paid",
+    "pago",
+    "project_created",
+    "completed",
+    "concluido",
+    "concluído",
+  ].includes(status);
 }
 
 
@@ -439,6 +472,15 @@ export default function MyDeliveries() {
 
   function openBriefing(orderId: number) {
     navigate(`/briefing?orderId=${orderId}`);
+  }
+
+  function renewAdvisory(order: SiteProductOrder) {
+    if (!order.product_slug) {
+      alert("Não consegui encontrar o link de renovação deste plano. Chame a FatorZ para renovar.");
+      return;
+    }
+
+    navigate(`/checkout/produto?slug=${order.product_slug}&renovar=1`);
   }
 
   function getDeliveryLabel(project: Project | null) {
@@ -734,12 +776,36 @@ export default function MyDeliveries() {
                         </div>
 
                         <div className="bg-black border border-zinc-800 rounded-2xl p-4">
-                          <p className="text-zinc-500 text-sm mb-1">
-                            Pagamento
-                          </p>
-                          <p className="font-bold">
-                            {getPaymentMethodLabel(order.payment_method)}
-                          </p>
+                          {isAdvisory && isPaidOrStarted(order) ? (
+                            <>
+                              <p className="text-zinc-500 text-sm mb-1">
+                                Tempo de assessoria
+                              </p>
+                              <p
+                                className={`font-black ${
+                                  advisoryCycle.isExpired
+                                    ? "text-yellow-300"
+                                    : "text-green-400"
+                                }`}
+                              >
+                                {advisoryCycle.isExpired
+                                  ? "Ciclo vencido"
+                                  : `${advisoryCycle.daysRemaining} dias restantes`}
+                              </p>
+                              <p className="mt-1 text-xs text-zinc-500">
+                                Até {advisoryCycle.end}
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-zinc-500 text-sm mb-1">
+                                Pagamento
+                              </p>
+                              <p className="font-bold">
+                                {getPaymentMethodLabel(order.payment_method)}
+                              </p>
+                            </>
+                          )}
                         </div>
 
                         <div className="bg-black border border-zinc-800 rounded-2xl p-4">
@@ -814,7 +880,7 @@ export default function MyDeliveries() {
                       )}
 
                       {isAdvisory && (
-                        <div className="mt-5 rounded-[28px] border border-pink-500/20 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.14),transparent_34%),rgba(0,0,0,0.32)] p-5">
+                        <div id={`assessoria-${order.id}`} className="mt-5 scroll-mt-28 rounded-[28px] border border-pink-500/20 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.14),transparent_34%),rgba(0,0,0,0.32)] p-5">
                           <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                             <div>
                               <p className="text-xs font-black uppercase tracking-[0.25em] text-pink-300">
@@ -828,10 +894,52 @@ export default function MyDeliveries() {
                               </p>
                             </div>
 
-                            <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-300">
-                              Etapa {Math.max(advisoryStepIndex + 1, 0)}/{ADVISORY_STEPS.length}
-                            </span>
+                            <div className="flex flex-col gap-2 md:items-end">
+                              <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-300">
+                                Etapa {Math.max(advisoryStepIndex + 1, 0)}/{ADVISORY_STEPS.length}
+                              </span>
+
+                              {isPaidOrStarted(order) && (
+                                <span
+                                  className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-widest ${
+                                    advisoryCycle.isExpired
+                                      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-300"
+                                      : "border-green-500/30 bg-green-500/10 text-green-300"
+                                  }`}
+                                >
+                                  {advisoryCycle.isExpired
+                                    ? "Renovação disponível"
+                                    : `${advisoryCycle.daysRemaining} dias restantes`}
+                                </span>
+                              )}
+                            </div>
                           </div>
+
+                          {isPaidOrStarted(order) && (
+                            <div className="mb-5 rounded-2xl border border-white/10 bg-black/35 p-4">
+                              <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                <p className="text-sm font-bold text-zinc-300">
+                                  {advisoryCycle.isExpired
+                                    ? "Seu ciclo mensal chegou ao fim. Para continuar a assessoria, renove o plano."
+                                    : `Você ainda tem ${advisoryCycle.daysRemaining} dias neste ciclo mensal.`}
+                                </p>
+
+                                <button
+                                  onClick={() => renewAdvisory(order)}
+                                  className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-3 text-sm font-black text-white transition hover:scale-[1.02]"
+                                >
+                                  Renovar assessoria
+                                </button>
+                              </div>
+
+                              <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+                                <div
+                                  className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                                  style={{ width: `${advisoryCycle.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
 
                           <div className="space-y-3">
                             {ADVISORY_STEPS.map((step, index) => {
@@ -919,11 +1027,27 @@ export default function MyDeliveries() {
 
                     <div className="w-full xl:w-[240px] flex xl:flex-col gap-3">
                       <button
-                        onClick={() => openDelivery(project?.delivery_link)}
-                        disabled={!project?.delivery_link}
+                        onClick={() => {
+                          if (project?.delivery_link) {
+                            openDelivery(project.delivery_link);
+                            return;
+                          }
+
+                          if (isAdvisory) {
+                            document
+                              .getElementById(`assessoria-${order.id}`)
+                              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            return;
+                          }
+
+                          openDelivery(project?.delivery_link);
+                        }}
+                        disabled={!project?.delivery_link && !isAdvisory}
                         className={`flex-1 px-5 py-4 rounded-2xl font-black transition ${
                           project?.delivery_link
                             ? "bg-green-500 hover:bg-green-600 text-black"
+                            : isAdvisory
+                            ? "bg-pink-500/20 hover:bg-pink-500/30 text-pink-200 border border-pink-500/25"
                             : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                         }`}
                       >
@@ -939,7 +1063,16 @@ export default function MyDeliveries() {
                         </button>
                       )}
 
-                      {order.payment_method === "pix" && order.pix_copy_paste && (
+                      {isAdvisory && isPaidOrStarted(order) && (
+                        <button
+                          onClick={() => renewAdvisory(order)}
+                          className="flex-1 rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-4 font-black text-white transition hover:scale-[1.02]"
+                        >
+                          Renovar assessoria
+                        </button>
+                      )}
+
+                      {isPaymentPending(order) && order.payment_method === "pix" && order.pix_copy_paste && (
                         <button
                           onClick={() =>
                             copyText(order.pix_copy_paste, "Pix copia e cola")
@@ -950,7 +1083,8 @@ export default function MyDeliveries() {
                         </button>
                       )}
 
-                      {order.payment_method === "boleto" &&
+                      {isPaymentPending(order) &&
+                        order.payment_method === "boleto" &&
                         order.boleto_digitable_line && (
                           <button
                             onClick={() =>
@@ -965,7 +1099,7 @@ export default function MyDeliveries() {
                           </button>
                         )}
 
-                      {order.payment_method === "boleto" && order.boleto_url && (
+                      {isPaymentPending(order) && order.payment_method === "boleto" && order.boleto_url && (
                         <button
                           onClick={() => window.open(order.boleto_url || "", "_blank")}
                           className="flex-1 bg-zinc-800 hover:bg-zinc-700 px-5 py-4 rounded-2xl font-black transition"
