@@ -112,8 +112,8 @@ function JackStageImage({ mood }: { mood: JackMood }) {
   }, [wantedSrc]);
 
   return (
-    <div className="pointer-events-none absolute bottom-[-18px] right-2 hidden h-[245px] w-[190px] items-end justify-center sm:flex md:right-4 md:h-[270px] md:w-[205px]">
-      <div className="absolute bottom-1 h-24 w-28 rounded-full bg-[#9123ff]/25 blur-[34px]" />
+    <div className="pointer-events-none relative hidden h-[190px] w-[145px] shrink-0 items-end justify-center sm:flex md:h-[208px] md:w-[158px]">
+      <div className="absolute bottom-2 h-20 w-24 rounded-full bg-[#9123ff]/25 blur-[30px]" />
       <img
         src={src}
         alt="Jack em atendimento"
@@ -435,7 +435,7 @@ export default function FatorzAssistant({ user, profile }: any) {
   return (
     <div className="fixed bottom-3 right-3 z-[80] pointer-events-none md:bottom-5 md:right-5">
       {open && !minimized && (
-        <div className="pointer-events-auto mb-4 flex h-[calc(100vh-28px)] max-h-[860px] w-[calc(100vw-24px)] max-w-[760px] flex-col overflow-hidden rounded-[34px] border border-white/10 bg-[#050508]/97 text-white shadow-[0_30px_120px_rgba(0,0,0,0.82)] backdrop-blur-2xl">
+        <div className="pointer-events-auto mb-4 flex h-[calc(100vh-28px)] max-h-[860px] w-[calc(100vw-32px)] max-w-[700px] flex-col overflow-hidden rounded-[34px] border border-white/10 bg-[#050508]/97 text-white shadow-[0_30px_120px_rgba(0,0,0,0.82)] backdrop-blur-2xl">
           <div className="relative shrink-0 overflow-hidden border-b border-white/10 bg-black/30 px-4 py-3 md:px-5">
             <div className="absolute -right-16 -top-20 h-44 w-44 rounded-full bg-[#ff0096]/20 blur-3xl" />
             <div className="absolute -left-16 -bottom-20 h-44 w-44 rounded-full bg-[#005cff]/20 blur-3xl" />
@@ -477,17 +477,17 @@ export default function FatorzAssistant({ user, profile }: any) {
             </div>
           </div>
 
-          <div className="relative shrink-0 overflow-hidden border-b border-[#ff0096]/25 bg-[radial-gradient(circle_at_top_right,rgba(255,0,150,0.20),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(0,92,255,0.18),transparent_42%),#06060b] px-4 py-4 md:px-6">
-            <div className="relative z-10 grid min-h-[190px] grid-cols-1 gap-4 pr-0 sm:grid-cols-[1fr_190px] sm:pr-[168px] md:min-h-[205px] md:grid-cols-[1fr_220px] md:pr-[190px]">
-              <div className="flex flex-col justify-center">
+          <div className="relative shrink-0 overflow-hidden border-b border-[#ff0096]/25 bg-[radial-gradient(circle_at_top_right,rgba(255,0,150,0.20),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(0,92,255,0.18),transparent_42%),#06060b] px-4 py-4 md:px-5">
+            <div className="relative z-10 flex min-h-[168px] items-center gap-3 sm:min-h-[184px] md:gap-4">
+              <div className="flex min-w-0 flex-1 flex-col justify-center">
                 <div className="w-fit rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.12)]">
                   ● Jack online
                 </div>
 
-                <div className="relative mt-4 max-w-[470px] rounded-[28px] border border-white/10 bg-black/40 p-4 shadow-[0_0_40px_rgba(0,0,0,0.35)]">
-                  <div className="absolute -right-3 top-8 hidden h-6 w-6 rotate-45 border-r border-t border-white/10 bg-black/40 sm:block" />
+                <div className="relative mt-3 rounded-[26px] border border-white/10 bg-black/40 p-4 shadow-[0_0_40px_rgba(0,0,0,0.35)]">
+                  <div className="absolute -right-2 top-1/2 hidden h-5 w-5 -translate-y-1/2 rotate-45 border-r border-t border-white/10 bg-black/40 sm:block" />
 
-                  <h3 className="text-2xl font-black leading-tight md:text-3xl">
+                  <h3 className="text-2xl font-black leading-tight md:text-[28px]">
                     {stageTitle}
                   </h3>
 
@@ -496,9 +496,9 @@ export default function FatorzAssistant({ user, profile }: any) {
                   </p>
                 </div>
               </div>
-            </div>
 
-            <JackStageImage mood={jackMood} />
+              <JackStageImage mood={jackMood} />
+            </div>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col">
@@ -626,25 +626,27 @@ export default function FatorzAssistant({ user, profile }: any) {
         </div>
       )}
 
-      <button
-        onClick={() => {
-          setOpen(true);
-          setMinimized(false);
-        }}
-        className="pointer-events-auto group flex items-center gap-3 rounded-full border border-white/10 bg-black/85 px-3 py-3 text-white shadow-[0_18px_70px_rgba(0,0,0,0.65)] backdrop-blur-xl transition hover:-translate-y-1 hover:border-pink-500/60"
-      >
-        <JackAvatar size="md" />
+      {(!open || minimized) && (
+        <button
+          onClick={() => {
+            setOpen(true);
+            setMinimized(false);
+          }}
+          className="pointer-events-auto group flex items-center gap-3 rounded-full border border-white/10 bg-black/85 px-3 py-3 text-white shadow-[0_18px_70px_rgba(0,0,0,0.65)] backdrop-blur-xl transition hover:-translate-y-1 hover:border-pink-500/60"
+        >
+          <JackAvatar size="md" />
 
-        <div className="hidden pr-2 text-left sm:block">
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-pink-400">
-            Assistente
-          </p>
+          <div className="hidden pr-2 text-left sm:block">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-pink-400">
+              Assistente
+            </p>
 
-          <p className="flex items-center gap-1 text-sm font-black text-white">
-            Jack <Sparkles size={14} className="text-pink-400" />
-          </p>
-        </div>
-      </button>
+            <p className="flex items-center gap-1 text-sm font-black text-white">
+              Jack <Sparkles size={14} className="text-pink-400" />
+            </p>
+          </div>
+        </button>
+      )}
     </div>
   );
 }
