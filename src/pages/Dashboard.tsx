@@ -88,7 +88,6 @@ function getStatusClass(status: string | null | undefined) {
 }
 
 
-
 const clientJourneySteps = [
   "Briefing",
   "Diagnóstico",
@@ -368,7 +367,7 @@ function ClientExperienceSection({
         <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/15 blur-[90px]" />
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[#005cff]/15 blur-[90px]" />
 
-        <div className="relative z-10">
+        <div className="relative z-10 grid gap-6 lg:grid-cols-[1fr_220px] lg:items-center">
           <div>
             <span className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-zinc-400">
               Experiência FatorZ
@@ -401,6 +400,33 @@ function ClientExperienceSection({
               >
                 Falar com o Jack
               </button>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black/35 p-5 shadow-[0_0_50px_rgba(0,0,0,0.45)]">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#ff0096]/15 blur-[55px]" />
+            <div className="pointer-events-none absolute -bottom-12 -left-12 h-36 w-36 rounded-full bg-[#005cff]/15 blur-[55px]" />
+
+            <div className="relative z-10">
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#ff7bd0]">
+                Central de acompanhamento
+              </p>
+
+              <h3 className="mt-4 text-2xl font-black leading-tight">
+                Tudo que a FatorZ precisa entregar fica organizado aqui.
+              </h3>
+
+              <div className="mt-5 space-y-3 text-sm text-zinc-400">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                  Briefing, materiais e referências do cliente.
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                  Produção, revisão e liberação das entregas.
+                </div>
+                <div className="rounded-2xl border border-[#ff0096]/20 bg-[#ff0096]/10 p-3 text-[#ffb7e2]">
+                  Jack disponível para orientar o próximo passo.
+                </div>
+              </div>
             </div>
           </div>
         </div>
