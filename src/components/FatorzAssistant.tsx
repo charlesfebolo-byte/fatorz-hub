@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ChevronDown,
-  Lock,
-  Send,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { ChevronDown, Lock, Send, Sparkles, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -27,7 +21,7 @@ type FatorzAssistantEvent = CustomEvent<{
   autoSend?: boolean;
 }>;
 
-const JACK_AVATAR_URL = "/jack-fatorz.png";
+const JACK_AVATAR = "/jack-avatar.png";
 
 const STARTER_MESSAGES: ChatMessage[] = [
   {
@@ -60,6 +54,29 @@ function normalizeText(value: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function JackAvatar({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  const sizes = {
+    sm: "h-8 w-8",
+    md: "h-12 w-12",
+    lg: "h-16 w-16",
+  };
+
+  return (
+    <div
+      className={`relative shrink-0 overflow-hidden rounded-full border border-[#ff0096]/40 bg-black shadow-[0_0_26px_rgba(255,0,150,0.28)] ${sizes[size]}`}
+    >
+      <img
+        src={JACK_AVATAR}
+        alt="Jack, assistente FatorZ"
+        className="h-full w-full object-cover"
+        loading="lazy"
+      />
+
+      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-black bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
+    </div>
+  );
 }
 
 export default function FatorzAssistant({ user, profile }: any) {
@@ -196,7 +213,7 @@ export default function FatorzAssistant({ user, profile }: any) {
     if (!isLogged) {
       setOpen(true);
       addAssistantMessage(
-        "Pra usar o Jack com IA, primeiro entre na sua conta. Assim eu consigo aplicar o limite diário e proteger o uso."
+        "Pra usar o Jack com IA, primeiro entre na sua conta. Assim eu consigo proteger o uso e manter seu limite diário organizado."
       );
       return;
     }
@@ -261,14 +278,14 @@ export default function FatorzAssistant({ user, profile }: any) {
       );
 
       if (error) {
-        console.log("Erro no Assistente FatorZ:", error);
+        console.log("Erro no Jack:", error);
 
         setMessages((prev): ChatMessage[] => [
           ...prev,
           {
             role: "assistant",
             content:
-              "Não consegui responder agora. Confere se a função `fatorz-ai-assistant` já foi publicada no Supabase e se a chave GEMINI_API_KEY foi configurada.",
+              "Não consegui responder agora. Confere se a função `fatorz-ai-assistant` está publicada no Supabase e se a chave GEMINI_API_KEY foi configurada.",
           },
         ]);
 
@@ -308,14 +325,14 @@ export default function FatorzAssistant({ user, profile }: any) {
 
       updateUsage(data);
     } catch (err) {
-      console.log("Erro inesperado no assistente:", err);
+      console.log("Erro inesperado no Jack:", err);
 
       setMessages((prev): ChatMessage[] => [
         ...prev,
         {
           role: "assistant",
           content:
-            "Deu erro ao chamar a IA. O visual do assistente está pronto, mas a função do Supabase precisa estar publicada e configurada.",
+            "Deu erro ao chamar a IA. O visual do Jack está pronto, mas a função do Supabase precisa estar publicada e configurada.",
         },
       ]);
     } finally {
@@ -333,35 +350,32 @@ export default function FatorzAssistant({ user, profile }: any) {
   if (shouldHideCompletely) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-[80] pointer-events-none">
+    <div className="fixed bottom-4 right-4 z-[80] pointer-events-none md:bottom-6 md:right-6">
       {open && !minimized && (
-        <div className="pointer-events-auto mb-4 w-[calc(100vw-32px)] max-w-[420px] h-[620px] max-h-[calc(100vh-120px)] overflow-hidden rounded-[34px] border border-white/10 bg-[#050508]/95 text-white shadow-[0_30px_120px_rgba(0,0,0,0.78)] backdrop-blur-2xl">
+        <div className="pointer-events-auto mb-4 h-[650px] max-h-[calc(100vh-120px)] w-[calc(100vw-32px)] max-w-[430px] overflow-hidden rounded-[34px] border border-white/10 bg-[#050508]/95 text-white shadow-[0_30px_120px_rgba(0,0,0,0.78)] backdrop-blur-2xl">
           <div className="relative overflow-hidden border-b border-white/10 p-5">
             <div className="absolute -right-16 -top-20 h-44 w-44 rounded-full bg-[#ff0096]/20 blur-3xl" />
             <div className="absolute -left-16 -bottom-20 h-44 w-44 rounded-full bg-[#005cff]/20 blur-3xl" />
 
             <div className="relative z-10 flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-black shadow-[0_0_45px_rgba(255,0,150,0.32)]">
-                  <img
-                    src={JACK_AVATAR_URL}
-                    alt="Jack, assistente da FatorZ"
-                    className="h-full w-full object-cover object-top"
-                  />
-                  <span className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-black bg-emerald-400" />
-                </div>
+              <div className="flex min-w-0 items-start gap-3">
+                <JackAvatar size="lg" />
 
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.28em] text-pink-400">
-                    Jack • Assistente FatorZ
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-pink-400">
+                    Assistente FatorZ
                   </p>
 
-                  <h2 className="mt-1 text-xl font-black leading-tight">
-                    Presença, conteúdo e direção.
+                  <h2 className="mt-1 text-2xl font-black leading-tight">
+                    Jack
                   </h2>
 
                   <p className="mt-1 text-xs font-bold text-emerald-300">
                     Online agora · {dailyLabel}
+                  </p>
+
+                  <p className="mt-2 max-w-[250px] text-xs leading-5 text-zinc-500">
+                    Presença, conteúdo, briefing e próximos passos da sua marca.
                   </p>
                 </div>
               </div>
@@ -369,7 +383,7 @@ export default function FatorzAssistant({ user, profile }: any) {
               <div className="flex shrink-0 gap-2">
                 <button
                   onClick={() => setMinimized(true)}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10"
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 transition hover:bg-white/10"
                   title="Minimizar"
                 >
                   <ChevronDown size={18} />
@@ -377,7 +391,7 @@ export default function FatorzAssistant({ user, profile }: any) {
 
                 <button
                   onClick={() => setOpen(false)}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10"
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 transition hover:bg-white/10"
                   title="Fechar"
                 >
                   <X size={18} />
@@ -386,28 +400,20 @@ export default function FatorzAssistant({ user, profile }: any) {
             </div>
           </div>
 
-          <div className="flex h-[calc(100%-104px)] flex-col">
+          <div className="flex h-[calc(100%-142px)] flex-col">
             <div className="flex-1 overflow-y-auto px-4 py-5">
               <div className="space-y-4">
                 {messages.map((message, index) => (
                   <div
                     key={`${message.role}-${index}`}
-                    className={`flex items-end gap-2 ${
+                    className={`flex gap-2 ${
                       message.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    {message.role === "assistant" && (
-                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-white/10 bg-black">
-                        <img
-                          src={JACK_AVATAR_URL}
-                          alt="Jack"
-                          className="h-full w-full object-cover object-top"
-                        />
-                      </div>
-                    )}
+                    {message.role === "assistant" && <JackAvatar size="sm" />}
 
                     <div
-                      className={`max-w-[86%] whitespace-pre-line rounded-[24px] px-4 py-3 text-sm leading-6 ${
+                      className={`max-w-[82%] whitespace-pre-line rounded-[24px] px-4 py-3 text-sm leading-6 ${
                         message.role === "user"
                           ? "bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white"
                           : "border border-white/10 bg-white/[0.055] text-zinc-200"
@@ -419,9 +425,10 @@ export default function FatorzAssistant({ user, profile }: any) {
                 ))}
 
                 {loading && (
-                  <div className="flex justify-start">
+                  <div className="flex justify-start gap-2">
+                    <JackAvatar size="sm" />
                     <div className="rounded-[24px] border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-zinc-400">
-                      Pensando na melhor resposta...
+                      O Jack está pensando na melhor resposta...
                     </div>
                   </div>
                 )}
@@ -452,7 +459,7 @@ export default function FatorzAssistant({ user, profile }: any) {
                   <div className="flex items-start gap-2">
                     <Lock className="mt-0.5 shrink-0 text-pink-400" size={16} />
                     <p className="text-xs font-bold leading-5 text-zinc-300">
-                      Entre na conta para conversar com a IA e manter seu limite diário protegido.
+                      Entre na conta para conversar com o Jack e manter seu limite diário protegido.
                     </p>
                   </div>
 
@@ -474,11 +481,11 @@ export default function FatorzAssistant({ user, profile }: any) {
                   placeholder={
                     isLogged
                       ? "Fale com o Jack sobre conteúdo, entregas, briefing..."
-                      : "Entre para usar o Assistente FatorZ..."
+                      : "Entre para usar o Jack..."
                   }
                   rows={2}
                   disabled={loading}
-                  className="max-h-28 min-h-[52px] flex-1 resize-none rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-500 disabled:opacity-60"
+                  className="max-h-28 min-h-[52px] flex-1 resize-none rounded-2xl border border-[#ff0096]/50 bg-black/55 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-400 disabled:opacity-60"
                 />
 
                 <button
@@ -504,19 +511,12 @@ export default function FatorzAssistant({ user, profile }: any) {
           setOpen(true);
           setMinimized(false);
         }}
-        className="pointer-events-auto group flex items-center gap-3 rounded-full border border-white/10 bg-black/85 px-4 py-3 text-white shadow-[0_18px_70px_rgba(0,0,0,0.65)] backdrop-blur-xl transition hover:-translate-y-1 hover:border-pink-500/60"
+        className="pointer-events-auto group flex items-center gap-3 rounded-full border border-white/10 bg-black/85 px-3 py-3 text-white shadow-[0_18px_70px_rgba(0,0,0,0.65)] backdrop-blur-xl transition hover:-translate-y-1 hover:border-pink-500/60"
       >
-        <div className="relative h-14 w-14 overflow-hidden rounded-full border border-white/10 bg-black shadow-[0_0_35px_rgba(255,0,150,0.32)]">
-          <img
-            src={JACK_AVATAR_URL}
-            alt="Jack"
-            className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-110"
-          />
-          <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-black bg-green-400" />
-        </div>
+        <JackAvatar size="md" />
 
-        <div className="hidden pr-1 text-left sm:block">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-pink-400">
+        <div className="hidden pr-2 text-left sm:block">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-pink-400">
             Assistente
           </p>
 
