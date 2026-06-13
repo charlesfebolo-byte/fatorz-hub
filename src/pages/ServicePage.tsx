@@ -1,44 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { getSeoServiceBySlug } from "../data/seoServices";
+import { getSeoServiceBySlug, seoServices } from "../data/seoServices";
+import ProductCard from "../components/ProductCard";
+import type { SiteProduct } from "../components/ProductCard";
 
-const BASE_URL = "https://fatorz-hub.vercel.app";
 const INSTAGRAM_URL = "https://www.instagram.com/fatorzhouse/";
-
-type SiteProduct = {
-  id: number;
-  name: string;
-  slug: string;
-  subtitle: string | null;
-  description: string | null;
-  category: string;
-  product_type: string;
-  price_cents: number;
-  old_price_cents: number | null;
-  is_active: boolean | null;
-  is_featured: boolean | null;
-  order_index: number | null;
-  image_url: string | null;
-  badge: string | null;
-  checkout_provider: string | null;
-  external_payment_url: string | null;
-  accepts_pix: boolean | null;
-  accepts_boleto: boolean | null;
-  accepts_card: boolean | null;
-  course_id: number | null;
-  notes: string | null;
-};
 
 const productMatchBySlug: Record<string, string[]> = {
   "agencia-de-marketing-digital": [
     "assessoria",
+    "marketing",
     "diagnostic",
     "branding",
     "site",
     "subscription",
+    "instagram",
   ],
-  "edicao-de-reels": ["reels", "vídeo", "video", "edição", "edicao"],
+  "edicao-de-reels": ["reels", "vídeo", "video", "edição", "edicao", "roteiro"],
   "criacao-de-artes-para-instagram": [
     "arte",
     "artes",
@@ -46,8 +25,10 @@ const productMatchBySlug: Record<string, string[]> = {
     "post",
     "instagram",
     "criativo",
+    "carrossel",
+    "stories",
   ],
-  "landing-page": ["landing", "site", "page", "página", "pagina"],
+  "landing-page": ["landing", "site", "page", "página", "pagina", "venda"],
   "identidade-visual": [
     "identidade",
     "visual",
@@ -62,6 +43,7 @@ const productMatchBySlug: Record<string, string[]> = {
     "assessoria",
     "mensal",
     "subscription",
+    "perfil",
   ],
   "marketing-para-barbeiros": [
     "barbeiro",
@@ -78,86 +60,64 @@ const productMatchBySlug: Record<string, string[]> = {
     "landing",
     "instagram",
     "diagnostic",
+    "local",
   ],
 };
 
-function setMetaTag(name: string, content: string) {
-  let tag = document.querySelector(`meta[name="${name}"]`);
+const seoIntentions = [
+  {
+    title: "Serviços online",
+    text: "Para quem procura uma solução digital, mesmo sem saber se precisa de site, conteúdo, design, Instagram, landing page ou estrutura de oferta.",
+  },
+  {
+    title: "Presença digital",
+    text: "Para marcas que querem parecer mais confiáveis quando alguém encontra o perfil, recebe um link ou pesquisa pelo serviço.",
+  },
+  {
+    title: "Conteúdo e conversão",
+    text: "Para transformar postagens, vídeos, artes, páginas e CTAs em um caminho mais claro até o atendimento ou compra.",
+  },
+];
 
-  if (!tag) {
-    tag = document.createElement("meta");
-    tag.setAttribute("name", name);
-    document.head.appendChild(tag);
-  }
-
-  tag.setAttribute("content", content);
-}
-
-function setPropertyTag(property: string, content: string) {
-  let tag = document.querySelector(`meta[property="${property}"]`);
-
-  if (!tag) {
-    tag = document.createElement("meta");
-    tag.setAttribute("property", property);
-    document.head.appendChild(tag);
-  }
-
-  tag.setAttribute("content", content);
-}
-
-function setCanonical(url: string) {
-  let link = document.querySelector(`link[rel="canonical"]`);
-
-  if (!link) {
-    link = document.createElement("link");
-    link.setAttribute("rel", "canonical");
-    document.head.appendChild(link);
-  }
-
-  link.setAttribute("href", url);
-}
-
-function formatMoney(cents: number | null | undefined) {
-  return (Number(cents || 0) / 100).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
-function getPaymentLabel(product: SiteProduct) {
-  const methods = [];
-
-  if (product.accepts_pix) methods.push("Pix");
-  if (product.accepts_boleto) methods.push("Boleto");
-  if (product.accepts_card) methods.push("Cartão");
-
-  if (!methods.length) return "Atendimento manual";
-
-  return methods.join(" • ");
-}
-
-function getDeliveryType(product: SiteProduct) {
-  if (product.product_type === "subscription") return "Plano mensal";
-  if (product.product_type === "course") return "Curso";
-  if (product.product_type === "site") return "Site ou página";
-  if (product.product_type === "branding") return "Identidade";
-  if (product.product_type === "diagnostic") return "Diagnóstico";
-
-  return "Serviço FatorZ";
-}
-
-function getProductBenefits(product: SiteProduct) {
-  return String(product.notes || "")
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
+const digitalScopes = [
+  "site profissional",
+  "landing page",
+  "página de venda",
+  "Instagram comercial",
+  "gestão de Instagram",
+  "conteúdo estratégico",
+  "edição de reels",
+  "artes para feed",
+  "carrossel",
+  "stories",
+  "identidade visual",
+  "posicionamento digital",
+  "bio otimizada",
+  "link da bio",
+  "checkout",
+  "oferta online",
+  "marketing local",
+  "negócio digital",
+  "serviço online",
+  "presença profissional",
+];
 
 function normalize(value: string | null | undefined) {
   return String(value || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+}
+
+function sortProducts(products: SiteProduct[]) {
+  return [...products].sort((a, b) => {
+    const featuredA = a.is_featured ? 1 : 0;
+    const featuredB = b.is_featured ? 1 : 0;
+
+    if (featuredA !== featuredB) return featuredB - featuredA;
+
+    return Number(a.order_index || 999) - Number(b.order_index || 999);
+  });
 }
 
 export default function ServicePage() {
@@ -177,26 +137,6 @@ export default function ServicePage() {
   useEffect(() => {
     loadProducts();
   }, []);
-
-  useEffect(() => {
-    if (!service) return;
-
-    const canonicalUrl = `${BASE_URL}${service.path}`;
-
-    document.title = service.metaTitle;
-
-    setMetaTag("description", service.metaDescription);
-    setMetaTag("keywords", service.keywords.join(", "));
-    setMetaTag("robots", "index, follow");
-
-    setPropertyTag("og:title", service.metaTitle);
-    setPropertyTag("og:description", service.metaDescription);
-    setPropertyTag("og:url", canonicalUrl);
-    setPropertyTag("og:type", "website");
-    setPropertyTag("og:site_name", "FatorZ");
-
-    setCanonical(canonicalUrl);
-  }, [service]);
 
   async function loadProducts() {
     setLoadingProducts(true);
@@ -234,23 +174,23 @@ export default function ServicePage() {
           product.category,
           product.product_type,
           product.badge,
+          product.notes,
         ].join(" ")
       );
 
       let score = 0;
 
       matchWords.forEach((word) => {
-        if (searchable.includes(normalize(word))) {
-          score += 1;
-        }
+        if (searchable.includes(normalize(word))) score += 2;
+      });
+
+      service.keywords.forEach((keyword) => {
+        if (searchable.includes(normalize(keyword))) score += 1;
       });
 
       if (product.is_featured) score += 1;
 
-      return {
-        product,
-        score,
-      };
+      return { product, score };
     });
 
     const matched = scored
@@ -258,9 +198,9 @@ export default function ServicePage() {
       .sort((a, b) => b.score - a.score)
       .map((item) => item.product);
 
-    if (matched.length) return matched.slice(0, 6);
+    if (matched.length) return sortProducts(matched).slice(0, 6);
 
-    return products.slice(0, 6);
+    return sortProducts(products).slice(0, 6);
   }, [products, service]);
 
   function openInstagram() {
@@ -319,124 +259,122 @@ export default function ServicePage() {
     );
   }
 
+  const otherServices = seoServices
+    .filter((item) => item.path !== service.path)
+    .slice(0, 6);
+
   return (
-    <div className="min-h-screen bg-[#050506] text-white overflow-x-hidden">
-      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_12%_8%,rgba(0,92,255,0.18),transparent_28%),radial-gradient(circle_at_88%_12%,rgba(255,0,150,0.16),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(145,35,255,0.14),transparent_34%)]" />
+    <div className="fz-grid-bg min-h-screen bg-[#050506] text-white overflow-x-hidden">
+      <div className="fz-space-orbs" aria-hidden="true" />
 
       <header className="sticky top-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 md:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8">
           <button
             onClick={() => navigate("/")}
-            className="text-2xl md:text-3xl font-black tracking-tight text-white"
+            className="group relative shrink-0 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-2xl font-black tracking-tight text-white shadow-[0_0_28px_rgba(236,72,153,0.08)] transition hover:scale-[1.02] hover:border-pink-500/30 md:text-3xl"
           >
             Fator<span className="text-pink-500">Z</span>
           </button>
 
-          <nav className="hidden items-center gap-6 text-sm font-black text-zinc-400 lg:flex">
-            <button onClick={() => navigate("/")} className="hover:text-white">
+          <nav className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.035] p-1.5 text-sm font-black backdrop-blur-xl lg:flex">
+            <button
+              onClick={() => navigate("/")}
+              className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
+            >
               Início
             </button>
 
             <button
               onClick={() => navigate("/servicos")}
-              className="hover:text-white"
+              className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
             >
               Serviços
             </button>
 
             <button
-              onClick={() => navigate("/#produtos")}
-              className="hover:text-white"
+              onClick={() => navigate("/blog")}
+              className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
             >
-              Produtos
-            </button>
-
-            <button
-              onClick={() => navigate("/login")}
-              className="hover:text-white"
-            >
-              Hub
+              Blog
             </button>
           </nav>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => navigate("/servicos")}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:bg-white/10"
-            >
-              Serviços
-            </button>
-
-            <button
-              onClick={openInstagram}
-              className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 md:px-5"
-            >
-              Chamar FatorZ
-            </button>
-          </div>
+          <button
+            onClick={openInstagram}
+            className="fz-shine-btn px-5 py-3 text-sm md:px-6"
+          >
+            Chamar FatorZ
+          </button>
         </div>
       </header>
 
       <main className="relative z-10">
-        <section className="mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">
-          <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <section className="fz-reveal mx-auto max-w-7xl px-4 py-14 md:px-8 md:py-20">
+          <div className="grid items-center gap-10 lg:grid-cols-[0.95fr_1.05fr]">
             <div>
-              <p className="mb-4 text-sm font-black uppercase tracking-[0.28em] text-pink-500">
-                {service.eyebrow}
-              </p>
+              <button
+                onClick={() => navigate("/servicos")}
+                className="mb-6 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-black text-zinc-300 transition hover:bg-white/10 hover:text-white"
+              >
+                ← Voltar para soluções
+              </button>
 
-              <h1 className="max-w-5xl text-5xl font-black leading-tight md:text-7xl">
+              <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2 backdrop-blur-xl">
+                <span className="h-2.5 w-2.5 rounded-full bg-pink-500 shadow-[0_0_18px_rgba(255,0,150,0.9)]" />
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-zinc-300">
+                  {service.eyebrow}
+                </p>
+              </div>
+
+              <h1 className="mb-6 max-w-[850px] text-5xl font-black leading-[0.95] tracking-tight text-white md:text-6xl lg:text-7xl">
                 {service.h1}
               </h1>
 
-              <p className="mt-6 max-w-3xl text-lg leading-relaxed text-zinc-400">
+              <p className="max-w-2xl text-base leading-relaxed text-zinc-400 md:text-lg">
                 {service.intro}
               </p>
 
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                 <button
-                  onClick={() => {
-                    const section = document.getElementById("produtos-relacionados");
-                    section?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-8 py-5 text-lg font-black text-white transition hover:opacity-90"
+                  onClick={() =>
+                    document
+                      .getElementById("produtos-relacionados")
+                      ?.scrollIntoView({ behavior: "smooth" })
+                  }
+                  className="fz-shine-btn px-7 py-4 text-base"
                 >
                   Ver soluções e preços
                 </button>
 
                 <button
-                  onClick={() => navigate("/login")}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-8 py-5 text-lg font-black text-white transition hover:bg-white/10"
+                  onClick={openInstagram}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-7 py-4 text-base font-black text-white transition hover:border-pink-500/30 hover:bg-white/10"
                 >
-                  Entrar no Hub
+                  Pedir recomendação
                 </button>
               </div>
             </div>
 
-            <aside className="rounded-[38px] border border-white/10 bg-black/60 p-6 md:p-8">
-              <p className="mb-4 text-sm font-black uppercase tracking-[0.25em] text-pink-400">
-                O que a FatorZ faz aqui
+            <aside className="rounded-[36px] border border-white/10 bg-white/[0.035] p-5 shadow-[0_0_90px_rgba(80,20,180,0.18)] backdrop-blur-2xl md:p-7">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-pink-400">
+                O que trava a escolha
               </p>
 
-              <div className="space-y-4">
-                {service.benefits.slice(0, 4).map((benefit) => (
-                  <div
-                    key={benefit}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
-                  >
-                    <p className="font-bold text-zinc-200">{benefit}</p>
-                  </div>
-                ))}
-              </div>
+              <h2 className="text-3xl font-black leading-tight">
+                O cliente precisa entender rápido por que confiar.
+              </h2>
 
-              <div className="mt-6 flex flex-wrap gap-2">
-                {service.keywords.slice(0, 5).map((keyword) => (
-                  <span
-                    key={keyword}
-                    className="rounded-full border border-white/10 bg-black/40 px-3 py-2 text-xs font-bold text-zinc-300"
+              <div className="mt-6 space-y-3">
+                {service.problems.map((problem) => (
+                  <div
+                    key={problem}
+                    className="rounded-3xl border border-white/10 bg-black/25 p-4"
                   >
-                    {keyword}
-                  </span>
+                    <p className="text-sm leading-relaxed text-zinc-400">
+                      <span className="mr-2 text-pink-400">●</span>
+                      {problem}
+                    </p>
+                  </div>
                 ))}
               </div>
             </aside>
@@ -445,187 +383,159 @@ export default function ServicePage() {
 
         <section
           id="produtos-relacionados"
-          className="mx-auto max-w-7xl px-4 py-10 md:px-8"
+          className="mx-auto max-w-7xl px-4 pb-16 md:px-8"
         >
-          <div className="mb-8">
-            <p className="mb-3 text-sm font-black uppercase tracking-[0.25em] text-pink-400">
-              Soluções relacionadas
+          <div className="mb-7 rounded-[32px] border border-white/10 bg-white/[0.035] p-5 md:p-7">
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-pink-400">
+              Produtos conectados ao serviço
             </p>
 
-            <h2 className="text-4xl font-black md:text-5xl">
-              Produtos da FatorZ para {service.title}
+            <h2 className="text-3xl font-black tracking-tight md:text-5xl">
+              Soluções da FatorZ para {service.title}
             </h2>
 
-            <p className="mt-4 max-w-3xl text-zinc-400">
-              Essas opções vêm do painel de produtos da FatorZ. Se o preço mudar
-              no admin, muda aqui também.
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-400">
+              Produtos puxados do mesmo Hub da landing principal, com valores,
+              imagens, benefícios e checkout conectados ao sistema.
             </p>
           </div>
 
           {loadingProducts ? (
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.045] p-8 text-zinc-400">
+            <div className="rounded-[32px] border border-white/10 bg-white/[0.035] p-8 text-zinc-400">
               Carregando soluções...
             </div>
-          ) : relatedProducts.length === 0 ? (
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.045] p-8">
-              <h3 className="text-2xl font-black">Nenhum produto ativo agora.</h3>
-
-              <p className="mt-3 text-zinc-400">
-                Chame a FatorZ para montar uma solução personalizada.
-              </p>
-
-              <button
-                onClick={openInstagram}
-                className="mt-6 rounded-2xl bg-white px-6 py-4 font-black text-black"
-              >
-                Chamar no Instagram
-              </button>
-            </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {relatedProducts.map((product) => (
-                <article
+                <ProductCard
                   key={product.id}
-                  className={`relative overflow-hidden rounded-[34px] border p-6 transition hover:-translate-y-1 ${
-                    product.is_featured
-                      ? "border-pink-500/45 bg-pink-500/[0.08]"
-                      : "border-white/10 bg-white/[0.045]"
-                  }`}
-                >
-                  {product.image_url && (
-                    <div className="mb-5 h-40 overflow-hidden rounded-[24px] border border-white/10 bg-zinc-900">
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    <span className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-zinc-300">
-                      {getDeliveryType(product)}
-                    </span>
-
-                    {product.badge && (
-                      <span className="rounded-full border border-pink-500/30 bg-pink-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-pink-300">
-                        {product.badge}
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-2xl font-black">{product.name}</h3>
-
-                  <p className="mt-3 min-h-[72px] text-sm leading-relaxed text-zinc-400">
-                    {product.description ||
-                      product.subtitle ||
-                      "Solução FatorZ para melhorar sua presença digital."}
-                  </p>
-
-                  <div className="mt-6 rounded-3xl border border-white/10 bg-black/45 p-5">
-                    <p className="text-sm font-bold text-zinc-500">Valor</p>
-
-                    <div className="mt-1 flex items-end gap-3">
-                      {product.old_price_cents && (
-                        <p className="pb-1 text-sm font-black text-zinc-500 line-through">
-                          {formatMoney(product.old_price_cents)}
-                        </p>
-                      )}
-
-                      <p className="text-3xl font-black text-white">
-                        {formatMoney(product.price_cents)}
-                      </p>
-                    </div>
-
-                    <p className="mt-2 text-xs font-bold text-zinc-500">
-                      {getPaymentLabel(product)}
-                    </p>
-                  </div>
-
-                  {getProductBenefits(product).length > 0 && (
-                    <ul className="mt-5 space-y-2">
-                      {getProductBenefits(product).map((benefit) => (
-                        <li
-                          key={benefit}
-                          className="flex gap-3 text-xs leading-relaxed text-zinc-400"
-                        >
-                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-pink-500" />
-                          <span>{benefit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  <button
-                    onClick={() => handleBuy(product)}
-                    disabled={buyingId === product.id}
-                    className="mt-6 w-full rounded-2xl bg-white px-5 py-4 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {buyingId === product.id
-                      ? "Abrindo..."
-                      : product.checkout_provider === "manual"
-                        ? "Chamar no direct"
-                        : product.checkout_provider === "external"
-                          ? "Abrir pagamento"
-                          : "Comprar agora"}
-                  </button>
-                </article>
+                  product={product}
+                  onBuy={handleBuy}
+                  buying={buyingId === product.id}
+                />
               ))}
             </div>
           )}
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-12 md:px-8">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="rounded-[34px] border border-white/10 bg-white/[0.045] p-6">
-              <h2 className="text-2xl font-black">Problemas que resolvemos</h2>
+        <section className="mx-auto max-w-7xl px-4 pb-16 md:px-8">
+          <div className="grid gap-5 lg:grid-cols-3">
+            {seoIntentions.map((item) => (
+              <article
+                key={item.title}
+                className="rounded-[32px] border border-white/10 bg-white/[0.035] p-7"
+              >
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-pink-400">
+                  Intenção de busca
+                </p>
 
-              <ul className="mt-5 space-y-3">
-                {service.problems.map((item) => (
-                  <li key={item} className="flex gap-3 text-zinc-300">
-                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-pink-500" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
+                <h2 className="text-2xl font-black tracking-tight">
+                  {item.title}
+                </h2>
+
+                <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+                  {item.text}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 pb-16 md:px-8">
+          <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="rounded-[36px] border border-white/10 bg-white/[0.035] p-7 md:p-9">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-pink-400">
+                Escopo digital
+              </p>
+
+              <h2 className="text-4xl font-black leading-tight tracking-tight">
+                Se é online e ajuda sua marca a vender melhor, a FatorZ pode
+                estruturar.
+              </h2>
+
+              <p className="mt-5 text-sm leading-relaxed text-zinc-400">
+                A ideia não é limitar sua marca a um único formato. Podemos
+                começar por uma entrega pontual, um plano mensal, uma página,
+                uma identidade, um conteúdo ou uma estrutura completa de
+                presença digital.
+              </p>
             </div>
 
-            <div className="rounded-[34px] border border-white/10 bg-white/[0.045] p-6">
-              <h2 className="text-2xl font-black">O que pode ser entregue</h2>
+            <div className="rounded-[36px] border border-white/10 bg-white/[0.035] p-7 md:p-9">
+              <p className="mb-4 text-xs font-black uppercase tracking-[0.28em] text-zinc-500">
+                Termos e necessidades relacionadas
+              </p>
 
-              <ul className="mt-5 space-y-3">
-                {service.deliverables.map((item) => (
-                  <li key={item} className="flex gap-3 text-zinc-300">
-                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
-                    <span>{item}</span>
-                  </li>
+              <div className="flex flex-wrap gap-2">
+                {[...service.keywords, ...digitalScopes].map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full border border-white/10 bg-black/35 px-4 py-2 text-xs font-black text-zinc-300 transition hover:border-pink-500/35 hover:text-white"
+                  >
+                    {item}
+                  </span>
                 ))}
-              </ul>
-            </div>
-
-            <div className="rounded-[34px] border border-white/10 bg-white/[0.045] p-6">
-              <h2 className="text-2xl font-black">Benefícios</h2>
-
-              <ul className="mt-5 space-y-3">
-                {service.benefits.map((item) => (
-                  <li key={item} className="flex gap-3 text-zinc-300">
-                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-purple-500" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-12 md:px-8 md:py-20">
-          <div className="mb-8">
-            <p className="mb-3 text-sm font-black uppercase tracking-[0.25em] text-pink-400">
-              Dúvidas frequentes
+        <section className="mx-auto max-w-7xl px-4 pb-16 md:px-8">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="rounded-[36px] border border-white/10 bg-white/[0.035] p-7 md:p-9">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-pink-400">
+                Entregas possíveis
+              </p>
+
+              <h2 className="mb-6 text-3xl font-black tracking-tight">
+                O que pode entrar no projeto
+              </h2>
+
+              <div className="space-y-3">
+                {service.deliverables.map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-relaxed text-zinc-300"
+                  >
+                    <span className="mr-2 text-pink-400">✦</span>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[36px] border border-white/10 bg-white/[0.035] p-7 md:p-9">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-blue-300">
+                Resultado esperado
+              </p>
+
+              <h2 className="mb-6 text-3xl font-black tracking-tight">
+                O que muda na percepção
+              </h2>
+
+              <div className="space-y-3">
+                {service.benefits.map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-3xl border border-white/10 bg-black/25 p-4 text-sm leading-relaxed text-zinc-300"
+                  >
+                    <span className="mr-2 text-blue-300">◆</span>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 pb-16 md:px-8">
+          <div className="mb-7">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-pink-400">
+              Perguntas frequentes
             </p>
 
-            <h2 className="text-4xl font-black">
-              Perguntas sobre {service.title}
+            <h2 className="text-4xl font-black tracking-tight">
+              Antes de contratar
             </h2>
           </div>
 
@@ -633,11 +543,13 @@ export default function ServicePage() {
             {service.faq.map((item) => (
               <article
                 key={item.question}
-                className="rounded-[30px] border border-white/10 bg-black/50 p-6"
+                className="rounded-[32px] border border-white/10 bg-white/[0.035] p-6"
               >
-                <h3 className="text-lg font-black">{item.question}</h3>
+                <h3 className="text-xl font-black leading-tight">
+                  {item.question}
+                </h3>
 
-                <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                <p className="mt-4 text-sm leading-relaxed text-zinc-400">
                   {item.answer}
                 </p>
               </article>
@@ -645,27 +557,56 @@ export default function ServicePage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 pb-20 md:px-8">
-          <div className="overflow-hidden rounded-[42px] border border-white/10 bg-black p-8 md:p-12 relative">
-            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/20 blur-3xl" />
-            <div className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#005cff]/20 blur-3xl" />
+        <section className="mx-auto max-w-7xl px-4 pb-16 md:px-8">
+          <div className="rounded-[36px] border border-white/10 bg-white/[0.035] p-7 md:p-9">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-zinc-500">
+              Outras soluções FatorZ
+            </p>
 
-            <div className="relative grid gap-8 lg:grid-cols-[1fr_320px] lg:items-center">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {otherServices.map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className="rounded-[26px] border border-white/10 bg-black/25 p-5 text-left transition hover:border-pink-500/35 hover:bg-pink-500/[0.06]"
+                >
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-[0.25em] text-pink-400">
+                    {item.eyebrow}
+                  </p>
+
+                  <h3 className="text-xl font-black">{item.title}</h3>
+
+                  <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+                    {item.metaDescription}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 pb-24 md:px-8">
+          <div className="rounded-[40px] border border-pink-500/20 bg-[radial-gradient(circle_at_12%_0%,rgba(236,72,153,0.18),transparent_32%),radial-gradient(circle_at_90%_40%,rgba(59,130,246,0.18),transparent_34%),rgba(255,255,255,0.035)] p-7 md:p-10">
+            <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>
-                <h2 className="text-4xl font-black leading-tight md:text-5xl">
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-pink-300">
+                  Próximo passo
+                </p>
+
+                <h2 className="text-4xl font-black leading-tight tracking-tight md:text-5xl">
                   {service.ctaTitle}
                 </h2>
 
-                <p className="mt-5 max-w-3xl text-lg leading-relaxed text-zinc-400">
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-400">
                   {service.ctaText}
                 </p>
               </div>
 
               <button
                 onClick={openInstagram}
-                className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-8 py-5 text-lg font-black text-white transition hover:opacity-90"
+                className="fz-shine-btn px-8 py-4 text-base"
               >
-                Chamar no Instagram
+                Chamar no direct
               </button>
             </div>
           </div>

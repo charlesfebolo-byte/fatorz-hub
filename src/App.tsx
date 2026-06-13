@@ -34,6 +34,7 @@ import ThankYou from "./pages/ThankYou";
 import Sidebar from "./components/Sidebar";
 import FatorzAssistant from "./components/FatorzAssistant";
 import FatorZEffects from "./components/FatorZEffects";
+import { SEO } from "./components/SEO";
 
 type StaffRole =
   | "none"
@@ -166,6 +167,8 @@ function AppContent({ user, profile }: any) {
 
   return (
     <>
+      <SEO />
+
       <FatorZEffects key={location.pathname} />
 
       <Routes>
@@ -372,6 +375,7 @@ function AppContent({ user, profile }: any) {
         />
 
         <Route path="/clientes" element={<Navigate to="/dashboard" replace />} />
+
         <Route
           path="/financeiro"
           element={<Navigate to="/dashboard" replace />}
