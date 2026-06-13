@@ -200,6 +200,58 @@ function productAcceptsPaymentMethod(product: SiteProduct, method: PaymentMethod
   return Boolean(product.accepts_card);
 }
 
+function normalizeProductText(value: string | null | undefined) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function productNeedsBriefing(product: SiteProduct | null) {
+  if (!product) return false;
+
+  const searchable = normalizeProductText(
+    [
+      product.name,
+      product.slug,
+      product.category,
+      product.product_type,
+      product.subtitle,
+      product.description,
+      product.badge,
+    ].join(" ")
+  );
+
+  if (product.category === "academy") return false;
+  if (product.product_type === "course") return false;
+  if (product.product_type === "diagnostic") return false;
+
+  if (searchable.includes("academy")) return false;
+  if (searchable.includes("curso")) return false;
+  if (searchable.includes("diagnostico")) return false;
+  if (searchable.includes("analise de perfil")) return false;
+  if (searchable.includes("perfil")) {
+    const isProfileDiagnostic =
+      searchable.includes("diagnostico") ||
+      searchable.includes("diagnostic") ||
+      searchable.includes("analise");
+    if (isProfileDiagnostic) return false;
+  }
+
+  return true;
+}
+
+function getPaymentResultOrderId(result: PaymentResult | null) {
+  const rawId =
+    result?.order?.id ||
+    result?.order?.order_id ||
+    result?.order?.site_product_order_id ||
+    null;
+
+  return rawId ? String(rawId) : "";
+}
+
 export default function ProductCheckout({ user: userFromApp }: any) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1108,6 +1160,39 @@ export default function ProductCheckout({ user: userFromApp }: any) {
                   análise/retorno do banco.
                 </p>
               )}
+            </div>
+          )}
+
+          {paymentResult && paymentResult.payment.status !== "cancelled" && productNeedsBriefing(paymentResult.product) && (
+            <div className="mt-8 rounded-[30px] border border-pink-500/25 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.16),transparent_38%),rgba(0,0,0,0.45)] p-6">
+              <p className="mb-2 text-sm font-black uppercase tracking-[0.25em] text-pink-300">
+                Próximo passo obrigatório
+              </p>
+
+              <h3 className="text-2xl font-black">Preencha a ficha de briefing</h3>
+
+              <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                Para começarmos sua entrega, precisamos das informações da sua marca:
+                Instagram, cores, estilo, referências, objetivo e materiais disponíveis.
+                O prazo da produção começa depois do envio dessa ficha.
+              </p>
+
+              <button
+                onClick={() => {
+                  const orderId = getPaymentResultOrderId(paymentResult);
+
+                  if (!orderId) {
+                    alert("Pagamento criado, mas não consegui localizar o ID do pedido. Acesse Minhas Entregas para preencher a ficha.");
+                    navigate("/minhas-entregas");
+                    return;
+                  }
+
+                  navigate(`/briefing?orderId=${orderId}`);
+                }}
+                className="mt-5 w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white transition hover:opacity-90"
+              >
+                Preencher ficha de briefing
+              </button>
             </div>
           )}
         </section>

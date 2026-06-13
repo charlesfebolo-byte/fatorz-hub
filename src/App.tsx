@@ -30,6 +30,7 @@ import AdminOrders from "./pages/AdminOrders";
 import AdminProducts from "./pages/AdminProducts";
 import CheckoutAcademy from "./pages/CheckoutAcademy";
 import ProductCheckout from "./pages/ProductCheckout";
+import BriefingForm from "./pages/BriefingForm";
 import ThankYou from "./pages/ThankYou";
 
 import Sidebar from "./components/Sidebar";
@@ -201,6 +202,17 @@ function AppContent({ user, profile }: any) {
         <Route
           path="/checkout/produto"
           element={<ProductCheckout user={user} profile={profile} />}
+        />
+
+        <Route
+          path="/briefing"
+          element={
+            <ProtectedRoute user={user} profile={profile}>
+              <DashboardLayout profile={profile}>
+                <BriefingForm />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
 
         <Route
