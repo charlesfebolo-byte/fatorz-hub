@@ -733,12 +733,6 @@ ${briefing.extra_notes || "—"}`);
 
     setActionLoading(order.actionKey);
 
-    if (briefing) {
-      await supabase
-        .from("service_briefings")
-        .update({ project_id: createdProject.id, updated_at: new Date().toISOString() })
-        .eq("id", briefing.id);
-    }
 
     const response =
       order.source === "legacy"
@@ -755,6 +749,7 @@ ${briefing.extra_notes || "—"}`);
               updated_at: new Date().toISOString(),
             })
             .eq("id", order.id);
+
 
     setActionLoading(null);
 
@@ -921,6 +916,20 @@ ${order.notes || ""}${getBriefingProjectNotes(order, briefing)}`;
               updated_at: new Date().toISOString(),
             })
             .eq("id", order.id);
+
+    if (briefing) {
+      const { error: briefingLinkError } = await supabase
+        .from("service_briefings")
+        .update({
+          project_id: createdProject.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", briefing.id);
+
+      if (briefingLinkError) {
+        console.log("Projeto criado, mas não consegui vincular o briefing:", briefingLinkError);
+      }
+    }
 
     setActionLoading(null);
 
