@@ -37,19 +37,131 @@ function getTodayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function getLimit(profile: any) {
-  const role = profile?.role || "user";
+function normalizeStatus(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
 
-  if (role === "admin") return 50;
-  if (role === "premium") return 15;
+function isPaidStatus(value: unknown) {
+  return [
+    "paid",
+    "pago",
+    "approved",
+    "aprovado",
+    "completed",
+    "concluido",
+    "success",
+    "succeeded",
+    "project_created",
+  ].includes(normalizeStatus(value));
+}
+
+function isAdvisoryOrder(order: any) {
+  const searchable = [
+    order?.product_name,
+    order?.product_category,
+    order?.product_type,
+    order?.product_slug,
+  ]
+    .join(" ")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  return (
+    searchable.includes("assessoria") ||
+    searchable.includes("mensal") ||
+    searchable.includes("subscription") ||
+    searchable.includes("plano basic") ||
+    searchable.includes("plano plus") ||
+    searchable.includes("plano pro") ||
+    searchable.includes("presenca inicial") ||
+    searchable.includes("presença inicial")
+  );
+}
+
+async function getPurchaseContext(supabaseAdmin: any, user: any) {
+  const purchases = new Map<string, any>();
+
+  const { data: ordersById, error: ordersByIdError } = await supabaseAdmin
+    .from("site_product_orders")
+    .select("id,status,product_name,product_category,product_type,product_slug")
+    .eq("user_id", user.id);
+
+  if (ordersByIdError) {
+    console.log("Erro ao buscar pedidos por user_id:", ordersByIdError);
+  }
+
+  (ordersById || []).forEach((order: any) => {
+    purchases.set(`id-${order.id}`, order);
+  });
+
+  if (user.email) {
+    const { data: ordersByEmail, error: ordersByEmailError } = await supabaseAdmin
+      .from("site_product_orders")
+      .select("id,status,product_name,product_category,product_type,product_slug")
+      .eq("user_email", user.email);
+
+    if (ordersByEmailError) {
+      console.log("Erro ao buscar pedidos por email:", ordersByEmailError);
+    }
+
+    (ordersByEmail || []).forEach((order: any) => {
+      purchases.set(`id-${order.id}`, order);
+    });
+  }
+
+  const siteOrders = Array.from(purchases.values());
+  const paidSiteOrders = siteOrders.filter((order) => isPaidStatus(order.status));
+  const hasActiveAdvisory = paidSiteOrders.some((order) => isAdvisoryOrder(order));
+
+  let approvedCourses = 0;
+
+  const { data: coursePurchases, error: coursePurchaseError } = await supabaseAdmin
+    .from("course_purchases")
+    .select("id,status")
+    .eq("user_id", user.id);
+
+  if (coursePurchaseError) {
+    console.log("Erro ao buscar course_purchases:", coursePurchaseError);
+  } else {
+    approvedCourses = (coursePurchases || []).filter((purchase: any) =>
+      isPaidStatus(purchase.status)
+    ).length;
+  }
+
+  return {
+    paidPurchaseCount: paidSiteOrders.length + approvedCourses,
+    hasActiveAdvisory,
+  };
+}
+
+async function getLimit(profile: any, supabaseAdmin: any, user: any) {
+  const role = profile?.role || "user";
+  const staffRole = profile?.staff_role || "none";
+  const customerTag = profile?.customer_tag || "free";
+
+  if (role === "admin" || staffRole !== "none") return 100;
+  if (role === "premium" || customerTag === "premium" || customerTag === "lendario") {
+    return 40;
+  }
 
   const academyActive =
     !!profile?.academy_expires_at &&
     new Date(profile.academy_expires_at).getTime() > new Date().getTime();
 
+  const purchaseContext = await getPurchaseContext(supabaseAdmin, user);
+
+  if (purchaseContext.hasActiveAdvisory) return 30;
+  if (purchaseContext.paidPurchaseCount >= 3) return 20;
+  if (purchaseContext.paidPurchaseCount >= 2) return 15;
+  if (purchaseContext.paidPurchaseCount >= 1) return 10;
   if (academyActive) return 15;
 
-  return 3;
+  return 5;
 }
 
 function cleanText(value: string) {
@@ -81,9 +193,10 @@ function buildPrompt({
   const academyActive = context?.academyActive ? "sim" : "não";
 
   return `
-Você é o Assistente FatorZ, um assistente de apoio do Hub FatorZ.
+Você é o Jack, o assistente oficial da FatorZ dentro do Hub.
 
 Identidade:
+- Nome: Jack.
 - Marca: FatorZ House / FatorZ Academy.
 - Tom: simples, direto, humano, premium e prático.
 - Estilo: presença, posicionamento e direção.
@@ -119,7 +232,7 @@ ${safeHistory || "Sem histórico anterior."}
 Pedido atual do cliente:
 ${message}
 
-Resposta do Assistente FatorZ:
+Resposta do Jack:
 `.trim();
 }
 
@@ -276,7 +389,14 @@ Deno.serve(async (req) => {
       console.log("Erro ao buscar profile:", profileError);
     }
 
-    const limit = getLimit(profile);
+    const limit = await getLimit(
+      profile || {
+        email: user.email,
+        role: "user",
+      },
+      supabaseAdmin,
+      user
+    );
     const today = getTodayKey();
 
     const { data: usageRow, error: usageReadError } = await supabaseAdmin
@@ -304,7 +424,7 @@ Deno.serve(async (req) => {
       return jsonResponse(
         {
           error:
-            "Seu limite diário do Assistente FatorZ acabou por hoje. Volte amanhã ou desbloqueie mais acesso pela Academy.",
+            "Seu limite diário do Jack acabou por hoje. Volte amanhã ou desbloqueie mais acesso comprando novas soluções da FatorZ.",
           used,
           limit,
           remaining: 0,
@@ -363,7 +483,7 @@ Deno.serve(async (req) => {
     return jsonResponse(
       {
         error:
-          "O Assistente FatorZ não conseguiu responder agora. Verifique a chave Gemini, a função do Supabase e tente novamente.",
+          "O Jack não conseguiu responder agora. Verifique a chave Gemini, a função do Supabase e tente novamente.",
       },
       500
     );

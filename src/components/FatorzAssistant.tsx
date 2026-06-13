@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bot,
   ChevronDown,
   Lock,
-  MessageCircle,
   Send,
   Sparkles,
   X,
@@ -29,19 +27,21 @@ type FatorzAssistantEvent = CustomEvent<{
   autoSend?: boolean;
 }>;
 
+const JACK_AVATAR_URL = "/jack-fatorz.png";
+
 const STARTER_MESSAGES: ChatMessage[] = [
   {
     role: "assistant",
     content:
-      "Sou o Assistente FatorZ. Posso te ajudar com ideias de conteúdo, legenda, roteiro de Reels, presença digital, Academy e próximos passos da sua marca.",
+      "Oi, eu sou o Jack, assistente da FatorZ. Posso te ajudar com conteúdo, Instagram, briefing, entregas, Academy e próximos passos da sua marca.",
   },
 ];
 
 const QUICK_PROMPTS = [
+  "Jack, qual é meu próximo passo no Hub?",
   "Me dê ideias de post para meu nicho",
-  "Como melhorar meu perfil do Instagram?",
+  "Como melhorar meu Instagram hoje?",
   "Crie um roteiro de Reels simples",
-  "Me explique uma tarefa da Academy",
 ];
 
 function isAcademyActive(profile: any) {
@@ -99,7 +99,7 @@ export default function FatorzAssistant({ user, profile }: any) {
 
   const dailyLabel = useMemo(() => {
     if (!isLogged) return "Entre para usar";
-    if (usage.remaining === null || usage.limit === null) return "IA FatorZ";
+    if (usage.remaining === null || usage.limit === null) return "Jack online";
     return `${usage.remaining}/${usage.limit} usos hoje`;
   }, [isLogged, usage.remaining, usage.limit]);
 
@@ -196,7 +196,7 @@ export default function FatorzAssistant({ user, profile }: any) {
     if (!isLogged) {
       setOpen(true);
       addAssistantMessage(
-        "Pra usar o Assistente FatorZ com IA, primeiro entre na sua conta. Assim eu consigo aplicar o limite diário e proteger o uso."
+        "Pra usar o Jack com IA, primeiro entre na sua conta. Assim eu consigo aplicar o limite diário e proteger o uso."
       );
       return;
     }
@@ -278,7 +278,7 @@ export default function FatorzAssistant({ user, profile }: any) {
       if (data?.error) {
         const assistantErrorMessage = normalizeText(
           data.error,
-          "O Assistente FatorZ encontrou um erro, mas não recebeu uma mensagem clara do servidor."
+          "O Jack encontrou um erro, mas não recebeu uma mensagem clara do servidor."
         );
 
         setMessages((prev): ChatMessage[] => [
@@ -342,21 +342,26 @@ export default function FatorzAssistant({ user, profile }: any) {
 
             <div className="relative z-10 flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#005cff] via-[#9123ff] to-[#ff0096] shadow-[0_0_35px_rgba(255,0,150,0.35)]">
-                  <Bot size={24} />
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-black shadow-[0_0_45px_rgba(255,0,150,0.32)]">
+                  <img
+                    src={JACK_AVATAR_URL}
+                    alt="Jack, assistente da FatorZ"
+                    className="h-full w-full object-cover object-top"
+                  />
+                  <span className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-black bg-emerald-400" />
                 </div>
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.28em] text-pink-400">
-                    Assistente FatorZ
+                    Jack • Assistente FatorZ
                   </p>
 
                   <h2 className="mt-1 text-xl font-black leading-tight">
                     Presença, conteúdo e direção.
                   </h2>
 
-                  <p className="mt-1 text-xs font-bold text-zinc-500">
-                    {dailyLabel}
+                  <p className="mt-1 text-xs font-bold text-emerald-300">
+                    Online agora · {dailyLabel}
                   </p>
                 </div>
               </div>
@@ -387,10 +392,20 @@ export default function FatorzAssistant({ user, profile }: any) {
                 {messages.map((message, index) => (
                   <div
                     key={`${message.role}-${index}`}
-                    className={`flex ${
+                    className={`flex items-end gap-2 ${
                       message.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
+                    {message.role === "assistant" && (
+                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-white/10 bg-black">
+                        <img
+                          src={JACK_AVATAR_URL}
+                          alt="Jack"
+                          className="h-full w-full object-cover object-top"
+                        />
+                      </div>
+                    )}
+
                     <div
                       className={`max-w-[86%] whitespace-pre-line rounded-[24px] px-4 py-3 text-sm leading-6 ${
                         message.role === "user"
@@ -458,7 +473,7 @@ export default function FatorzAssistant({ user, profile }: any) {
                   onKeyDown={handleKeyDown}
                   placeholder={
                     isLogged
-                      ? "Pergunte sobre conteúdo, perfil, Academy, Reels..."
+                      ? "Fale com o Jack sobre conteúdo, entregas, briefing..."
                       : "Entre para usar o Assistente FatorZ..."
                   }
                   rows={2}
@@ -491,8 +506,12 @@ export default function FatorzAssistant({ user, profile }: any) {
         }}
         className="pointer-events-auto group flex items-center gap-3 rounded-full border border-white/10 bg-black/85 px-4 py-3 text-white shadow-[0_18px_70px_rgba(0,0,0,0.65)] backdrop-blur-xl transition hover:-translate-y-1 hover:border-pink-500/60"
       >
-        <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#005cff] via-[#9123ff] to-[#ff0096] shadow-[0_0_35px_rgba(255,0,150,0.32)]">
-          <MessageCircle size={22} />
+        <div className="relative h-14 w-14 overflow-hidden rounded-full border border-white/10 bg-black shadow-[0_0_35px_rgba(255,0,150,0.32)]">
+          <img
+            src={JACK_AVATAR_URL}
+            alt="Jack"
+            className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-110"
+          />
           <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-black bg-green-400" />
         </div>
 
@@ -502,7 +521,7 @@ export default function FatorzAssistant({ user, profile }: any) {
           </p>
 
           <p className="flex items-center gap-1 text-sm font-black text-white">
-            FatorZ <Sparkles size={14} className="text-pink-400" />
+            Jack <Sparkles size={14} className="text-pink-400" />
           </p>
         </div>
       </button>

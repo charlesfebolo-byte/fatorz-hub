@@ -87,6 +87,427 @@ function getStatusClass(status: string | null | undefined) {
   return "border-blue-400/30 bg-blue-500/10 text-blue-300";
 }
 
+
+const JACK_IMAGE_URL = "/jack-fatorz.png";
+
+const clientJourneySteps = [
+  "Briefing",
+  "Diagnóstico",
+  "Direção",
+  "Produção",
+  "Revisão",
+  "Entrega",
+];
+
+function normalizeStatusValue(status: unknown) {
+  return String(status || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function isPaidStatusValue(status: unknown) {
+  return [
+    "paid",
+    "pago",
+    "approved",
+    "aprovado",
+    "completed",
+    "concluido",
+    "project_created",
+  ].includes(normalizeStatusValue(status));
+}
+
+function isPendingStatusValue(status: unknown) {
+  return ["", "pending", "pendente", "processing"].includes(
+    normalizeStatusValue(status)
+  );
+}
+
+function getReadableProjectStatus(status: unknown) {
+  const value = normalizeStatusValue(status);
+
+  if (!value || value === "pendente") return "Em análise";
+  if (value.includes("aguardando cliente")) return "Aguardando cliente";
+  if (value.includes("briefing")) return "Aguardando briefing";
+  if (value.includes("diagnostico")) return "Diagnóstico";
+  if (value.includes("planejamento")) return "Planejamento";
+  if (value.includes("lote 1")) return "Produção — lote 1";
+  if (value.includes("lote 2")) return "Produção — lote 2";
+  if (value.includes("revisao")) return "Em revisão";
+  if (value.includes("concluido") || value.includes("completed")) return "Concluído";
+  if (value.includes("andamento")) return "Em produção";
+
+  return String(status || "Em andamento");
+}
+
+function getProjectProgress(status: unknown) {
+  const value = normalizeStatusValue(status);
+
+  if (value.includes("concluido") || value.includes("completed")) return 100;
+  if (value.includes("revisao")) return 82;
+  if (value.includes("lote 2")) return 68;
+  if (value.includes("lote 1") || value.includes("andamento")) return 52;
+  if (value.includes("planejamento")) return 38;
+  if (value.includes("diagnostico")) return 24;
+  if (value.includes("aguardando") || value.includes("briefing")) return 10;
+
+  return 18;
+}
+
+function getProjectStepIndex(status: unknown) {
+  const progress = getProjectProgress(status);
+
+  if (progress >= 100) return 5;
+  if (progress >= 82) return 4;
+  if (progress >= 52) return 3;
+  if (progress >= 38) return 2;
+  if (progress >= 24) return 1;
+  return 0;
+}
+
+function getActiveProject(projects: any[]) {
+  if (!projects.length) return null;
+
+  const active = projects.find((project) => {
+    const status = normalizeStatusValue(project?.status);
+    return !status.includes("concluido") && !status.includes("cancelado");
+  });
+
+  return active || projects[0];
+}
+
+function getServiceNameFromProject(project: any, fallback = "Projeto FatorZ") {
+  if (!project) return fallback;
+
+  return (
+    project.service_type ||
+    project.title ||
+    project.product_name ||
+    fallback
+  );
+}
+
+function getClientNextStep(orders: any[], projects: any[]) {
+  const pendingOrder = orders.find((order) => isPendingStatusValue(order?.status));
+  const activeProject = getActiveProject(projects);
+  const latestOrder = orders[0] || null;
+
+  if (pendingOrder) {
+    return {
+      eyebrow: "Pagamento pendente",
+      title: "Finalize sua compra para liberar a próxima etapa.",
+      description:
+        "Assim que o pagamento for aprovado, sua entrega entra no fluxo da FatorZ e aparece com status atualizado por aqui.",
+      cta: "Ver pagamento",
+      path: "/minhas-entregas",
+      tone: "yellow",
+    };
+  }
+
+  if (activeProject) {
+    const status = normalizeStatusValue(activeProject.status);
+
+    if (status.includes("aguardando") || status.includes("briefing")) {
+      return {
+        eyebrow: "Próximo passo",
+        title: "Envie o briefing da sua marca.",
+        description:
+          "A equipe precisa das suas referências, objetivos, Instagram, cores e materiais para iniciar a entrega com direção.",
+        cta: "Preencher briefing",
+        path: latestOrder?.id ? `/briefing?orderId=${latestOrder.id}` : "/briefing",
+        tone: "pink",
+      };
+    }
+
+    if (status.includes("diagnostico")) {
+      return {
+        eyebrow: "Em análise",
+        title: "Seu diagnóstico está sendo preparado.",
+        description:
+          "Estamos lendo seu briefing, avaliando presença digital e organizando a direção da entrega.",
+        cta: "Acompanhar entrega",
+        path: "/minhas-entregas",
+        tone: "blue",
+      };
+    }
+
+    if (status.includes("planejamento")) {
+      return {
+        eyebrow: "Direção definida",
+        title: "Seu planejamento está em construção.",
+        description:
+          "A FatorZ está organizando prioridades, conteúdo e ordem de produção para manter a entrega estratégica.",
+        cta: "Ver andamento",
+        path: "/minhas-entregas",
+        tone: "blue",
+      };
+    }
+
+    if (status.includes("lote") || status.includes("andamento")) {
+      return {
+        eyebrow: "Produção ativa",
+        title: "Sua entrega está em produção.",
+        description:
+          "Os materiais já entraram na fila criativa. Você pode acompanhar o status e abrir os links finais quando forem liberados.",
+        cta: "Acompanhar produção",
+        path: "/minhas-entregas",
+        tone: "green",
+      };
+    }
+
+    if (status.includes("revisao")) {
+      return {
+        eyebrow: "Revisão",
+        title: "Sua entrega está em fase de ajustes.",
+        description:
+          "Estamos refinando os detalhes finais para manter consistência visual e clareza na mensagem.",
+        cta: "Ver entrega",
+        path: "/minhas-entregas",
+        tone: "green",
+      };
+    }
+
+    if (status.includes("concluido") || status.includes("completed")) {
+      return {
+        eyebrow: "Entrega concluída",
+        title: "Seu material já está disponível para conferência.",
+        description:
+          "Confira os links finais e fale com a FatorZ se precisar iniciar um novo ciclo ou contratar outra solução.",
+        cta: "Abrir entregas",
+        path: "/minhas-entregas",
+        tone: "green",
+      };
+    }
+
+    return {
+      eyebrow: "Projeto ativo",
+      title: "Sua marca está no fluxo de produção.",
+      description:
+        "Acompanhe as etapas por aqui. O painel será atualizado conforme o avanço da equipe FatorZ.",
+      cta: "Ver entregas",
+      path: "/minhas-entregas",
+      tone: "blue",
+    };
+  }
+
+  if (orders.length) {
+    return {
+      eyebrow: "Compra registrada",
+      title: "Sua compra já está no Hub FatorZ.",
+      description:
+        "Assim que o projeto for criado, ele aparece como uma entrega acompanhável no seu painel.",
+      cta: "Ver minhas entregas",
+      path: "/minhas-entregas",
+      tone: "blue",
+    };
+  }
+
+  return {
+    eyebrow: "Comece por aqui",
+    title: "Escolha uma solução para evoluir sua presença digital.",
+    description:
+      "Você pode contratar serviços, acessar a Academy ou falar com o Jack para entender qual caminho faz mais sentido agora.",
+    cta: "Ver produtos FatorZ",
+    path: "/servicos",
+    tone: "pink",
+  };
+}
+
+function getToneClasses(tone: string) {
+  if (tone === "green") {
+    return "border-emerald-400/25 bg-emerald-500/10 text-emerald-300";
+  }
+
+  if (tone === "yellow") {
+    return "border-yellow-400/25 bg-yellow-400/10 text-yellow-300";
+  }
+
+  if (tone === "blue") {
+    return "border-blue-400/25 bg-blue-500/10 text-blue-300";
+  }
+
+  return "border-[#ff0096]/25 bg-[#ff0096]/10 text-[#ff7bd0]";
+}
+
+function openJack(prompt: string) {
+  window.dispatchEvent(
+    new CustomEvent("fatorz:open-assistant", {
+      detail: {
+        prompt,
+        autoSend: false,
+      },
+    })
+  );
+}
+
+function ClientExperienceSection({
+  navigate,
+  greetingName,
+  orders,
+  projects,
+  approvedPurchases,
+  pendingPurchases,
+  customerLabel,
+}: any) {
+  const activeProject = getActiveProject(projects);
+  const nextStep = getClientNextStep(orders, projects);
+  const progress = activeProject ? getProjectProgress(activeProject.status) : 0;
+  const currentStepIndex = activeProject ? getProjectStepIndex(activeProject.status) : 0;
+  const paidOrders = orders.filter((order: any) => isPaidStatusValue(order?.status));
+  const pendingOrders = orders.filter((order: any) => isPendingStatusValue(order?.status));
+  const latestOrder = orders[0] || null;
+  const activeServiceName =
+    getServiceNameFromProject(activeProject, latestOrder?.product_name || "Presença digital");
+
+  const toneClasses = getToneClasses(nextStep.tone);
+
+  return (
+    <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="relative overflow-hidden rounded-[34px] border border-white/10 bg-[#050509]/95 p-6 shadow-[0_0_80px_rgba(145,35,255,0.12)] md:p-7">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ff0096]/15 blur-[90px]" />
+        <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[#005cff]/15 blur-[90px]" />
+
+        <div className="relative z-10 grid gap-6 lg:grid-cols-[1fr_220px] lg:items-center">
+          <div>
+            <span className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-zinc-400">
+              Experiência FatorZ
+            </span>
+
+            <h2 className="mt-5 text-3xl font-black leading-tight tracking-tight md:text-5xl">
+              {greetingName}, sua presença digital está em construção.
+            </h2>
+
+            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">
+              Este é o seu ponto de acompanhamento: briefing, produção, revisão,
+              entregas e próximos passos ficam organizados aqui para você não se perder.
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                onClick={() => navigate(nextStep.path)}
+                className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 text-sm font-black text-white shadow-[0_0_34px_rgba(255,0,150,0.24)] transition hover:scale-[1.02]"
+              >
+                {nextStep.cta}
+              </button>
+
+              <button
+                onClick={() =>
+                  openJack(
+                    "Jack, me explica meu próximo passo dentro do Hub FatorZ."
+                  )
+                }
+                className="rounded-2xl border border-white/10 bg-white/[0.045] px-6 py-4 text-sm font-black text-white transition hover:border-[#ff0096]/40 hover:bg-white/[0.08]"
+              >
+                Falar com o Jack
+              </button>
+            </div>
+          </div>
+
+          <div className="relative mx-auto flex w-full max-w-[240px] justify-center lg:max-w-none">
+            <div className="absolute inset-6 rounded-full bg-[#9123ff]/25 blur-[60px]" />
+            <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black/45 p-2 shadow-[0_0_50px_rgba(0,0,0,0.55)]">
+              <img
+                src={JACK_IMAGE_URL}
+                alt="Jack, assistente FatorZ"
+                className="h-[230px] w-[190px] rounded-[26px] object-cover object-top"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside className="grid gap-5">
+        <div className="rounded-[34px] border border-white/10 bg-[#08080d]/95 p-6">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+              Próximo passo
+            </p>
+
+            <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${toneClasses}`}>
+              {nextStep.eyebrow}
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-black leading-tight">{nextStep.title}</h3>
+          <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+            {nextStep.description}
+          </p>
+
+          <button
+            onClick={() => navigate(nextStep.path)}
+            className="mt-5 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-5 py-4 text-sm font-black text-white transition hover:border-[#ff0096]/40 hover:bg-white/[0.08]"
+          >
+            {nextStep.cta}
+          </button>
+        </div>
+
+        <div className="rounded-[34px] border border-white/10 bg-[#08080d]/95 p-6">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-blue-300">
+                Status da entrega
+              </p>
+              <h3 className="mt-3 text-2xl font-black">
+                {activeProject ? activeServiceName : "Nenhuma entrega ativa"}
+              </h3>
+            </div>
+
+            <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-300">
+              {activeProject ? getReadableProjectStatus(activeProject.status) : "Stand-by"}
+            </span>
+          </div>
+
+          <div className="mb-4 h-3 overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {clientJourneySteps.map((step, index) => {
+              const active = index <= currentStepIndex && !!activeProject;
+
+              return (
+                <div
+                  key={step}
+                  className={`rounded-2xl border p-3 text-center text-[10px] font-black uppercase leading-4 tracking-widest ${
+                    active
+                      ? "border-[#ff0096]/30 bg-[#ff0096]/10 text-[#ff7bd0]"
+                      : "border-white/10 bg-white/[0.035] text-zinc-600"
+                  }`}
+                >
+                  {step}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <MiniStat label="Compras pagas" value={String(paidOrders.length)} />
+          <MiniStat label="Pendências" value={String(pendingOrders.length + pendingPurchases.length)} />
+          <MiniStat label="Cursos" value={String(approvedPurchases.length)} />
+          <MiniStat label="Plano" value={customerLabel} />
+        </div>
+      </aside>
+    </section>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-[#08080d]/90 p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">
+        {label}
+      </p>
+      <p className="mt-3 text-2xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+
 export default function Dashboard({ user, profile }: DashboardProps) {
   const navigate = useNavigate();
   const [manualSaleOpen, setManualSaleOpen] = useState(false);
@@ -299,6 +720,18 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
         <DashboardCards cards={cards} />
       </section>
+
+      {!isTeam && (
+        <ClientExperienceSection
+          navigate={navigate}
+          greetingName={greetingName}
+          orders={orders}
+          projects={projects}
+          approvedPurchases={approvedPurchases}
+          pendingPurchases={pendingPurchases}
+          customerLabel={customerLabel}
+        />
+      )}
 
       {isTeam && (
         <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
