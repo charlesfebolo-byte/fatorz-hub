@@ -5,7 +5,6 @@ const urls = [
   "/servicos",
   "/mapa-do-site",
   "/agencia-de-marketing-em-pelotas",
-
   "/servicos/agencia-de-marketing-digital",
   "/servicos/gestao-de-instagram",
   "/servicos/edicao-de-reels",
@@ -13,7 +12,6 @@ const urls = [
   "/servicos/landing-page",
   "/servicos/identidade-visual",
   "/servicos/marketing-para-barbeiros",
-
   "/blog",
   "/blog/o-que-e-uma-agencia-de-marketing-digital",
   "/blog/quanto-custa-uma-landing-page",
@@ -39,11 +37,12 @@ function escapeXml(value: string) {
 }
 
 function getChangeFreq(path: string) {
-  if (path === "/" || path === "/servicos" || path === "/blog") {
-    return "weekly";
-  }
-
-  if (path === "/mapa-do-site") {
+  if (
+    path === "/" ||
+    path === "/servicos" ||
+    path === "/blog" ||
+    path === "/mapa-do-site"
+  ) {
     return "weekly";
   }
 
@@ -55,8 +54,8 @@ function getPriority(path: string) {
   if (path === "/servicos") return "0.95";
   if (path === "/agencia-de-marketing-em-pelotas") return "0.95";
   if (path === "/mapa-do-site") return "0.9";
-  if (path.startsWith("/servicos/")) return "0.85";
   if (path === "/blog") return "0.85";
+  if (path.startsWith("/servicos/")) return "0.85";
   return "0.75";
 }
 
@@ -67,20 +66,15 @@ function buildSitemap() {
     .map((path) => {
       const loc = path === "/" ? `${BASE_URL}/` : `${BASE_URL}${path}`;
 
-      return `  <url>
-    <loc>${escapeXml(loc)}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>${getChangeFreq(path)}</changefreq>
-    <priority>${getPriority(path)}</priority>
-  </url>`;
+      return `<url><loc>${escapeXml(
+        loc
+      )}</loc><lastmod>${lastmod}</lastmod><changefreq>${getChangeFreq(
+        path
+      )}</changefreq><priority>${getPriority(path)}</priority></url>`;
     })
-    .join("\n");
+    .join("");
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${items}
-</urlset>
-`;
+  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${items}</urlset>`;
 }
 
 export default function handler(req: any, res: any) {
@@ -92,8 +86,11 @@ export default function handler(req: any, res: any) {
   const sitemap = buildSitemap();
 
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
-  res.setHeader("Cache-Control", "no-store, max-age=0");
+  res.setHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   res.setHeader("X-Robots-Tag", "index, follow");
+  res.setHeader("X-Content-Type-Options", "nosniff");
 
   return res.status(200).send(sitemap);
 }
