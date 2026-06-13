@@ -11,6 +11,7 @@ import { supabase } from "./lib/supabase";
 import Landing from "./pages/Landing";
 import Services from "./pages/Services";
 import ServicePage from "./pages/ServicePage";
+import MapaDoSite from "./pages/MapaDoSite";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import Login from "./pages/Login";
@@ -175,6 +176,7 @@ function AppContent({ user, profile }: any) {
         <Route path="/" element={<Landing />} />
 
         <Route path="/servicos" element={<Services />} />
+        <Route path="/mapa-do-site" element={<MapaDoSite />} />
         <Route path="/servicos/:slug" element={<ServicePage />} />
         <Route
           path="/agencia-de-marketing-em-pelotas"

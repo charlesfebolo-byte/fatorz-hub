@@ -42,6 +42,21 @@ const staticSeoPages: BasicSeo[] = [
     ],
   },
   {
+    path: "/mapa-do-site",
+    title: "Mapa do Site | FatorZ",
+    description:
+      "Mapa do site da FatorZ com links para serviços de marketing digital, landing pages, gestão de Instagram, edição de reels, identidade visual e conteúdos do blog.",
+    keywords: [
+      "mapa do site FatorZ",
+      "serviços FatorZ",
+      "marketing digital",
+      "landing pages",
+      "gestão de Instagram",
+      "edição de reels",
+      "identidade visual",
+    ],
+  },
+  {
     path: "/blog",
     title: "Blog de Marketing Digital | FatorZ",
     description:

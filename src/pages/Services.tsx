@@ -182,26 +182,33 @@ export default function Services() {
           </button>
 
           <nav className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.035] p-1.5 text-sm font-black backdrop-blur-xl lg:flex">
-            <button
-              onClick={() => navigate("/")}
+            <a
+              href="/"
               className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
             >
               Início
-            </button>
+            </a>
 
-            <button
-              onClick={() => navigate("/blog")}
+            <a
+              href="/blog"
               className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
             >
               Blog
-            </button>
+            </a>
 
-            <button
-              onClick={() => navigate("/academy")}
+            <a
+              href="/mapa-do-site"
+              className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
+            >
+              Mapa
+            </a>
+
+            <a
+              href="/academy"
               className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
             >
               Academy
-            </button>
+            </a>
           </nav>
 
           <button

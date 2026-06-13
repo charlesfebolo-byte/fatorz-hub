@@ -332,19 +332,26 @@ export default function Landing() {
               Soluções
             </button>
 
-            <button
-              onClick={() => navigate("/academy")}
+            <a
+              href="/servicos"
               className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
             >
-              Academy
-            </button>
+              Serviços
+            </a>
 
-            <button
-              onClick={() => navigate("/minhas-entregas")}
+            <a
+              href="/blog"
               className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
             >
-              Entregas
-            </button>
+              Blog
+            </a>
+
+            <a
+              href="/mapa-do-site"
+              className="rounded-full px-4 py-2.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
+            >
+              Mapa
+            </a>
 
             <button
               onClick={openInstagram}
@@ -759,12 +766,21 @@ export default function Landing() {
                 </p>
               </div>
 
-              <button
-                onClick={openInstagram}
-                className="fz-shine-btn px-6 py-3.5 text-sm md:text-base"
-              >
-                Chamar @fatorzhouse
-              </button>
+              <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+                <button
+                  onClick={openInstagram}
+                  className="fz-shine-btn px-6 py-3.5 text-sm md:text-base"
+                >
+                  Chamar @fatorzhouse
+                </button>
+
+                <a
+                  href="/mapa-do-site"
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-6 py-3.5 text-center text-sm font-black text-white transition hover:border-pink-500/30 hover:bg-white/10 md:text-base"
+                >
+                  Ver mapa do site
+                </a>
+              </div>
             </div>
           </div>
         </section>

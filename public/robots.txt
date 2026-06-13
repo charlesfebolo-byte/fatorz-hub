@@ -11,4 +11,4 @@ Disallow: /minhas-entregas
 Disallow: /checkout/
 Disallow: /login
 
-Sitemap: https://fatorz-hub.vercel.app/sitemap-live.xml
+Sitemap: https://fatorz-hub.vercel.app/sitemap.xml
