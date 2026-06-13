@@ -151,20 +151,29 @@ function normalizeText(value: string | null | undefined) {
     .trim();
 }
 
-function isMonthlyAdvisoryOrder(order: SiteProductOrder) {
+function isMonthlyAdvisoryOrder(order: SiteProductOrder, project?: Project | null) {
   const searchable = normalizeText(
     [
       order.product_name,
       order.product_category,
       order.product_type,
       order.product_slug,
+      project?.title,
+      project?.service_type,
+      project?.notes,
     ].join(" ")
   );
 
   return (
     searchable.includes("assessoria") ||
     searchable.includes("mensal") ||
-    searchable.includes("subscription")
+    searchable.includes("subscription") ||
+    searchable.includes("ciclo de assessoria") ||
+    searchable.includes("plano basic") ||
+    searchable.includes("plano plus") ||
+    searchable.includes("plano pro") ||
+    searchable.includes("presenca inicial") ||
+    searchable.includes("presença inicial")
   );
 }
 
@@ -701,7 +710,7 @@ export default function MyDeliveries() {
           <div className="space-y-5">
             {filteredOrders.map((order) => {
               const project = getProjectById(order.project_id);
-              const isAdvisory = isMonthlyAdvisoryOrder(order);
+              const isAdvisory = isMonthlyAdvisoryOrder(order, project);
               const needsBriefing = orderNeedsBriefing(order);
               const briefing = getBriefingByOrderId(order.id);
               const advisoryStepIndex = getAdvisoryStepIndex(project, order);
