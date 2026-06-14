@@ -9,9 +9,93 @@ const appmaxApiUrl =
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const allowedPaymentOrigins = (process.env.PAYMENT_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const paymentRateLimitPerMinute = Number(
+  process.env.PAYMENT_RATE_LIMIT_PER_MINUTE || 12
+);
+
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
 
 function onlyNumbers(value: string) {
   return String(value || "").replace(/\D/g, "");
+}
+
+function getHeaderValue(req: any, name: string) {
+  const value = req.headers?.[name.toLowerCase()] || req.headers?.[name];
+
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getClientIp(req: any) {
+  return (
+    String(getHeaderValue(req, "x-forwarded-for") || "")
+      .split(",")?.[0]
+      ?.trim() ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  );
+}
+
+function validateAllowedOrigin(req: any) {
+  if (!allowedPaymentOrigins.length) return true;
+
+  const origin = String(getHeaderValue(req, "origin") || "");
+  const referer = String(getHeaderValue(req, "referer") || "");
+
+  if (origin && allowedPaymentOrigins.includes(origin)) return true;
+
+  return allowedPaymentOrigins.some((allowedOrigin) =>
+    referer.startsWith(`${allowedOrigin}/`)
+  );
+}
+
+function checkRateLimit(req: any) {
+  if (!paymentRateLimitPerMinute || paymentRateLimitPerMinute <= 0) {
+    return true;
+  }
+
+  const key = getClientIp(req);
+  const now = Date.now();
+  const current = rateLimitBuckets.get(key);
+
+  if (!current || current.resetAt <= now) {
+    rateLimitBuckets.set(key, {
+      count: 1,
+      resetAt: now + 60_000,
+    });
+
+    return true;
+  }
+
+  if (current.count >= paymentRateLimitPerMinute) {
+    return false;
+  }
+
+  current.count += 1;
+  return true;
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+function isValidUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "").trim()
+  );
+}
+
+function sanitizeText(value: any) {
+  if (value === undefined || value === null) return null;
+
+  return String(value)
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, "[email]")
+    .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[cpf]")
+    .replace(/\b\d{10,14}\b/g, "[number]")
+    .slice(0, 300);
 }
 
 function formatCpf(value: string) {
@@ -324,6 +408,190 @@ function getBoletoDigitableLine(response: any) {
   );
 }
 
+function summarizeAppmaxResponse(response: any) {
+  return {
+    success: response?.success ?? response?.ok ?? null,
+    status: response?.status ?? null,
+    text: sanitizeText(response?.text ?? response?.message ?? response?.error),
+    customer_id: getCustomerId(response) ? String(getCustomerId(response)) : null,
+    order_id: getOrderId(response) ? String(getOrderId(response)) : null,
+    payment_id: getPaymentId(response) ? String(getPaymentId(response)) : null,
+    has_pix: Boolean(getPixCopyPaste(response) || getPixQrCode(response)),
+    has_boleto: Boolean(getBoletoUrl(response) || getBoletoBarcode(response)),
+    has_card_token: Boolean(getCardToken(response)),
+  };
+}
+
+function buildSafePaymentAudit({
+  paymentMethod,
+  detectedPaymentStatus,
+  appmaxCustomerId,
+  appmaxOrderId,
+  appmaxPaymentId,
+  pixQrCode,
+  pixCopyPaste,
+  boletoUrl,
+  boletoBarcode,
+  boletoDigitableLine,
+  cardLast4,
+  cardBrand,
+  cardInstallments,
+  cardToken,
+}: {
+  paymentMethod: "pix" | "boleto" | "card";
+  detectedPaymentStatus: "pending" | "approved" | "cancelled";
+  appmaxCustomerId: any;
+  appmaxOrderId: any;
+  appmaxPaymentId: any;
+  pixQrCode: any;
+  pixCopyPaste: any;
+  boletoUrl: any;
+  boletoBarcode: any;
+  boletoDigitableLine: any;
+  cardLast4: string | null;
+  cardBrand: string | null;
+  cardInstallments: number | null;
+  cardToken: string | null;
+}) {
+  return {
+    provider: "appmax",
+    method: paymentMethod,
+    status: detectedPaymentStatus,
+    appmax_customer_id: appmaxCustomerId ? String(appmaxCustomerId) : null,
+    appmax_order_id: appmaxOrderId ? String(appmaxOrderId) : null,
+    appmax_payment_id: appmaxPaymentId ? String(appmaxPaymentId) : null,
+    pix:
+      paymentMethod === "pix"
+        ? {
+            has_qr_code: Boolean(pixQrCode),
+            has_copy_paste: Boolean(pixCopyPaste),
+          }
+        : null,
+    boleto:
+      paymentMethod === "boleto"
+        ? {
+            has_url: Boolean(boletoUrl),
+            has_barcode: Boolean(boletoBarcode),
+            has_digitable_line: Boolean(boletoDigitableLine),
+          }
+        : null,
+    card:
+      paymentMethod === "card"
+        ? {
+            last4: cardLast4,
+            brand: cardBrand,
+            installments: cardInstallments,
+            tokenized: Boolean(cardToken),
+          }
+        : null,
+    recorded_at: new Date().toISOString(),
+  };
+}
+
+function buildPaymentFromOrder(order: any, paymentMethod: "pix" | "boleto" | "card") {
+  return {
+    method: paymentMethod,
+    status: order?.status || "pending",
+    pix: {
+      qr_code: order?.pix_qr_code || null,
+      copy_paste: order?.pix_copy_paste || null,
+    },
+    boleto: {
+      url: order?.boleto_url || null,
+      barcode: order?.boleto_barcode || null,
+      digitable_line: order?.boleto_digitable_line || null,
+    },
+    card: {
+      last4: order?.raw_payment_response?.card?.last4 || null,
+      brand: order?.raw_payment_response?.card?.brand || null,
+      installments: order?.raw_payment_response?.card?.installments || null,
+    },
+    raw: order?.raw_payment_response || null,
+  };
+}
+
+async function findReusableProductOrder({
+  supabaseAdmin,
+  userId,
+  userEmail,
+  cleanDocument,
+  productSlug,
+  paymentMethod,
+}: {
+  supabaseAdmin: any;
+  userId: any;
+  userEmail: string;
+  cleanDocument: string;
+  productSlug: string;
+  paymentMethod: "pix" | "boleto" | "card";
+}) {
+  try {
+    const since = new Date(Date.now() - 20 * 60_000).toISOString();
+
+    let query = supabaseAdmin
+      .from("site_product_orders")
+      .select("*")
+      .eq("payment_provider", "appmax")
+      .eq("product_slug", productSlug)
+      .eq("payment_method", paymentMethod)
+      .in("status", ["pending", "approved"])
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (userId) {
+      query = query.eq("user_id", userId);
+    } else {
+      query = query
+        .eq("user_email", userEmail)
+        .eq("customer_document", cleanDocument);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.warn("Idempotencia de checkout ignorada:", error.message);
+      return null;
+    }
+
+    return data?.[0] || null;
+  } catch (error: any) {
+    console.warn("Idempotencia de checkout falhou:", error?.message || String(error));
+    return null;
+  }
+}
+
+async function findOrderByAppmaxIds({
+  supabaseAdmin,
+  appmaxOrderId,
+  appmaxPaymentId,
+}: {
+  supabaseAdmin: any;
+  appmaxOrderId: any;
+  appmaxPaymentId: any;
+}) {
+  async function findBy(column: string, value: any) {
+    if (!value) return null;
+
+    const { data, error } = await supabaseAdmin
+      .from("site_product_orders")
+      .select("*")
+      .eq(column, String(value))
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) return null;
+
+    return data?.[0] || null;
+  }
+
+  return (
+    (await findBy("appmax_order_id", appmaxOrderId)) ||
+    (await findBy("appmax_payment_id", appmaxPaymentId)) ||
+    (await findBy("payment_id", appmaxPaymentId))
+  );
+}
+
 async function appmaxPost(endpoint: string, body: any) {
   const response = await fetch(`${appmaxApiUrl}${endpoint}`, {
     method: "POST",
@@ -354,7 +622,7 @@ async function appmaxPost(endpoint: string, body: any) {
       JSON.stringify({
         endpoint,
         status: response.status,
-        response: data,
+        response: summarizeAppmaxResponse(data),
       })
     );
   }
@@ -379,6 +647,18 @@ export default async function handler(req: any, res: any) {
     if (!supabaseUrl || !supabaseServiceRoleKey) {
       return res.status(500).json({
         error: "SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não foi lido.",
+      });
+    }
+
+    if (!validateAllowedOrigin(req)) {
+      return res.status(403).json({
+        error: "Origem nao autorizada para criar pagamento.",
+      });
+    }
+
+    if (!checkRateLimit(req)) {
+      return res.status(429).json({
+        error: "Muitas tentativas de pagamento. Aguarde um minuto e tente novamente.",
       });
     }
 
@@ -409,6 +689,8 @@ export default async function handler(req: any, res: any) {
     const cleanDocument = onlyNumbers(documentNumber);
     const formattedDocument = formatCpf(cleanDocument);
     const cleanPhone = onlyNumbers(customerPhone);
+    const normalizedUserEmail = String(userEmail || "").trim().toLowerCase();
+    const safeUserId = userId ? String(userId).trim() : null;
 
     if (!productSlug) {
       return res.status(400).json({
@@ -416,9 +698,15 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    if (!userEmail) {
+    if (!isValidEmail(normalizedUserEmail)) {
       return res.status(400).json({
         error: "Email do cliente não informado.",
+      });
+    }
+
+    if (safeUserId && !isValidUuid(safeUserId)) {
+      return res.status(400).json({
+        error: "Identificador de usuario invalido.",
       });
     }
 
@@ -487,6 +775,30 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    const reusableOrder = await findReusableProductOrder({
+      supabaseAdmin,
+      userId: safeUserId,
+      userEmail: normalizedUserEmail,
+      cleanDocument,
+      productSlug: product.slug,
+      paymentMethod,
+    });
+
+    if (reusableOrder) {
+      return res.status(200).json({
+        success: true,
+        idempotent: true,
+        product,
+        order: reusableOrder,
+        appmax: {
+          customer_id: reusableOrder.appmax_customer_id || null,
+          order_id: reusableOrder.appmax_order_id || null,
+          payment_id: reusableOrder.appmax_payment_id || reusableOrder.payment_id || null,
+        },
+        payment: buildPaymentFromOrder(reusableOrder, paymentMethod),
+      });
+    }
+
     const { firstname, lastname } = splitName(customerName);
 
     const sku = product.appmax_sku || product.slug;
@@ -495,13 +807,10 @@ export default async function handler(req: any, res: any) {
     const customerPayload = {
       firstname,
       lastname,
-      email: userEmail,
+      email: normalizedUserEmail,
       telephone: cleanPhone,
       document_number: formattedDocument,
-      ip:
-        req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
-        req.socket?.remoteAddress ||
-        "127.0.0.1",
+      ip: getClientIp(req),
       custom_txt: appmaxProductName,
       products: [
         {
@@ -513,14 +822,14 @@ export default async function handler(req: any, res: any) {
 
     const customerResponse = await appmaxPost("/customer", customerPayload);
 
-    console.log("PRODUCT CUSTOMER RESPONSE:", JSON.stringify(customerResponse));
+    console.log("Produto Appmax customer:", summarizeAppmaxResponse(customerResponse));
 
     const appmaxCustomerId = getCustomerId(customerResponse);
 
     if (!appmaxCustomerId) {
       return res.status(500).json({
         error: "A Appmax não retornou customer_id.",
-        response: customerResponse,
+        response: summarizeAppmaxResponse(customerResponse),
       });
     }
 
@@ -543,14 +852,14 @@ export default async function handler(req: any, res: any) {
 
     const orderResponse = await appmaxPost("/order", orderPayload);
 
-    console.log("PRODUCT ORDER RESPONSE:", JSON.stringify(orderResponse));
+    console.log("Produto Appmax order:", summarizeAppmaxResponse(orderResponse));
 
     const appmaxOrderId = getOrderId(orderResponse);
 
     if (!appmaxOrderId) {
       return res.status(500).json({
         error: "A Appmax não retornou order_id.",
-        response: orderResponse,
+        response: summarizeAppmaxResponse(orderResponse),
       });
     }
 
@@ -651,14 +960,14 @@ export default async function handler(req: any, res: any) {
         },
       });
 
-      console.log("PRODUCT CARD TOKEN RESPONSE:", JSON.stringify(tokenizeResponse));
+      console.log("Produto Appmax card token:", summarizeAppmaxResponse(tokenizeResponse));
 
       cardToken = getCardToken(tokenizeResponse);
 
       if (!cardToken) {
         return res.status(500).json({
           error: "A Appmax não retornou token do cartão.",
-          response: tokenizeResponse,
+          response: summarizeAppmaxResponse(tokenizeResponse),
         });
       }
 
@@ -687,10 +996,10 @@ export default async function handler(req: any, res: any) {
 
       cardBrand = getCardBrand(paymentResponse);
 
-      console.log("PRODUCT CARD PAYMENT RESPONSE:", JSON.stringify(paymentResponse));
+      console.log("Produto Appmax card payment:", summarizeAppmaxResponse(paymentResponse));
     }
 
-    console.log("PRODUCT PAYMENT RESPONSE:", JSON.stringify(paymentResponse));
+    console.log("Produto Appmax payment:", summarizeAppmaxResponse(paymentResponse));
 
     const appmaxPaymentId = getPaymentId(paymentResponse);
 
@@ -708,29 +1017,28 @@ export default async function handler(req: any, res: any) {
     const detectedPaymentStatus =
       paymentMethod === "card" ? getPaymentStatus(paymentResponse) : "pending";
 
-    const safeRawResponse =
-      paymentMethod === "card"
-        ? {
-            tokenize: {
-              success: tokenizeResponse?.success,
-              status: tokenizeResponse?.status,
-              text: tokenizeResponse?.text,
-              has_token: Boolean(cardToken),
-            },
-            payment: paymentResponse,
-            card: {
-              last4: cardLast4,
-              brand: cardBrand,
-              installments: cardInstallments,
-            },
-          }
-        : paymentResponse;
+    const safeRawResponse = buildSafePaymentAudit({
+      paymentMethod,
+      detectedPaymentStatus,
+      appmaxCustomerId,
+      appmaxOrderId,
+      appmaxPaymentId,
+      pixQrCode,
+      pixCopyPaste,
+      boletoUrl,
+      boletoBarcode,
+      boletoDigitableLine,
+      cardLast4,
+      cardBrand,
+      cardInstallments,
+      cardToken,
+    });
 
     const { data: order, error: orderSaveError } = await supabaseAdmin
       .from("site_product_orders")
       .insert({
-        user_id: userId || null,
-        user_email: userEmail,
+        user_id: safeUserId,
+        user_email: normalizedUserEmail,
         customer_name: customerName,
         customer_phone: cleanPhone,
         customer_document: cleanDocument,
@@ -773,14 +1081,50 @@ export default async function handler(req: any, res: any) {
       .single();
 
     if (orderSaveError) {
-      return res.status(500).json({
+      console.error("Pagamento Appmax criado, mas pedido nao foi salvo:", {
+        appmaxCustomerId: String(appmaxCustomerId),
+        appmaxOrderId: String(appmaxOrderId),
+        appmaxPaymentId: appmaxPaymentId ? String(appmaxPaymentId) : null,
+        error: orderSaveError.message,
+      });
+
+      const recoveredOrder = await findOrderByAppmaxIds({
+        supabaseAdmin,
+        appmaxOrderId,
+        appmaxPaymentId,
+      });
+
+      if (recoveredOrder) {
+        return res.status(200).json({
+          success: true,
+          recovered: true,
+          product,
+          order: recoveredOrder,
+          appmax: {
+            customer_id: recoveredOrder.appmax_customer_id || String(appmaxCustomerId),
+            order_id: recoveredOrder.appmax_order_id || String(appmaxOrderId),
+            payment_id:
+              recoveredOrder.appmax_payment_id ||
+              recoveredOrder.payment_id ||
+              (appmaxPaymentId ? String(appmaxPaymentId) : null),
+          },
+          payment: buildPaymentFromOrder(recoveredOrder, paymentMethod),
+        });
+      }
+
+      return res.status(502).json({
         error: "Pagamento criado na Appmax, mas erro ao salvar no Supabase.",
-        details: orderSaveError,
-        appmax: {
-          customerResponse,
-          orderResponse,
-          paymentResponse,
+        details: {
+          code: orderSaveError.code || null,
+          message: orderSaveError.message || "Erro ao salvar pedido.",
         },
+        appmax: {
+          customer_id: String(appmaxCustomerId),
+          order_id: String(appmaxOrderId),
+          payment_id: appmaxPaymentId ? String(appmaxPaymentId) : null,
+        },
+        recovery:
+          "Pagamento pode ter sido criado na Appmax. Reconciliar usando appmax.order_id/appmax.payment_id.",
       });
     }
 
@@ -814,7 +1158,7 @@ export default async function handler(req: any, res: any) {
       },
     });
   } catch (error: any) {
-    console.log("Erro create-product-payment:", error);
+    console.error("Erro create-product-payment:", error?.message || String(error));
 
     return res.status(500).json({
       error: "Erro ao criar pagamento do produto.",

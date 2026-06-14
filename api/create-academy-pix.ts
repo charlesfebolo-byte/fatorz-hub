@@ -5,13 +5,97 @@ dotenv.config({ path: ".env.local" });
 
 const appmaxToken = process.env.APPMAX_ACCESS_TOKEN;
 const appmaxApiUrl =
-  process.env.APPMAX_API_URL || "https://homolog.sandboxappmax.com.br/api/v3";
+  process.env.APPMAX_API_URL || "https://admin.appmax.com.br/api/v3";
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const allowedPaymentOrigins = (process.env.PAYMENT_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const paymentRateLimitPerMinute = Number(
+  process.env.PAYMENT_RATE_LIMIT_PER_MINUTE || 12
+);
+
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
 
 function onlyNumbers(value: string) {
   return String(value || "").replace(/\D/g, "");
+}
+
+function getHeaderValue(req: any, name: string) {
+  const value = req.headers?.[name.toLowerCase()] || req.headers?.[name];
+
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getClientIp(req: any) {
+  return (
+    String(getHeaderValue(req, "x-forwarded-for") || "")
+      .split(",")?.[0]
+      ?.trim() ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  );
+}
+
+function validateAllowedOrigin(req: any) {
+  if (!allowedPaymentOrigins.length) return true;
+
+  const origin = String(getHeaderValue(req, "origin") || "");
+  const referer = String(getHeaderValue(req, "referer") || "");
+
+  if (origin && allowedPaymentOrigins.includes(origin)) return true;
+
+  return allowedPaymentOrigins.some((allowedOrigin) =>
+    referer.startsWith(`${allowedOrigin}/`)
+  );
+}
+
+function checkRateLimit(req: any) {
+  if (!paymentRateLimitPerMinute || paymentRateLimitPerMinute <= 0) {
+    return true;
+  }
+
+  const key = getClientIp(req);
+  const now = Date.now();
+  const current = rateLimitBuckets.get(key);
+
+  if (!current || current.resetAt <= now) {
+    rateLimitBuckets.set(key, {
+      count: 1,
+      resetAt: now + 60_000,
+    });
+
+    return true;
+  }
+
+  if (current.count >= paymentRateLimitPerMinute) {
+    return false;
+  }
+
+  current.count += 1;
+  return true;
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+function isValidUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "").trim()
+  );
+}
+
+function sanitizeText(value: any) {
+  if (value === undefined || value === null) return null;
+
+  return String(value)
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, "[email]")
+    .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[cpf]")
+    .replace(/\b\d{10,14}\b/g, "[number]")
+    .slice(0, 300);
 }
 
 function splitName(fullName: string) {
@@ -171,6 +255,77 @@ function getPixQrCode(response: any) {
   );
 }
 
+function summarizeAppmaxResponse(response: any) {
+  return {
+    success: response?.success ?? response?.ok ?? null,
+    status: response?.status ?? null,
+    text: sanitizeText(response?.text ?? response?.message ?? response?.error),
+    customer_id: getCustomerId(response) ? String(getCustomerId(response)) : null,
+    order_id: getOrderId(response) ? String(getOrderId(response)) : null,
+    payment_id: getPaymentId(response) ? String(getPaymentId(response)) : null,
+    has_pix: Boolean(getPixCopyPaste(response) || getPixQrCode(response)),
+  };
+}
+
+function buildSafePixAudit({
+  appmaxCustomerId,
+  appmaxOrderId,
+  appmaxPaymentId,
+  pixQrCode,
+  pixCopyPaste,
+}: {
+  appmaxCustomerId: any;
+  appmaxOrderId: any;
+  appmaxPaymentId: any;
+  pixQrCode: any;
+  pixCopyPaste: any;
+}) {
+  return {
+    provider: "appmax",
+    method: "pix",
+    status: "pending",
+    appmax_customer_id: appmaxCustomerId ? String(appmaxCustomerId) : null,
+    appmax_order_id: appmaxOrderId ? String(appmaxOrderId) : null,
+    appmax_payment_id: appmaxPaymentId ? String(appmaxPaymentId) : null,
+    pix: {
+      has_qr_code: Boolean(pixQrCode),
+      has_copy_paste: Boolean(pixCopyPaste),
+    },
+    recorded_at: new Date().toISOString(),
+  };
+}
+
+async function findPurchaseByAppmaxIds({
+  supabaseAdmin,
+  appmaxOrderId,
+  appmaxPaymentId,
+}: {
+  supabaseAdmin: any;
+  appmaxOrderId: any;
+  appmaxPaymentId: any;
+}) {
+  async function findBy(column: string, value: any) {
+    if (!value) return null;
+
+    const { data, error } = await supabaseAdmin
+      .from("course_purchases")
+      .select("*")
+      .eq(column, String(value))
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) return null;
+
+    return data?.[0] || null;
+  }
+
+  return (
+    (await findBy("appmax_order_id", appmaxOrderId)) ||
+    (await findBy("appmax_payment_id", appmaxPaymentId)) ||
+    (await findBy("payment_id", appmaxPaymentId))
+  );
+}
+
 async function appmaxPost(endpoint: string, body: any) {
   const response = await fetch(`${appmaxApiUrl}${endpoint}`, {
     method: "POST",
@@ -201,7 +356,7 @@ async function appmaxPost(endpoint: string, body: any) {
       JSON.stringify({
         endpoint,
         status: response.status,
-        response: data,
+        response: summarizeAppmaxResponse(data),
       })
     );
   }
@@ -231,6 +386,18 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    if (!validateAllowedOrigin(req)) {
+      return res.status(403).json({
+        error: "Origem nao autorizada para criar pagamento.",
+      });
+    }
+
+    if (!checkRateLimit(req)) {
+      return res.status(429).json({
+        error: "Muitas tentativas de pagamento. Aguarde um minuto e tente novamente.",
+      });
+    }
+
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
         persistSession: false,
@@ -254,8 +421,10 @@ export default async function handler(req: any, res: any) {
     } = req.body || {};
 
     const numericCourseId = Number(courseId);
+    const normalizedUserEmail = String(userEmail || "").trim().toLowerCase();
+    const safeUserId = userId ? String(userId).trim() : "";
 
-    if (!userId || !userEmail || !numericCourseId) {
+    if (!isValidUuid(safeUserId) || !isValidEmail(normalizedUserEmail) || !numericCourseId) {
       return res.status(400).json({
         error: "Dados obrigatórios ausentes: userId, userEmail ou courseId.",
         received: {
@@ -267,10 +436,17 @@ export default async function handler(req: any, res: any) {
     }
 
     const cleanDocument = onlyNumbers(documentNumber);
+    const cleanPhone = onlyNumbers(customerPhone);
 
     if (!cleanDocument || cleanDocument.length !== 11) {
       return res.status(400).json({
         error: "CPF obrigatório para gerar Pix na Appmax.",
+      });
+    }
+
+    if (cleanPhone.length < 10) {
+      return res.status(400).json({
+        error: "WhatsApp invalido.",
       });
     }
 
@@ -300,7 +476,7 @@ export default async function handler(req: any, res: any) {
     const { data: alreadyApproved } = await supabaseAdmin
       .from("course_purchases")
       .select("*")
-      .eq("user_id", userId)
+      .eq("user_id", safeUserId)
       .eq("course_id", numericCourseId)
       .eq("status", "approved")
       .maybeSingle();
@@ -313,17 +489,44 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    const { data: reusablePending } = await supabaseAdmin
+      .from("course_purchases")
+      .select("*")
+      .eq("user_id", safeUserId)
+      .eq("course_id", numericCourseId)
+      .eq("status", "pending")
+      .gte("created_at", new Date(Date.now() - 20 * 60_000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (reusablePending?.pix_copy_paste || reusablePending?.pix_qr_code) {
+      return res.status(200).json({
+        success: true,
+        idempotent: true,
+        course,
+        purchase: reusablePending,
+        appmax: {
+          customer_id: reusablePending.appmax_customer_id || null,
+          order_id: reusablePending.appmax_order_id || null,
+          payment_id: reusablePending.appmax_payment_id || reusablePending.payment_id || null,
+        },
+        pix: {
+          qr_code: reusablePending.pix_qr_code || null,
+          copy_paste: reusablePending.pix_copy_paste || null,
+          raw: reusablePending.raw_payment_response || null,
+        },
+      });
+    }
+
     const { firstname, lastname } = splitName(customerName);
 
     const customerPayload = {
       firstname,
       lastname,
-      email: userEmail,
-      telephone: onlyNumbers(customerPhone || "11999999999"),
-      ip:
-        req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() ||
-        req.socket?.remoteAddress ||
-        "127.0.0.1",
+      email: normalizedUserEmail,
+      telephone: cleanPhone,
+      ip: getClientIp(req),
       custom_txt: course.title,
       products: [
         {
@@ -335,14 +538,14 @@ export default async function handler(req: any, res: any) {
 
     const customerResponse = await appmaxPost("/customer", customerPayload);
 
-    console.log("APPMAX CUSTOMER RESPONSE:", JSON.stringify(customerResponse));
+    console.log("Academy Appmax customer:", summarizeAppmaxResponse(customerResponse));
 
     const appmaxCustomerId = getCustomerId(customerResponse);
 
     if (!appmaxCustomerId) {
       return res.status(500).json({
         error: "A Appmax não retornou customer_id.",
-        response: customerResponse,
+        response: summarizeAppmaxResponse(customerResponse),
       });
     }
 
@@ -365,14 +568,14 @@ export default async function handler(req: any, res: any) {
 
     const orderResponse = await appmaxPost("/order", orderPayload);
 
-    console.log("APPMAX ORDER RESPONSE:", JSON.stringify(orderResponse));
+    console.log("Academy Appmax order:", summarizeAppmaxResponse(orderResponse));
 
     const appmaxOrderId = getOrderId(orderResponse);
 
     if (!appmaxOrderId) {
       return res.status(500).json({
         error: "A Appmax não retornou order_id.",
-        response: orderResponse,
+        response: summarizeAppmaxResponse(orderResponse),
       });
     }
 
@@ -393,7 +596,7 @@ export default async function handler(req: any, res: any) {
 
     const pixResponse = await appmaxPost("/payment/pix", pixPayload);
 
-    console.log("APPMAX PIX RESPONSE:", JSON.stringify(pixResponse));
+    console.log("Academy Appmax pix:", summarizeAppmaxResponse(pixResponse));
 
     const pixQrCode = getPixQrCode(pixResponse);
     const pixCopyPaste = getPixCopyPaste(pixResponse);
@@ -402,14 +605,14 @@ export default async function handler(req: any, res: any) {
     const { data: existingPending } = await supabaseAdmin
       .from("course_purchases")
       .select("*")
-      .eq("user_id", userId)
+      .eq("user_id", safeUserId)
       .eq("course_id", numericCourseId)
       .eq("status", "pending")
       .maybeSingle();
 
     const purchasePayload = {
-      user_id: userId,
-      user_email: userEmail,
+      user_id: safeUserId,
+      user_email: normalizedUserEmail,
       course_id: course.id,
       course_title: course.title,
       payment_url: course.payment_url || null,
@@ -424,7 +627,13 @@ export default async function handler(req: any, res: any) {
       payment_id: appmaxPaymentId ? String(appmaxPaymentId) : String(appmaxOrderId),
       pix_qr_code: pixQrCode ? String(pixQrCode) : null,
       pix_copy_paste: pixCopyPaste ? String(pixCopyPaste) : null,
-      raw_payment_response: pixResponse,
+      raw_payment_response: buildSafePixAudit({
+        appmaxCustomerId,
+        appmaxOrderId,
+        appmaxPaymentId,
+        pixQrCode,
+        pixCopyPaste,
+      }),
       notes: "Pix Appmax criado pelo checkout próprio FatorZ.",
     };
 
@@ -442,14 +651,54 @@ export default async function handler(req: any, res: any) {
           .single();
 
     if (purchaseResult.error) {
-      return res.status(500).json({
+      console.error("Pix Appmax criado, mas compra nao foi salva:", {
+        appmaxCustomerId: String(appmaxCustomerId),
+        appmaxOrderId: String(appmaxOrderId),
+        appmaxPaymentId: appmaxPaymentId ? String(appmaxPaymentId) : null,
+        error: purchaseResult.error.message,
+      });
+
+      const recoveredPurchase = await findPurchaseByAppmaxIds({
+        supabaseAdmin,
+        appmaxOrderId,
+        appmaxPaymentId,
+      });
+
+      if (recoveredPurchase) {
+        return res.status(200).json({
+          success: true,
+          recovered: true,
+          course,
+          purchase: recoveredPurchase,
+          appmax: {
+            customer_id: recoveredPurchase.appmax_customer_id || String(appmaxCustomerId),
+            order_id: recoveredPurchase.appmax_order_id || String(appmaxOrderId),
+            payment_id:
+              recoveredPurchase.appmax_payment_id ||
+              recoveredPurchase.payment_id ||
+              (appmaxPaymentId ? String(appmaxPaymentId) : null),
+          },
+          pix: {
+            qr_code: recoveredPurchase.pix_qr_code || pixQrCode || null,
+            copy_paste: recoveredPurchase.pix_copy_paste || pixCopyPaste || null,
+            raw: recoveredPurchase.raw_payment_response || null,
+          },
+        });
+      }
+
+      return res.status(502).json({
         error: "Pix criado na Appmax, mas erro ao salvar no Supabase.",
-        details: purchaseResult.error,
-        appmax: {
-          customerResponse,
-          orderResponse,
-          pixResponse,
+        details: {
+          code: purchaseResult.error.code || null,
+          message: purchaseResult.error.message || "Erro ao salvar compra.",
         },
+        appmax: {
+          customer_id: String(appmaxCustomerId),
+          order_id: String(appmaxOrderId),
+          payment_id: appmaxPaymentId ? String(appmaxPaymentId) : null,
+        },
+        recovery:
+          "Pix pode ter sido criado na Appmax. Reconciliar usando appmax.order_id/appmax.payment_id.",
       });
     }
 
@@ -465,11 +714,11 @@ export default async function handler(req: any, res: any) {
       pix: {
         qr_code: pixQrCode,
         copy_paste: pixCopyPaste,
-        raw: pixResponse,
+        raw: purchasePayload.raw_payment_response,
       },
     });
   } catch (error: any) {
-    console.log("Erro create-academy-pix:", error);
+    console.error("Erro create-academy-pix:", error?.message || String(error));
 
     return res.status(500).json({
       error: "Erro ao criar Pix Appmax.",
