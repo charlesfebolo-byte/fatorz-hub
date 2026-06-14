@@ -510,6 +510,209 @@ function buildPaymentFromOrder(order: any, paymentMethod: "pix" | "boleto" | "ca
   };
 }
 
+function getProductCourseId(product: any) {
+  const rawCourseId = product?.course_id;
+  const courseId = Number(rawCourseId || 0);
+
+  return Number.isFinite(courseId) && courseId > 0 ? courseId : null;
+}
+
+function isAcademyCourseProduct(product: any) {
+  return Boolean(
+    getProductCourseId(product) &&
+      (product?.category === "academy" ||
+        product?.product_type === "course" ||
+        product?.course_id)
+  );
+}
+
+async function getCourseForProduct(supabaseAdmin: any, product: any) {
+  const courseId = getProductCourseId(product);
+
+  if (!courseId) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("courses")
+    .select("id,title,payment_url")
+    .eq("id", courseId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Nao foi possivel carregar curso vinculado ao produto:", {
+      productId: product?.id,
+      productSlug: product?.slug,
+      courseId,
+      error: error.message,
+    });
+  }
+
+  return data || {
+    id: courseId,
+    title: product?.name || "Curso FatorZ Academy",
+    payment_url: null,
+  };
+}
+
+async function findCoursePurchaseForProductOrder({
+  supabaseAdmin,
+  order,
+  courseId,
+}: {
+  supabaseAdmin: any;
+  order: any;
+  courseId: number;
+}) {
+  const rowsById = new Map<string, any>();
+
+  async function addRows(query: any) {
+    const { data, error } = await query;
+
+    if (error) {
+      console.warn("Busca de course_purchases ignorada:", error.message);
+      return;
+    }
+
+    for (const row of data || []) {
+      rowsById.set(String(row.id), row);
+    }
+  }
+
+  if (order?.appmax_order_id) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("appmax_order_id", String(order.appmax_order_id))
+    );
+  }
+
+  if (order?.appmax_payment_id) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("appmax_payment_id", String(order.appmax_payment_id))
+    );
+  }
+
+  if (order?.payment_id) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("payment_id", String(order.payment_id))
+    );
+  }
+
+  if (order?.user_id) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("user_id", String(order.user_id))
+        .eq("course_id", courseId)
+        .in("status", ["pending", "approved"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+    );
+  } else if (order?.user_email) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("user_email", String(order.user_email))
+        .eq("course_id", courseId)
+        .in("status", ["pending", "approved"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+    );
+  }
+
+  return [...rowsById.values()][0] || null;
+}
+
+async function ensureCoursePurchaseForProductOrder({
+  supabaseAdmin,
+  product,
+  order,
+  safeRawResponse,
+}: {
+  supabaseAdmin: any;
+  product: any;
+  order: any;
+  safeRawResponse: any;
+}) {
+  if (!isAcademyCourseProduct(product)) {
+    return null;
+  }
+
+  const courseId = getProductCourseId(product);
+
+  if (!courseId) {
+    return null;
+  }
+
+  const course = await getCourseForProduct(supabaseAdmin, product);
+  const existingPurchase = await findCoursePurchaseForProductOrder({
+    supabaseAdmin,
+    order,
+    courseId,
+  });
+
+  const status = order?.status || "pending";
+  const payload: any = {
+    user_id: order?.user_id || null,
+    user_email: order?.user_email || "",
+    course_id: courseId,
+    course_title: course?.title || product?.name || "Curso FatorZ Academy",
+    payment_url: course?.payment_url || null,
+    status,
+    access_type: status === "approved" ? "lifetime" : "lifetime",
+    payment_provider: "appmax",
+    payment_method: order?.payment_method || null,
+    amount_cents: order?.amount_cents || null,
+    appmax_customer_id: order?.appmax_customer_id || null,
+    appmax_order_id: order?.appmax_order_id || null,
+    appmax_payment_id: order?.appmax_payment_id || null,
+    payment_id: order?.payment_id || order?.appmax_payment_id || order?.appmax_order_id || null,
+    raw_payment_response: safeRawResponse || order?.raw_payment_response || null,
+    notes:
+      status === "approved"
+        ? "Acesso vitalicio liberado automaticamente por compra de produto Academy."
+        : "Compra Academy criada pelo checkout unificado FatorZ.",
+  };
+
+  if (status === "approved") {
+    payload.approved_at = existingPurchase?.approved_at || new Date().toISOString();
+  }
+
+  const result = existingPurchase
+    ? await supabaseAdmin
+        .from("course_purchases")
+        .update(payload)
+        .eq("id", existingPurchase.id)
+        .select("*")
+        .single()
+    : await supabaseAdmin
+        .from("course_purchases")
+        .insert(payload)
+        .select("*")
+        .single();
+
+  if (result.error) {
+    console.error("Erro ao sincronizar course_purchases do produto Academy:", {
+      orderId: order?.id,
+      appmaxOrderId: order?.appmax_order_id,
+      courseId,
+      error: result.error.message,
+    });
+
+    throw result.error;
+  }
+
+  return result.data;
+}
+
 async function findReusableProductOrder({
   supabaseAdmin,
   userId,
@@ -785,11 +988,27 @@ export default async function handler(req: any, res: any) {
     });
 
     if (reusableOrder) {
+      let academyPurchase: any = null;
+      let academyPurchaseError: string | null = null;
+
+      try {
+        academyPurchase = await ensureCoursePurchaseForProductOrder({
+          supabaseAdmin,
+          product,
+          order: reusableOrder,
+          safeRawResponse: reusableOrder.raw_payment_response,
+        });
+      } catch (error: any) {
+        academyPurchaseError = error?.message || String(error);
+      }
+
       return res.status(200).json({
         success: true,
         idempotent: true,
         product,
         order: reusableOrder,
+        academy_purchase: academyPurchase,
+        academy_purchase_error: academyPurchaseError,
         appmax: {
           customer_id: reusableOrder.appmax_customer_id || null,
           order_id: reusableOrder.appmax_order_id || null,
@@ -1095,11 +1314,27 @@ export default async function handler(req: any, res: any) {
       });
 
       if (recoveredOrder) {
+        let academyPurchase: any = null;
+        let academyPurchaseError: string | null = null;
+
+        try {
+          academyPurchase = await ensureCoursePurchaseForProductOrder({
+            supabaseAdmin,
+            product,
+            order: recoveredOrder,
+            safeRawResponse: recoveredOrder.raw_payment_response,
+          });
+        } catch (error: any) {
+          academyPurchaseError = error?.message || String(error);
+        }
+
         return res.status(200).json({
           success: true,
           recovered: true,
           product,
           order: recoveredOrder,
+          academy_purchase: academyPurchase,
+          academy_purchase_error: academyPurchaseError,
           appmax: {
             customer_id: recoveredOrder.appmax_customer_id || String(appmaxCustomerId),
             order_id: recoveredOrder.appmax_order_id || String(appmaxOrderId),
@@ -1128,10 +1363,26 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    let academyPurchase: any = null;
+    let academyPurchaseError: string | null = null;
+
+    try {
+      academyPurchase = await ensureCoursePurchaseForProductOrder({
+        supabaseAdmin,
+        product,
+        order,
+        safeRawResponse,
+      });
+    } catch (error: any) {
+      academyPurchaseError = error?.message || String(error);
+    }
+
     return res.status(200).json({
       success: true,
       product,
       order,
+      academy_purchase: academyPurchase,
+      academy_purchase_error: academyPurchaseError,
       appmax: {
         customer_id: appmaxCustomerId,
         order_id: appmaxOrderId,

@@ -272,6 +272,22 @@ function buildSafeWebhookAudit({
   };
 }
 
+function getProductCourseId(product: any) {
+  const rawCourseId = product?.course_id;
+  const courseId = Number(rawCourseId || 0);
+
+  return Number.isFinite(courseId) && courseId > 0 ? courseId : null;
+}
+
+function isAcademyCourseProduct(product: any) {
+  return Boolean(
+    getProductCourseId(product) &&
+      (product?.category === "academy" ||
+        product?.product_type === "course" ||
+        product?.course_id)
+  );
+}
+
 async function findMatchingRows({
   supabaseAdmin,
   table,
@@ -340,6 +356,15 @@ function isAlreadyApplied(row: any, newStatus: Exclude<WebhookStatus, "unknown">
   return true;
 }
 
+function shouldIgnoreStatusTransition(currentStatus: any, newStatus: Exclude<WebhookStatus, "unknown">) {
+  return (
+    newStatus === "pending" &&
+    (currentStatus === "approved" ||
+      currentStatus === "cancelled" ||
+      currentStatus === "canceled")
+  );
+}
+
 async function updatePaymentTable({
   supabaseAdmin,
   table,
@@ -363,7 +388,9 @@ async function updatePaymentTable({
   });
 
   const rowsToUpdate = rows.filter(
-    (row) => !isAlreadyApplied(row, newStatus, appmaxPaymentId)
+    (row) =>
+      !isAlreadyApplied(row, newStatus, appmaxPaymentId) &&
+      !shouldIgnoreStatusTransition(row.status, newStatus)
   );
 
   if (!rowsToUpdate.length) {
@@ -459,6 +486,355 @@ async function updatePaymentTable({
   };
 }
 
+async function findProductOrdersForCourseBridge({
+  supabaseAdmin,
+  appmaxOrderId,
+  appmaxPaymentId,
+}: {
+  supabaseAdmin: any;
+  appmaxOrderId: string | null;
+  appmaxPaymentId: string | null;
+}) {
+  const rowsById = new Map<string, any>();
+  const selectColumns = [
+    "id",
+    "user_id",
+    "user_email",
+    "product_id",
+    "product_slug",
+    "product_name",
+    "product_category",
+    "product_type",
+    "amount_cents",
+    "status",
+    "payment_provider",
+    "payment_method",
+    "appmax_customer_id",
+    "appmax_order_id",
+    "appmax_payment_id",
+    "payment_id",
+    "raw_payment_response",
+  ].join(",");
+
+  async function addRows(query: any) {
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    for (const row of data || []) {
+      rowsById.set(String(row.id), row);
+    }
+  }
+
+  if (appmaxOrderId) {
+    await addRows(
+      supabaseAdmin
+        .from("site_product_orders")
+        .select(selectColumns)
+        .eq("appmax_order_id", appmaxOrderId)
+    );
+  }
+
+  if (appmaxPaymentId) {
+    await addRows(
+      supabaseAdmin
+        .from("site_product_orders")
+        .select(selectColumns)
+        .eq("appmax_payment_id", appmaxPaymentId)
+    );
+
+    await addRows(
+      supabaseAdmin
+        .from("site_product_orders")
+        .select(selectColumns)
+        .eq("payment_id", appmaxPaymentId)
+    );
+  }
+
+  return [...rowsById.values()];
+}
+
+async function getProductForOrder(supabaseAdmin: any, order: any) {
+  async function findBy(column: string, value: any) {
+    if (!value) return null;
+
+    const { data, error } = await supabaseAdmin
+      .from("site_products")
+      .select("id,name,slug,category,product_type,course_id")
+      .eq(column, value)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Produto Academy nao encontrado para ponte:", {
+        orderId: order?.id,
+        column,
+        error: error.message,
+      });
+    }
+
+    return data || null;
+  }
+
+  return (
+    (await findBy("id", order?.product_id)) ||
+    (await findBy("slug", order?.product_slug))
+  );
+}
+
+async function getCourseForProduct(supabaseAdmin: any, product: any) {
+  const courseId = getProductCourseId(product);
+
+  if (!courseId) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("courses")
+    .select("id,title,payment_url")
+    .eq("id", courseId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Curso vinculado ao produto Academy nao encontrado:", {
+      productId: product?.id,
+      courseId,
+      error: error.message,
+    });
+  }
+
+  return data || {
+    id: courseId,
+    title: product?.name || "Curso FatorZ Academy",
+    payment_url: null,
+  };
+}
+
+async function findCoursePurchaseForProductOrder({
+  supabaseAdmin,
+  order,
+  courseId,
+}: {
+  supabaseAdmin: any;
+  order: any;
+  courseId: number;
+}) {
+  const rowsById = new Map<string, any>();
+
+  async function addRows(query: any) {
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    for (const row of data || []) {
+      rowsById.set(String(row.id), row);
+    }
+  }
+
+  if (order?.appmax_order_id) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("appmax_order_id", String(order.appmax_order_id))
+    );
+  }
+
+  if (order?.appmax_payment_id) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("appmax_payment_id", String(order.appmax_payment_id))
+    );
+  }
+
+  if (order?.payment_id) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("payment_id", String(order.payment_id))
+    );
+  }
+
+  if (order?.user_id) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("user_id", String(order.user_id))
+        .eq("course_id", courseId)
+        .in("status", ["pending", "approved"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+    );
+  } else if (order?.user_email) {
+    await addRows(
+      supabaseAdmin
+        .from("course_purchases")
+        .select("*")
+        .eq("user_email", String(order.user_email))
+        .eq("course_id", courseId)
+        .in("status", ["pending", "approved"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+    );
+  }
+
+  return [...rowsById.values()][0] || null;
+}
+
+async function ensureCoursePurchaseFromProductOrder({
+  supabaseAdmin,
+  order,
+  product,
+  newStatus,
+  payload,
+}: {
+  supabaseAdmin: any;
+  order: any;
+  product: any;
+  newStatus: Exclude<WebhookStatus, "unknown">;
+  payload: any;
+}) {
+  if (!isAcademyCourseProduct(product)) {
+    return { created: 0, updated: 0, skipped: 1 };
+  }
+
+  const courseId = getProductCourseId(product);
+
+  if (!courseId) {
+    return { created: 0, updated: 0, skipped: 1 };
+  }
+
+  const course = await getCourseForProduct(supabaseAdmin, product);
+  const existingPurchase = await findCoursePurchaseForProductOrder({
+    supabaseAdmin,
+    order,
+    courseId,
+  });
+
+  if (existingPurchase?.status === newStatus) {
+    return { created: 0, updated: 0, skipped: 1 };
+  }
+
+  if (shouldIgnoreStatusTransition(existingPurchase?.status, newStatus)) {
+    return { created: 0, updated: 0, skipped: 1 };
+  }
+
+  const safeAudit = buildSafeWebhookAudit({
+    appmaxOrderId: order?.appmax_order_id || null,
+    appmaxPaymentId: order?.appmax_payment_id || order?.payment_id || null,
+    newStatus,
+    payload,
+  });
+
+  const purchasePayload: any = {
+    user_id: order?.user_id || null,
+    user_email: order?.user_email || "",
+    course_id: courseId,
+    course_title: course?.title || product?.name || order?.product_name || "Curso FatorZ Academy",
+    payment_url: course?.payment_url || null,
+    status: newStatus,
+    access_type: "lifetime",
+    payment_provider: "appmax",
+    payment_method: order?.payment_method || null,
+    amount_cents: order?.amount_cents || null,
+    appmax_customer_id: order?.appmax_customer_id || null,
+    appmax_order_id: order?.appmax_order_id || null,
+    appmax_payment_id: order?.appmax_payment_id || null,
+    payment_id: order?.payment_id || order?.appmax_payment_id || order?.appmax_order_id || null,
+    raw_payment_response: safeAudit,
+    notes:
+      newStatus === "approved"
+        ? "Acesso vitalicio liberado automaticamente via webhook Appmax."
+        : newStatus === "cancelled"
+        ? "Compra Academy cancelada/recusada via webhook Appmax."
+        : "Compra Academy registrada via webhook Appmax.",
+  };
+
+  if (newStatus === "approved") {
+    purchasePayload.approved_at =
+      existingPurchase?.approved_at || new Date().toISOString();
+  }
+
+  const result = existingPurchase
+    ? await supabaseAdmin
+        .from("course_purchases")
+        .update(purchasePayload)
+        .eq("id", existingPurchase.id)
+        .select("*")
+        .single()
+    : await supabaseAdmin
+        .from("course_purchases")
+        .insert(purchasePayload)
+        .select("*")
+        .single();
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return existingPurchase
+    ? { created: 0, updated: 1, skipped: 0 }
+    : { created: 1, updated: 0, skipped: 0 };
+}
+
+async function syncAcademyCoursePurchasesFromProductOrders({
+  supabaseAdmin,
+  appmaxOrderId,
+  appmaxPaymentId,
+  newStatus,
+  payload,
+}: {
+  supabaseAdmin: any;
+  appmaxOrderId: string | null;
+  appmaxPaymentId: string | null;
+  newStatus: Exclude<WebhookStatus, "unknown">;
+  payload: any;
+}) {
+  const orders = await findProductOrdersForCourseBridge({
+    supabaseAdmin,
+    appmaxOrderId,
+    appmaxPaymentId,
+  });
+
+  const result = {
+    ok: true,
+    matched_product_orders: orders.length,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    error: null as string | null,
+  };
+
+  try {
+    for (const order of orders) {
+      const product = await getProductForOrder(supabaseAdmin, order);
+
+      if (!product) {
+        result.skipped += 1;
+        continue;
+      }
+
+      const bridgeResult = await ensureCoursePurchaseFromProductOrder({
+        supabaseAdmin,
+        order,
+        product,
+        newStatus,
+        payload,
+      });
+
+      result.created += bridgeResult.created;
+      result.updated += bridgeResult.updated;
+      result.skipped += bridgeResult.skipped;
+    }
+  } catch (error: any) {
+    result.ok = false;
+    result.error = error?.message || String(error);
+  }
+
+  return result;
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -542,7 +918,15 @@ export default async function handler(req: any, res: any) {
       payload,
     });
 
-    if (!courseResult.ok || !productResult.ok) {
+    const academyBridgeResult = await syncAcademyCoursePurchasesFromProductOrders({
+      supabaseAdmin,
+      appmaxOrderId,
+      appmaxPaymentId,
+      newStatus,
+      payload,
+    });
+
+    if (!courseResult.ok || !productResult.ok || !academyBridgeResult.ok) {
       return res.status(500).json({
         error: "Erro ao atualizar uma ou mais tabelas no Supabase.",
         appmaxOrderId,
@@ -551,12 +935,20 @@ export default async function handler(req: any, res: any) {
         results: {
           course_purchases: courseResult,
           site_product_orders: productResult,
+          academy_course_bridge: academyBridgeResult,
         },
       });
     }
 
-    const updatedCount = courseResult.updated + productResult.updated;
-    const matchedCount = courseResult.matched + productResult.matched;
+    const updatedCount =
+      courseResult.updated +
+      productResult.updated +
+      academyBridgeResult.created +
+      academyBridgeResult.updated;
+    const matchedCount =
+      courseResult.matched +
+      productResult.matched +
+      academyBridgeResult.matched_product_orders;
 
     if (!matchedCount) {
       return res.status(200).json({
@@ -579,10 +971,13 @@ export default async function handler(req: any, res: any) {
       updated: {
         course_purchases: courseResult.updated,
         site_product_orders: productResult.updated,
+        academy_course_purchases_created: academyBridgeResult.created,
+        academy_course_purchases_updated: academyBridgeResult.updated,
       },
       skipped: {
         course_purchases: courseResult.skipped,
         site_product_orders: productResult.skipped,
+        academy_course_bridge: academyBridgeResult.skipped,
       },
     });
   } catch (error: any) {
