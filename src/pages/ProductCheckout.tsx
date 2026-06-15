@@ -612,6 +612,13 @@ export default function ProductCheckout({ user: userFromApp, profile }: any) {
         return;
       }
 
+      const orderId = getPaymentResultOrderId(data);
+
+      if (orderId) {
+        navigate(`/obrigado?orderId=${encodeURIComponent(orderId)}`);
+        return;
+      }
+
       setPaymentResult(data);
     } catch (error) {
       console.log("Erro inesperado ao criar pagamento:", error);
