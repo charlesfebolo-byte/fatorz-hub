@@ -85,16 +85,16 @@ function getStatusLabel(status: string | null | undefined) {
   return "Aguardando pagamento";
 }
 
-function getStatusClass(status: string | null | undefined) {
+function getBadgeClass(status: string | null | undefined) {
   if (status === "approved") {
-    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+    return "border-emerald-400/35 bg-emerald-400/10 text-emerald-200";
   }
 
   if (status === "cancelled") {
-    return "border-red-500/30 bg-red-500/10 text-red-300";
+    return "border-red-400/35 bg-red-500/10 text-red-200";
   }
 
-  return "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
+  return "border-yellow-400/35 bg-yellow-400/10 text-yellow-200";
 }
 
 function canRenderImage(value: string | null | undefined) {
@@ -105,6 +105,15 @@ function canRenderImage(value: string | null | undefined) {
     value.startsWith("https://") ||
     value.startsWith("data:image")
   );
+}
+
+function cardClass(extra = "") {
+  return [
+    "rounded-[28px] border border-white/10 bg-[#111115]/90 p-5 shadow-[0_22px_80px_rgba(0,0,0,0.32)] md:p-7",
+    extra,
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export default function ThankYou() {
@@ -169,17 +178,58 @@ export default function ThankYou() {
     }
   }
 
-  const mainTitle = useMemo(() => {
-    if (!summary) return "Obrigado pela compra.";
-    if (summary.order.status === "approved") return "Pedido confirmado.";
-    if (summary.order.status === "cancelled") return "Pagamento não aprovado.";
+  const hero = useMemo(() => {
+    if (!summary) {
+      return {
+        badge: "Pedido recebido",
+        title: "Obrigado pela compra",
+        text: "Estamos buscando as informações do seu pedido.",
+      };
+    }
 
-    return "Pedido criado.";
+    if (summary.order.status === "approved") {
+      return {
+        badge: "Pedido confirmado",
+        title: "Pedido confirmado",
+        text: "Seu pagamento foi aprovado. Agora siga o próximo passo para liberar sua entrega.",
+      };
+    }
+
+    if (summary.order.status === "cancelled") {
+      return {
+        badge: "Pagamento recusado",
+        title: "Pagamento não aprovado",
+        text: "A cobrança não foi concluída. Você pode tentar novamente com outra forma de pagamento.",
+      };
+    }
+
+    if (summary.payment.method === "pix") {
+      return {
+        badge: "Aguardando pagamento",
+        title: "Seu pedido foi criado",
+        text: "Falta só confirmar o Pix para iniciarmos sua entrega.",
+      };
+    }
+
+    if (summary.payment.method === "boleto") {
+      return {
+        badge: "Aguardando pagamento",
+        title: "Seu boleto foi gerado",
+        text: "Pague o boleto para confirmar o pedido. A compensação pode levar mais tempo.",
+      };
+    }
+
+    return {
+      badge: "Aguardando pagamento",
+      title: "Seu pedido foi criado",
+      text: "Assim que o gateway confirmar o pagamento, atualizaremos o status no Hub.",
+    };
   }, [summary]);
 
   const nextStep = useMemo(() => {
     if (!summary) {
       return {
+        eyebrow: "Próximo passo",
         title: "Acesse o Hub",
         text: "Entre na sua conta para acompanhar compras, entregas e próximos passos.",
         action: "Entrar no Hub",
@@ -189,8 +239,9 @@ export default function ThankYou() {
 
     if (summary.order.status === "cancelled") {
       return {
+        eyebrow: "Próximo passo",
         title: "Tente novamente",
-        text: "O pagamento não foi aprovado. Você pode voltar ao checkout e escolher outra forma de pagamento.",
+        text: "Volte ao checkout para gerar uma nova cobrança com Pix, boleto ou cartão.",
         action: "Voltar ao checkout",
         onClick: () =>
           summary.product.slug
@@ -202,30 +253,40 @@ export default function ThankYou() {
     if (summary.next_step.is_academy_course) {
       if (summary.order.status === "approved") {
         return {
-          title: "Seu curso está pronto para acesso",
+          eyebrow: "Academy",
+          title: "Acesse seu curso",
           text: isLoggedIn
-            ? "Acesse a Academy com a mesma conta usada na compra."
-            : "Entre ou crie sua conta para acessar a Academy quando a compra estiver vinculada.",
+            ? "Seu acesso fica vinculado à conta usada na compra. Entre na Academy para continuar."
+            : "Entre ou crie sua conta com o mesmo e-mail usado na compra para acessar a Academy.",
           action: isLoggedIn ? "Acessar Academy" : "Entrar ou criar conta",
           onClick: () => navigate(isLoggedIn ? "/academy" : "/login"),
         };
       }
 
       return {
-        title: "Aguardando liberação da Academy",
-        text: "Assim que a Appmax confirmar o pagamento, o acesso ao curso será liberado automaticamente. Não é necessário comprar de novo.",
+        eyebrow: "Academy",
+        title: "Aguardando liberação",
+        text: "Assim que o pagamento for confirmado, seu acesso será liberado conforme o e-mail usado na compra.",
         action: isLoggedIn ? "Verificar Academy" : "Entrar ou criar conta",
         onClick: () => navigate(isLoggedIn ? "/academy" : "/login"),
       };
     }
 
     if (summary.next_step.needs_briefing) {
+      if (summary.order.status === "pending") {
+        return {
+          eyebrow: "Próximo passo",
+          title: "Depois do pagamento",
+          text: "Assim que o pagamento for confirmado, preencha o briefing para nossa equipe começar sua entrega com as informações certas.",
+          action: "Preencher briefing",
+          onClick: () => navigate(`/briefing?orderId=${summary.order.id}`),
+        };
+      }
+
       return {
+        eyebrow: "Próximo passo",
         title: "Preencha o briefing",
-        text:
-          summary.order.status === "pending"
-            ? "Você pode deixar a ficha pronta enquanto o pagamento é confirmado."
-            : "Envie as informações da sua marca para a equipe iniciar a entrega.",
+        text: "Envie as informações da sua marca para nossa equipe começar sua entrega com as informações certas.",
         action: "Preencher briefing",
         onClick: () => navigate(`/briefing?orderId=${summary.order.id}`),
       };
@@ -233,6 +294,7 @@ export default function ThankYou() {
 
     if (summary.order.status === "pending") {
       return {
+        eyebrow: "Próximo passo",
         title: "Aguarde a confirmação",
         text: "O pedido já foi criado. Assim que o pagamento for confirmado, o status será atualizado no Hub.",
         action: "Ver minhas entregas",
@@ -241,6 +303,7 @@ export default function ThankYou() {
     }
 
     return {
+      eyebrow: "Próximo passo",
       title: "Acompanhe pelo Hub",
       text: "Seu pedido ficará disponível no painel para acompanhamento e próximos passos.",
       action: "Ver minhas entregas",
@@ -248,13 +311,14 @@ export default function ThankYou() {
     };
   }, [isLoggedIn, navigate, summary]);
 
-  const paymentInstruction = summary?.payment;
+  const payment = summary?.payment;
   const isPending = summary?.order.status === "pending";
+  const boletoCode = payment?.boleto.digitable_line || payment?.boleto.barcode || "";
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#09090B] text-white">
-      <header className="border-b border-zinc-800 bg-[#09090B]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 md:px-8">
+    <div className="min-h-screen overflow-x-hidden bg-[#08080a] text-white">
+      <header className="border-b border-white/10 bg-[#08080a]/95 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5 md:px-8">
           <button
             onClick={() => navigate("/")}
             className="text-2xl font-black md:text-3xl"
@@ -264,319 +328,313 @@ export default function ThankYou() {
 
           <button
             onClick={() => navigate(isLoggedIn ? "/dashboard" : "/login")}
-            className="rounded-2xl border border-zinc-700 bg-zinc-900 px-5 py-3 font-black hover:bg-zinc-800"
+            className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-zinc-200 transition hover:bg-white/[0.08]"
           >
             {isLoggedIn ? "Abrir Hub" : "Entrar"}
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-12 md:px-8 md:py-16">
+      <main className="mx-auto max-w-5xl px-4 py-10 md:px-8 md:py-14">
         {loading ? (
-          <section className="rounded-[32px] border border-zinc-800 bg-zinc-900 p-8 text-center">
-            <h1 className="text-3xl font-black">Carregando pedido...</h1>
+          <section className={cardClass("text-center")}>
+            <p className="mx-auto mb-4 w-fit rounded-full border border-blue-400/25 bg-blue-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-blue-200">
+              Pós-compra
+            </p>
+            <h1 className="text-3xl font-black md:text-4xl">
+              Carregando seu pedido
+            </h1>
             <p className="mt-3 text-zinc-400">
-              Buscando as informações de pós-compra.
+              Estamos preparando as informações de pagamento.
             </p>
           </section>
         ) : error ? (
-          <section className="rounded-[32px] border border-red-500/25 bg-red-500/10 p-8">
-            <p className="mb-4 w-fit rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-black text-red-300">
+          <section className={cardClass("border-red-500/25 bg-red-500/10")}>
+            <p className="mb-4 w-fit rounded-full border border-red-400/30 bg-red-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-red-200">
               Pedido não localizado
             </p>
-            <h1 className="text-4xl font-black">Não encontrei esse pedido.</h1>
+            <h1 className="text-4xl font-black">Não encontrei esse pedido</h1>
             <p className="mt-4 max-w-2xl text-zinc-300">{error}</p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={() => navigate("/minhas-entregas")}
-                className="rounded-2xl bg-white px-6 py-4 font-black text-black hover:bg-zinc-200"
+                className="rounded-2xl bg-white px-6 py-4 font-black text-black transition hover:bg-zinc-200"
               >
                 Ver minhas entregas
               </button>
               <button
                 onClick={() => navigate("/")}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-4 font-black hover:bg-white/[0.08]"
+                className="rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-4 font-black transition hover:bg-white/[0.08]"
               >
                 Voltar para a FatorZ
               </button>
             </div>
           </section>
         ) : (
-          <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
-            <div>
-              <div
-                className={`mb-6 w-fit rounded-2xl border px-5 py-3 font-black ${getStatusClass(
-                  summary?.order.status
-                )}`}
-              >
-                {getStatusLabel(summary?.order.status)}
-              </div>
-
-              <h1 className="mb-6 text-5xl font-black leading-[0.95] md:text-7xl">
-                {mainTitle}
-              </h1>
-
-              <p className="mb-8 max-w-2xl text-lg leading-relaxed text-zinc-400 md:text-xl">
-                {summary
-                  ? `Pedido #${summary.order.id} registrado em ${formatDateTime(
-                      summary.order.created_at
-                    )}.`
-                  : "Seu pedido foi registrado na FatorZ."}
-              </p>
-
-              {summary && (
-                <div className="mb-6 rounded-[32px] border border-zinc-800 bg-zinc-900 p-6">
-                  <p className="mb-2 text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
-                    Produto comprado
+          <div className="space-y-6 md:space-y-7">
+            <section className="rounded-[32px] border border-white/10 bg-[#0f0f14] px-5 py-8 shadow-[0_28px_120px_rgba(0,0,0,0.38)] md:px-8 md:py-10">
+              <div className="max-w-3xl">
+                <p
+                  className={`mb-5 w-fit rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.22em] ${getBadgeClass(
+                    summary?.order.status
+                  )}`}
+                >
+                  {hero.badge}
+                </p>
+                <h1 className="text-4xl font-black leading-tight md:text-6xl">
+                  {hero.title}
+                </h1>
+                <p className="mt-5 max-w-2xl text-base leading-relaxed text-zinc-400 md:text-lg">
+                  {hero.text}
+                </p>
+                {summary?.order.created_at && (
+                  <p className="mt-5 text-sm font-bold text-zinc-600">
+                    Pedido #{summary.order.id} criado em{" "}
+                    {formatDateTime(summary.order.created_at)}
                   </p>
-                  <div className="flex flex-col gap-5 md:flex-row">
-                    {canRenderImage(summary.product.image_url) && (
-                      <img
-                        src={summary.product.image_url || ""}
-                        alt={summary.product.name}
-                        className="h-36 w-full rounded-3xl border border-white/10 object-cover md:w-44"
-                      />
-                    )}
+                )}
+              </div>
+            </section>
 
-                    <div className="flex-1">
-                      <h2 className="text-2xl font-black">
-                        {summary.product.name}
-                      </h2>
-                      <p className="mt-2 text-zinc-400">
-                        {summary.product.subtitle ||
-                          summary.product.description ||
-                          "Produto FatorZ"}
-                      </p>
-
-                      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                          <p className="text-sm text-zinc-500">Valor</p>
-                          <p className="mt-1 font-black">
-                            {formatMoney(summary.order.amount_cents)}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                          <p className="text-sm text-zinc-500">Pagamento</p>
-                          <p className="mt-1 font-black">
-                            {getPaymentMethodLabel(summary.order.payment_method)}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                          <p className="text-sm text-zinc-500">Status</p>
-                          <p className="mt-1 font-black">
-                            {getStatusLabel(summary.order.status)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+            {summary && payment?.method === "pix" && isPending && (
+              <section className={cardClass("border-emerald-400/25")}>
+                <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="mb-3 text-xs font-black uppercase tracking-[0.24em] text-emerald-300">
+                      Pagamento
+                    </p>
+                    <h2 className="text-3xl font-black md:text-4xl">
+                      Pague com Pix
+                    </h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">
+                      Copie o código Pix abaixo ou escaneie o QR Code. A
+                      confirmação acontece automaticamente após o pagamento.
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {summary &&
-                paymentInstruction?.method === "pix" &&
-                isPending && (
-                  <div className="mb-6 rounded-[32px] border border-emerald-400/20 bg-emerald-500/10 p-6">
-                    <p className="mb-2 text-sm font-black uppercase tracking-[0.25em] text-emerald-300">
-                      Pix pendente
-                    </p>
-                    <h2 className="text-2xl font-black">
-                      Pague com Pix copia e cola
-                    </h2>
-                    <p className="mt-3 text-sm leading-relaxed text-emerald-100/80">
-                      Após o pagamento, a Appmax confirma automaticamente e o
-                      status do pedido é atualizado.
-                    </p>
+                <div className="grid gap-5 md:grid-cols-[220px_1fr] md:items-start">
+                  {canRenderImage(payment.pix.qr_code) && (
+                    <div className="rounded-[24px] border border-white/10 bg-white p-3">
+                      <img
+                        src={payment.pix.qr_code || ""}
+                        alt="QR Code Pix"
+                        className="mx-auto aspect-square w-full max-w-[220px] object-contain"
+                      />
+                    </div>
+                  )}
 
-                    {canRenderImage(paymentInstruction.pix.qr_code) && (
-                      <div className="mt-5 flex justify-center">
-                        <img
-                          src={paymentInstruction.pix.qr_code || ""}
-                          alt="QR Code Pix"
-                          className="max-h-64 rounded-2xl border border-white/10 bg-white p-3"
-                        />
-                      </div>
-                    )}
-
-                    {paymentInstruction.pix.copy_paste ? (
+                  <div>
+                    {payment.pix.copy_paste ? (
                       <>
                         <textarea
                           readOnly
-                          value={paymentInstruction.pix.copy_paste}
-                          className="mt-5 h-32 w-full resize-none rounded-2xl border border-white/10 bg-black/60 p-4 text-sm text-white outline-none"
+                          value={payment.pix.copy_paste}
+                          className="h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/55 p-4 text-sm leading-relaxed text-white outline-none"
                         />
                         <button
                           onClick={() =>
-                            copyToClipboard(
-                              paymentInstruction.pix.copy_paste || "",
-                              "pix"
-                            )
+                            copyToClipboard(payment.pix.copy_paste || "", "pix")
                           }
-                          className="mt-4 w-full rounded-2xl bg-white px-6 py-4 font-black text-black hover:bg-zinc-200"
+                          className="mt-4 w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-5 text-lg font-black text-white shadow-[0_18px_55px_rgba(236,72,153,0.22)] transition hover:opacity-90"
                         >
-                          {copied === "pix" ? "Pix copiado!" : "Copiar Pix"}
+                          {copied === "pix"
+                            ? "Código Pix copiado"
+                            : "Copiar código Pix"}
                         </button>
+                        <p className="mt-3 text-center text-xs font-bold text-zinc-500">
+                          Não feche esta página antes de salvar ou copiar seu Pix.
+                        </p>
                       </>
                     ) : (
-                      <div className="mt-5 rounded-2xl border border-yellow-400/25 bg-yellow-400/10 p-4 text-yellow-200">
+                      <div className="rounded-2xl border border-yellow-400/25 bg-yellow-400/10 p-4 text-sm leading-relaxed text-yellow-100">
                         O Pix foi criado, mas o código copia e cola não está
-                        disponível neste resumo. Se precisar, acesse Minhas
-                        Entregas ou fale com a FatorZ.
+                        disponível neste resumo. Acesse Minhas Entregas ou fale
+                        com a FatorZ se precisar recuperar o pagamento.
                       </div>
                     )}
                   </div>
+                </div>
+              </section>
+            )}
+
+            {summary && payment?.method === "boleto" && isPending && (
+              <section className={cardClass("border-yellow-400/25")}>
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.24em] text-yellow-300">
+                  Pagamento
+                </p>
+                <h2 className="text-3xl font-black md:text-4xl">
+                  Pague pelo boleto
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">
+                  Use a linha digitável ou abra o boleto em uma nova aba. A
+                  compensação pode levar mais tempo, e a confirmação acontece
+                  automaticamente.
+                </p>
+
+                {boletoCode && (
+                  <div className="mt-6">
+                    <p className="mb-2 text-sm font-black text-zinc-300">
+                      Linha digitável
+                    </p>
+                    <textarea
+                      readOnly
+                      value={boletoCode}
+                      className="h-28 w-full resize-none rounded-2xl border border-white/10 bg-black/55 p-4 text-sm leading-relaxed text-white outline-none"
+                    />
+                  </div>
                 )}
 
-              {summary && paymentInstruction?.method === "boleto" && isPending && (
-                <div className="mb-6 rounded-[32px] border border-yellow-400/20 bg-yellow-500/10 p-6">
-                  <p className="mb-2 text-sm font-black uppercase tracking-[0.25em] text-yellow-300">
-                    Boleto pendente
-                  </p>
-                  <h2 className="text-2xl font-black">Pague pelo boleto</h2>
-                  <p className="mt-3 text-sm leading-relaxed text-yellow-100/80">
-                    A compensação do boleto pode levar mais tempo. Assim que o
-                    pagamento for confirmado, o status será atualizado.
-                  </p>
-
-                  {(paymentInstruction.boleto.digitable_line ||
-                    paymentInstruction.boleto.barcode) && (
-                    <>
-                      <p className="mt-5 text-sm font-black text-zinc-300">
-                        Linha digitável / código
-                      </p>
-                      <textarea
-                        readOnly
-                        value={
-                          paymentInstruction.boleto.digitable_line ||
-                          paymentInstruction.boleto.barcode ||
-                          ""
-                        }
-                        className="mt-2 h-24 w-full resize-none rounded-2xl border border-white/10 bg-black/60 p-4 text-sm text-white outline-none"
-                      />
-                      <button
-                        onClick={() =>
-                          copyToClipboard(
-                            paymentInstruction.boleto.digitable_line ||
-                              paymentInstruction.boleto.barcode ||
-                              "",
-                            "boleto"
-                          )
-                        }
-                        className="mt-4 w-full rounded-2xl bg-white px-6 py-4 font-black text-black hover:bg-zinc-200"
-                      >
-                        {copied === "boleto" ? "Código copiado!" : "Copiar código"}
-                      </button>
-                    </>
-                  )}
-
-                  {paymentInstruction.boleto.url && (
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  {payment.boleto.url && (
                     <button
-                      onClick={() =>
-                        window.open(paymentInstruction.boleto.url || "", "_blank")
-                      }
-                      className="mt-4 w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white hover:opacity-90"
+                      onClick={() => window.open(payment.boleto.url || "", "_blank")}
+                      className="flex-1 rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-5 text-lg font-black text-white shadow-[0_18px_55px_rgba(236,72,153,0.22)] transition hover:opacity-90"
                     >
                       Abrir boleto
                     </button>
                   )}
-                </div>
-              )}
 
-              {summary && paymentInstruction?.method === "card" && (
-                <div className="mb-6 rounded-[32px] border border-blue-400/20 bg-blue-500/10 p-6">
-                  <p className="mb-2 text-sm font-black uppercase tracking-[0.25em] text-blue-300">
-                    Cartão
-                  </p>
-                  <h2 className="text-2xl font-black">
-                    {summary.order.status === "approved"
-                      ? "Pagamento aprovado"
-                      : summary.order.status === "cancelled"
-                        ? "Pagamento recusado"
-                        : "Pagamento em análise"}
-                  </h2>
-                  <p className="mt-3 text-sm leading-relaxed text-blue-100/80">
-                    {summary.order.status === "approved"
-                      ? "A compra foi aprovada. Siga o próximo passo abaixo."
-                      : summary.order.status === "cancelled"
-                        ? "A cobrança não foi aprovada. Você pode tentar novamente no checkout."
-                        : "A Appmax ainda está analisando o retorno do pagamento. Aguarde a confirmação automática."}
-                  </p>
-                </div>
-              )}
-
-              <div className="rounded-[32px] border border-pink-500/25 bg-pink-500/10 p-6">
-                <p className="mb-2 text-sm font-black uppercase tracking-[0.25em] text-pink-300">
-                  Próximo passo
-                </p>
-                <h2 className="text-2xl font-black">{nextStep.title}</h2>
-                <p className="mt-3 text-sm leading-relaxed text-zinc-300">
-                  {nextStep.text}
-                </p>
-                <button
-                  onClick={nextStep.onClick}
-                  className="mt-5 w-full rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white hover:opacity-90"
-                >
-                  {nextStep.action}
-                </button>
-              </div>
-            </div>
-
-            <aside className="space-y-5">
-              <div className="rounded-[36px] border border-zinc-800 bg-zinc-900 p-6">
-                <p className="mb-4 text-xs font-black uppercase tracking-[0.25em] text-zinc-500">
-                  Resumo
-                </p>
-
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                    <p className="text-sm text-zinc-500">Pedido</p>
-                    <p className="mt-1 text-xl font-black">
-                      #{summary?.order.id || orderId || "—"}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                    <p className="text-sm text-zinc-500">Status</p>
-                    <p className="mt-1 text-xl font-black">
-                      {getStatusLabel(summary?.order.status)}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                    <p className="text-sm text-zinc-500">Gateway</p>
-                    <p className="mt-1 text-xl font-black">Appmax</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => navigate("/minhas-entregas")}
-                  className="mt-5 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-4 font-black hover:bg-white/[0.08]"
-                >
-                  Ver no Hub
-                </button>
-              </div>
-
-              {summary?.upsell && (
-                <div className="rounded-[36px] border border-white/10 bg-black p-6">
-                  <p className="mb-3 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
-                    Oferta complementar
-                  </p>
-
-                  {canRenderImage(summary.upsell.image_url) && (
-                    <img
-                      src={summary.upsell.image_url || ""}
-                      alt={summary.upsell.name}
-                      className="mb-5 h-44 w-full rounded-3xl border border-white/10 object-cover"
-                    />
+                  {boletoCode && (
+                    <button
+                      onClick={() => copyToClipboard(boletoCode, "boleto")}
+                      className="flex-1 rounded-2xl border border-white/10 bg-white/[0.05] px-6 py-5 font-black text-white transition hover:bg-white/[0.09]"
+                    >
+                      {copied === "boleto"
+                        ? "Linha copiada"
+                        : "Copiar linha digitável"}
+                    </button>
                   )}
+                </div>
+              </section>
+            )}
 
-                  <h2 className="text-3xl font-black">{summary.upsell.name}</h2>
-                  <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                    {summary.upsell.subtitle ||
-                      summary.upsell.description ||
-                      "Uma próxima etapa para evoluir sua presença digital com a FatorZ."}
+            {summary && payment?.method === "card" && (
+              <section
+                className={cardClass(
+                  summary.order.status === "cancelled"
+                    ? "border-red-400/25"
+                    : summary.order.status === "approved"
+                      ? "border-emerald-400/25"
+                      : "border-blue-400/25"
+                )}
+              >
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.24em] text-blue-300">
+                  Cartão
+                </p>
+                <h2 className="text-3xl font-black md:text-4xl">
+                  {summary.order.status === "approved"
+                    ? "Pagamento aprovado"
+                    : summary.order.status === "cancelled"
+                      ? "Pagamento recusado"
+                      : "Pagamento em análise"}
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">
+                  {summary.order.status === "approved"
+                    ? "Tudo certo com a cobrança. Agora siga o próximo passo para avançarmos com sua entrega."
+                    : summary.order.status === "cancelled"
+                      ? "A cobrança não foi aprovada. Você pode voltar ao checkout e tentar outra forma de pagamento."
+                      : "A Appmax ainda está analisando o retorno do pagamento. Aguarde a confirmação automática antes de comprar novamente."}
+                </p>
+              </section>
+            )}
+
+            <section className={cardClass("border-pink-500/25 bg-[#130d16]/90")}>
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.24em] text-pink-300">
+                {nextStep.eyebrow}
+              </p>
+              <h2 className="text-3xl font-black md:text-4xl">
+                {nextStep.title}
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-300 md:text-base">
+                {nextStep.text}
+              </p>
+              <button
+                onClick={nextStep.onClick}
+                className="mt-6 w-full rounded-2xl bg-white px-6 py-5 text-lg font-black text-black transition hover:bg-zinc-200 md:w-auto md:min-w-64"
+              >
+                {nextStep.action}
+              </button>
+            </section>
+
+            {summary && (
+              <section className={cardClass("bg-[#0d0d11]/90")}>
+                <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <p className="mb-2 text-xs font-black uppercase tracking-[0.24em] text-zinc-500">
+                      Resumo do pedido
+                    </p>
+                    <h2 className="text-2xl font-black">
+                      {summary.product.name}
+                    </h2>
+                  </div>
+                  <p className="text-sm font-bold text-zinc-600">
+                    Pedido #{summary.order.id}
                   </p>
+                </div>
 
-                  <div className="mt-5 rounded-3xl border border-white/10 bg-zinc-900 p-5">
-                    <p className="text-sm font-bold text-zinc-500">Valor</p>
+                <div className="grid gap-0 overflow-hidden rounded-2xl border border-white/10 md:grid-cols-4">
+                  {[
+                    ["Produto", summary.product.name],
+                    ["Valor", formatMoney(summary.order.amount_cents)],
+                    [
+                      "Método",
+                      getPaymentMethodLabel(summary.order.payment_method),
+                    ],
+                    ["Status", getStatusLabel(summary.order.status)],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="border-b border-white/10 bg-black/25 p-4 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0"
+                    >
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-600">
+                        {label}
+                      </p>
+                      <p className="mt-2 text-sm font-black text-zinc-200">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {summary?.upsell && (
+              <section className={cardClass("border-blue-400/20 bg-[#0c0d14]/90")}>
+                <div className="grid gap-6 md:grid-cols-[1fr_300px] md:items-center">
+                  <div>
+                    <p className="mb-3 w-fit rounded-full border border-blue-400/25 bg-blue-500/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-blue-200">
+                      Opcional
+                    </p>
+                    <h2 className="text-3xl font-black md:text-4xl">
+                      Quer completar sua presença?
+                    </h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">
+                      Aproveite este momento para adicionar uma solução que
+                      combina com o que você acabou de contratar.
+                    </p>
+
+                    <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-300">
+                        {summary.upsell.name}
+                      </p>
+                      <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+                        Combine este serviço com uma presença mensal mais
+                        organizada e mantenha seu perfil sempre em movimento.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[24px] border border-white/10 bg-black/35 p-4">
+                    {canRenderImage(summary.upsell.image_url) && (
+                      <img
+                        src={summary.upsell.image_url || ""}
+                        alt={summary.upsell.name}
+                        className="mb-4 h-40 w-full rounded-2xl object-cover"
+                      />
+                    )}
+
+                    <p className="text-sm font-bold text-zinc-500">Oferta</p>
                     <div className="mt-1 flex items-end gap-2">
                       {summary.upsell.old_price_cents ? (
                         <span className="pb-1 text-sm font-black text-zinc-600 line-through">
@@ -588,28 +646,30 @@ export default function ThankYou() {
                       </strong>
                     </div>
                   </div>
+                </div>
 
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                   <button
                     onClick={() =>
                       navigate(
                         `/checkout/produto?slug=${summary.upsell?.slug}&source=post_purchase&originOrderId=${summary.order.id}`
                       )
                     }
-                    className="mt-5 w-full rounded-2xl bg-white px-6 py-4 font-black text-black hover:bg-zinc-200"
+                    className="flex-1 rounded-2xl bg-white px-6 py-5 font-black text-black transition hover:bg-zinc-200"
                   >
                     Ver oferta complementar
                   </button>
 
                   <button
                     onClick={() => navigate("/minhas-entregas")}
-                    className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-4 font-black text-white hover:bg-white/[0.08]"
+                    className="flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-5 font-black text-zinc-200 transition hover:bg-white/[0.08]"
                   >
                     Continuar sem oferta
                   </button>
                 </div>
-              )}
-            </aside>
-          </section>
+              </section>
+            )}
+          </div>
         )}
       </main>
     </div>
