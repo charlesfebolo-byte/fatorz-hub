@@ -1,14 +1,20 @@
 User-agent: *
 Allow: /
 
+Disallow: /admin
 Disallow: /admin/
-Disallow: /dashboard
-Disallow: /clientes
-Disallow: /projetos
-Disallow: /financeiro
-Disallow: /configuracoes
-Disallow: /minhas-entregas
+Disallow: /academy
+Disallow: /briefing
+Disallow: /checkout
 Disallow: /checkout/
+Disallow: /configuracoes
+Disallow: /dashboard
+Disallow: /financeiro
+Disallow: /clientes
 Disallow: /login
+Disallow: /minhas-entregas
+Disallow: /mural
+Disallow: /obrigado
+Disallow: /projetos
 
-Sitemap: https://fatorz-hub.vercel.app/google-sitemap.xml
+Sitemap: https://fatorz-hub.vercel.app/sitemap.xml

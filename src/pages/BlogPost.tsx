@@ -3,9 +3,20 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import SiteHeader from "../components/SiteHeader";
 import { blogPosts, getBlogPostBySlug } from "../data/blogPosts";
 
+const FALLBACK_SITE_URL = "https://fatorz-hub.vercel.app";
+
+function getSiteUrl() {
+  const siteUrl = (import.meta.env.VITE_SITE_URL || FALLBACK_SITE_URL)
+    .trim()
+    .replace(/\/+$/, "");
+
+  return siteUrl || FALLBACK_SITE_URL;
+}
+
 export default function BlogPost() {
   const { slug } = useParams();
   const post = getBlogPostBySlug(slug);
+  const siteUrl = getSiteUrl();
 
   useEffect(() => {
     if (!post) return;
@@ -24,7 +35,7 @@ export default function BlogPost() {
 
     metaDescription.content = post.metaDescription;
 
-    const canonicalUrl = `https://fatorz-hub.vercel.app/blog/${post.slug}`;
+    const canonicalUrl = `${siteUrl}/blog/${post.slug}`;
 
     let canonical = document.querySelector(
       'link[rel="canonical"]'
@@ -37,7 +48,7 @@ export default function BlogPost() {
     }
 
     canonical.href = canonicalUrl;
-  }, [post]);
+  }, [post, siteUrl]);
 
   if (!post) {
     return <Navigate to="/blog" replace />;
@@ -71,7 +82,7 @@ export default function BlogPost() {
     },
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `https://fatorz-hub.vercel.app/blog/${post.slug}`,
+      "@id": `${siteUrl}/blog/${post.slug}`,
     },
   };
 

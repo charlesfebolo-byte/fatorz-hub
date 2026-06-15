@@ -9,7 +9,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "no-store, max-age=0"
+          "value": "public, max-age=3600, s-maxage=86400"
         }
       ]
     },
@@ -22,7 +22,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "no-store, max-age=0"
+          "value": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
         }
       ]
     },
@@ -35,7 +35,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "no-store, max-age=0"
+          "value": "public, max-age=3600, s-maxage=86400"
         }
       ]
     }

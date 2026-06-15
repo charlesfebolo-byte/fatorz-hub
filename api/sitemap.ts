@@ -1,6 +1,6 @@
-const BASE_URL = "https://fatorz-hub.vercel.app";
+const FALLBACK_SITE_URL = "https://fatorz-hub.vercel.app";
 
-const urls = [
+const publicIndexableRoutes = [
   "/",
   "/servicos",
   "/mapa-do-site",
@@ -26,6 +26,14 @@ const urls = [
   "/blog/plano-plus-marketing-digital",
   "/blog/plano-pro-marketing-digital",
 ];
+
+function getSiteUrl() {
+  const siteUrl = (process.env.SITE_URL || FALLBACK_SITE_URL)
+    .trim()
+    .replace(/\/+$/, "");
+
+  return siteUrl || FALLBACK_SITE_URL;
+}
 
 function escapeXml(value: string) {
   return value
@@ -60,21 +68,30 @@ function getPriority(path: string) {
 }
 
 function buildSitemap() {
-  const lastmod = "2026-06-13";
+  const baseUrl = getSiteUrl();
+  const lastmod = new Date().toISOString().slice(0, 10);
 
-  const items = urls
+  const items = publicIndexableRoutes
     .map((path) => {
-      const loc = path === "/" ? `${BASE_URL}/` : `${BASE_URL}${path}`;
+      const loc = path === "/" ? `${baseUrl}/` : `${baseUrl}${path}`;
 
-      return `<url><loc>${escapeXml(
-        loc
-      )}</loc><lastmod>${lastmod}</lastmod><changefreq>${getChangeFreq(
-        path
-      )}</changefreq><priority>${getPriority(path)}</priority></url>`;
+      return [
+        "  <url>",
+        `    <loc>${escapeXml(loc)}</loc>`,
+        `    <lastmod>${lastmod}</lastmod>`,
+        `    <changefreq>${getChangeFreq(path)}</changefreq>`,
+        `    <priority>${getPriority(path)}</priority>`,
+        "  </url>",
+      ].join("\n");
     })
-    .join("");
+    .join("\n");
 
-  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${items}</urlset>`;
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    items,
+    "</urlset>",
+  ].join("\n");
 }
 
 export default function handler(req: any, res: any) {
@@ -86,9 +103,10 @@ export default function handler(req: any, res: any) {
   const sitemap = buildSitemap();
 
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
-  res.setHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
+  res.setHeader(
+    "Cache-Control",
+    "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
+  );
   res.setHeader("X-Robots-Tag", "index, follow");
   res.setHeader("X-Content-Type-Options", "nosniff");
 

@@ -2,7 +2,43 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { seoServices } from "../data/seoServices";
 
-const BASE_URL = "https://fatorz-hub.vercel.app";
+const FALLBACK_SITE_URL = "https://fatorz-hub.vercel.app";
+
+const PUBLIC_EXACT_PATHS = new Set([
+  "/",
+  "/servicos",
+  "/blog",
+  "/mapa-do-site",
+  "/agencia-de-marketing-em-pelotas",
+]);
+
+const PUBLIC_PREFIXES = ["/servicos/", "/blog/"];
+
+const NOINDEX_EXACT_PATHS = new Set([
+  "/login",
+  "/checkout",
+  "/obrigado",
+  "/briefing",
+  "/dashboard",
+  "/admin",
+  "/academy",
+  "/mural",
+  "/projetos",
+  "/minhas-entregas",
+  "/configuracoes",
+  "/clientes",
+  "/financeiro",
+]);
+
+const NOINDEX_PREFIXES = ["/checkout/", "/admin/"];
+
+function normalizeSiteUrl(value?: string) {
+  const siteUrl = (value || FALLBACK_SITE_URL).trim().replace(/\/+$/, "");
+
+  return siteUrl || FALLBACK_SITE_URL;
+}
+
+const BASE_URL = normalizeSiteUrl(import.meta.env.VITE_SITE_URL);
 
 type BasicSeo = {
   path: string;
@@ -164,6 +200,23 @@ function normalizePath(pathname: string) {
   return pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
 }
 
+function isPublicIndexablePath(pathname: string) {
+  const path = normalizePath(pathname);
+
+  return (
+    PUBLIC_EXACT_PATHS.has(path) ||
+    PUBLIC_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
+}
+
+function isNoindexPath(pathname: string) {
+  const path = normalizePath(pathname);
+
+  if (NOINDEX_EXACT_PATHS.has(path)) return true;
+
+  return NOINDEX_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
 function getCanonicalUrl(path: string) {
   if (path === "/") return BASE_URL;
   return `${BASE_URL}${path}`;
@@ -254,7 +307,7 @@ function getCurrentSeo(pathname: string) {
 
   return {
     type: "page" as const,
-    path: "/",
+    path,
     title: "FatorZ | Agência de Marketing Digital, Conteúdo e Presença Online",
     description:
       "A FatorZ é uma agência de marketing digital focada em conteúdo estratégico, posicionamento, landing pages, identidade visual e presença online para marcas e pequenos negócios.",
@@ -272,9 +325,12 @@ export function SEO() {
   const location = useLocation();
 
   useEffect(() => {
-    const seo = getCurrentSeo(location.pathname);
+    const currentPath = normalizePath(location.pathname);
+    const seo = getCurrentSeo(currentPath);
     const canonicalUrl = getCanonicalUrl(normalizePath(seo.path));
     const imageUrl = `${BASE_URL}/og-image.png`;
+    const shouldNoindex =
+      isNoindexPath(currentPath) || !isPublicIndexablePath(currentPath);
 
     document.documentElement.lang = "pt-BR";
     document.title = seo.title;
@@ -282,7 +338,7 @@ export function SEO() {
     setMetaName("description", seo.description);
     setMetaName("keywords", seo.keywords.join(", "));
     setMetaName("author", "FatorZ");
-    setMetaName("robots", "index, follow");
+    setMetaName("robots", shouldNoindex ? "noindex, nofollow" : "index, follow");
     setMetaName("theme-color", "#050509");
 
     setCanonical(canonicalUrl);
