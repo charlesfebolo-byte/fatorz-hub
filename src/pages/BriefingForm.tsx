@@ -475,7 +475,11 @@ export default function BriefingForm() {
       <section className="rounded-[36px] border border-white/10 bg-zinc-900 p-5 shadow-[0_0_80px_rgba(236,72,153,0.08)] md:p-7">
         <div className="grid gap-5 md:grid-cols-2">
           <div>
-            <Label title="Nome da marca" required />
+            <Label
+              title="Nome da marca"
+              helper="Pode ser diferente do nome usado na compra."
+              required
+            />
             <input
               value={form.brandName}
               onChange={(e) => updateField("brandName", e.target.value)}
@@ -495,7 +499,10 @@ export default function BriefingForm() {
           </div>
 
           <div>
-            <Label title="WhatsApp" />
+            <Label
+              title="WhatsApp"
+              helper="Trouxemos o número da compra quando disponível. Altere se o contato da marca for outro."
+            />
             <input
               value={form.whatsapp}
               onChange={(e) => updateField("whatsapp", e.target.value)}

@@ -105,9 +105,9 @@ function getMethodLabel(method: PaymentMethod) {
 }
 
 function getMethodDescription(method: PaymentMethod) {
-  if (method === "pix") return "Gera o Pix no checkout completo e registra a compra.";
-  if (method === "boleto") return "Gera boleto no checkout completo da FatorZ.";
-  return "Pagamento com cartão no checkout completo da FatorZ.";
+  if (method === "pix") return "Gera o Pix no checkout seguro da FatorZ.";
+  if (method === "boleto") return "Gera boleto no checkout seguro da FatorZ.";
+  return "Pagamento com cartão no checkout seguro da FatorZ.";
 }
 
 export default function CheckoutAcademy({ user }: any) {
@@ -327,7 +327,7 @@ export default function CheckoutAcademy({ user }: any) {
 
     if (data.status === "pending") {
       setMessage(
-        "Sua compra ainda está pendente. Se você já pagou, aguarde a aprovação ou o webhook da Appmax."
+        "Sua compra ainda está pendente. Se você já pagou, aguarde a confirmação automática da Appmax."
       );
       return;
     }
@@ -411,8 +411,9 @@ export default function CheckoutAcademy({ user }: any) {
             </h1>
 
             <p className="mt-5 max-w-3xl text-zinc-400 md:text-lg">
-              Os dados do cliente são preenchidos apenas no checkout final. Aqui
-              você só escolhe o curso e a forma de pagamento.
+              Aqui você escolhe o curso e a forma de pagamento. O checkout final
+              reaproveita os dados da sua conta quando eles já estiverem
+              preenchidos.
             </p>
           </div>
         </section>
@@ -610,8 +611,9 @@ export default function CheckoutAcademy({ user }: any) {
                 )}
 
                 <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-xs leading-relaxed text-zinc-500">
-                  Nome, e-mail, WhatsApp e CPF serão solicitados uma única vez
-                  no checkout final. Dados de cartão nunca ficam salvos no Hub.
+                  No checkout final, os dados da sua conta e os dados salvos de
+                  compras anteriores serão reaproveitados quando possível.
+                  Dados de cartão nunca ficam salvos no Hub.
                 </div>
               </>
             ) : (

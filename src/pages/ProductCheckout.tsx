@@ -173,20 +173,46 @@ function saveCheckoutCustomer(data: SavedCheckoutCustomer) {
 
   try {
     const current = readSavedCheckoutCustomer() || {};
+    const cleanName = data.name?.trim();
+    const cleanEmail = data.email?.trim().toLowerCase();
+    const cleanPhone = data.phone ? onlyNumbers(data.phone) : "";
+    const cleanDocument = data.documentNumber
+      ? onlyNumbers(data.documentNumber)
+      : "";
+
     window.localStorage.setItem(
       CHECKOUT_CUSTOMER_STORAGE_KEY,
       JSON.stringify({
         ...current,
-        ...data,
-        phone: data.phone ? onlyNumbers(data.phone) : current.phone || "",
-        documentNumber: data.documentNumber
-          ? onlyNumbers(data.documentNumber)
-          : current.documentNumber || "",
+        name: cleanName || current.name || "",
+        email: cleanEmail || current.email || "",
+        phone: cleanPhone || current.phone || "",
+        documentNumber: cleanDocument || current.documentNumber || "",
       })
     );
   } catch {
     // Não trava o checkout se o navegador bloquear localStorage.
   }
+}
+
+function getProfileName(profile: any, user: any) {
+  return (
+    profile?.nome ||
+    profile?.name ||
+    profile?.full_name ||
+    user?.user_metadata?.nome ||
+    user?.user_metadata?.name ||
+    user?.user_metadata?.full_name ||
+    ""
+  );
+}
+
+function getProfilePhone(profile: any) {
+  return profile?.whatsapp || profile?.phone || profile?.telefone || "";
+}
+
+function getProfileDocument(profile: any) {
+  return profile?.cpf || profile?.document || profile?.document_number || "";
 }
 
 function getRequestedPaymentMethod(value: string | null): PaymentMethod | null {
@@ -252,7 +278,7 @@ function getPaymentResultOrderId(result: PaymentResult | null) {
   return rawId ? String(rawId) : "";
 }
 
-export default function ProductCheckout({ user: userFromApp }: any) {
+export default function ProductCheckout({ user: userFromApp, profile }: any) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -274,52 +300,75 @@ export default function ProductCheckout({ user: userFromApp }: any) {
   const [documentNumber, setDocumentNumber] = useState("");
 
   const [cardHolderName, setCardHolderName] = useState("");
+  const [cardHolderNameEdited, setCardHolderNameEdited] = useState(false);
   const [cardNumber, setCardNumber] = useState("");
   const [cardExpiration, setCardExpiration] = useState("");
   const [cardCvv, setCardCvv] = useState("");
   const [cardInstallments, setCardInstallments] = useState(1);
 
   const [copied, setCopied] = useState(false);
+  const [customerDataLoaded, setCustomerDataLoaded] = useState(false);
 
   useEffect(() => {
     startPage();
   }, [slug, requestedMethod]);
 
   useEffect(() => {
+    if (!customerDataLoaded) return;
+
     saveCheckoutCustomer({
       name: customerName,
       email: customerEmail,
       phone: customerPhone,
       documentNumber,
     });
-  }, [customerName, customerEmail, customerPhone, documentNumber]);
+  }, [
+    customerDataLoaded,
+    customerName,
+    customerEmail,
+    customerPhone,
+    documentNumber,
+  ]);
+
+  useEffect(() => {
+    if (!cardHolderNameEdited) {
+      setCardHolderName(customerName);
+    }
+  }, [cardHolderNameEdited, customerName]);
 
   async function startPage() {
     setLoading(true);
+    setCustomerDataLoaded(false);
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    setCurrentUser(user || userFromApp || null);
+    const activeUser = user || userFromApp || null;
+    setCurrentUser(activeUser);
 
     const savedCustomer = readSavedCheckoutCustomer();
-    const userName =
-      user?.user_metadata?.nome ||
-      user?.user_metadata?.name ||
-      user?.user_metadata?.full_name ||
-      "";
+    const accountEmail = activeUser?.email || profile?.email || "";
+    const profileName = getProfileName(profile, activeUser);
+    const profilePhone = getProfilePhone(profile);
+    const profileDocument = getProfileDocument(profile);
 
     const savedName = savedCustomer?.name || "";
     const savedEmail = savedCustomer?.email || "";
     const savedPhone = savedCustomer?.phone || "";
     const savedDocument = savedCustomer?.documentNumber || "";
 
-    setCustomerEmail(savedEmail || user?.email || "");
-    setCustomerName(savedName || userName || "");
-    setCardHolderName(savedName || userName || "");
-    setCustomerPhone(savedPhone ? maskPhone(savedPhone) : "");
-    setDocumentNumber(savedDocument ? maskCpf(savedDocument) : "");
+    const preferredName = profileName || savedName;
+    const preferredPhone = profilePhone || savedPhone;
+    const preferredDocument = profileDocument || savedDocument;
+
+    setCustomerEmail(accountEmail || savedEmail || "");
+    setCustomerName(preferredName || "");
+    setCardHolderName(preferredName || "");
+    setCardHolderNameEdited(false);
+    setCustomerPhone(preferredPhone ? maskPhone(preferredPhone) : "");
+    setDocumentNumber(preferredDocument ? maskCpf(preferredDocument) : "");
+    setCustomerDataLoaded(true);
 
     if (!slug) {
       setLoading(false);
@@ -406,6 +455,8 @@ export default function ProductCheckout({ user: userFromApp }: any) {
     return 3;
   }, [product]);
 
+  const emailLockedByAccount = Boolean(currentUser?.email);
+
   async function copyToClipboard(value: string) {
     try {
       await navigator.clipboard.writeText(value);
@@ -427,22 +478,22 @@ export default function ProductCheckout({ user: userFromApp }: any) {
     const cleanExpiration = onlyNumbers(cardExpiration);
 
     if (!customerName.trim()) {
-      alert("Digite seu nome.");
+      alert("Informe o nome completo para identificar a compra.");
       return;
     }
 
     if (!customerEmail.trim() || !customerEmail.includes("@")) {
-      alert("Digite um email válido.");
+      alert("Informe um e-mail válido para receber e localizar sua compra.");
       return;
     }
 
     if (cleanPhone.length < 10) {
-      alert("Digite um WhatsApp válido.");
+      alert("Informe um WhatsApp válido para contato sobre a compra.");
       return;
     }
 
     if (cleanCpf.length !== 11) {
-      alert("Digite um CPF válido.");
+      alert("Informe um CPF válido para gerar o pagamento com segurança.");
       return;
     }
 
@@ -463,17 +514,17 @@ export default function ProductCheckout({ user: userFromApp }: any) {
       }
 
       if (!cardHolderName.trim()) {
-        alert("Digite o nome impresso no cartão.");
+        alert("Informe o nome impresso no cartão.");
         return;
       }
 
       if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
-        alert("Digite um número de cartão válido.");
+        alert("Confira o número do cartão informado.");
         return;
       }
 
       if (cleanExpiration.length !== 4) {
-        alert("Digite a validade no formato MM/AA.");
+        alert("Informe a validade do cartão no formato MM/AA.");
         return;
       }
 
@@ -481,17 +532,17 @@ export default function ProductCheckout({ user: userFromApp }: any) {
       const year = Number(cleanExpiration.slice(2, 4));
 
       if (month < 1 || month > 12) {
-        alert("Mês de validade inválido.");
+        alert("Confira o mês de validade do cartão.");
         return;
       }
 
       if (year < 24 || year > 99) {
-        alert("Ano de validade inválido.");
+        alert("Confira o ano de validade do cartão.");
         return;
       }
 
       if (cleanCardCvv.length < 3 || cleanCardCvv.length > 4) {
-        alert("Digite um CVV válido.");
+        alert("Informe o CVV do cartão.");
         return;
       }
     }
@@ -538,15 +589,25 @@ export default function ProductCheckout({ user: userFromApp }: any) {
         let details = "";
 
         try {
-          const parsedDetails = data?.details ? JSON.parse(data.details) : null;
+          const parsedDetails =
+            typeof data?.details === "string" ? JSON.parse(data.details) : null;
           details = parsedDetails?.response?.text
             ? `\n\nDetalhe Appmax: ${parsedDetails.response.text}`
             : "";
         } catch {
-          details = data?.details ? `\n\n${data.details}` : "";
+          details =
+            typeof data?.details === "string"
+              ? `\n\n${data.details}`
+              : data?.details?.message
+                ? `\n\n${data.details.message}`
+                : "";
         }
 
-        alert((data?.error || "Erro ao criar pagamento.") + details);
+        alert(
+          (data?.error ||
+            "Não foi possível criar o pagamento agora. Confira os dados e tente novamente.") +
+            details
+        );
         setCreatingPayment(false);
         return;
       }
@@ -554,7 +615,9 @@ export default function ProductCheckout({ user: userFromApp }: any) {
       setPaymentResult(data);
     } catch (error) {
       console.log("Erro inesperado ao criar pagamento:", error);
-      alert("Erro inesperado ao criar pagamento.");
+      alert(
+        "Não foi possível conectar ao gateway de pagamento. Tente novamente em instantes."
+      );
     } finally {
       setCreatingPayment(false);
     }
@@ -747,7 +810,8 @@ export default function ProductCheckout({ user: userFromApp }: any) {
             </h2>
 
             <p className="mt-3 text-zinc-400">
-              Preencha os dados para gerar o pagamento.
+              Informe seus dados uma vez. Eles serão usados para gerar o
+              pagamento e localizar sua compra.
             </p>
           </div>
 
@@ -759,14 +823,9 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
               <input
                 value={customerName}
-                onChange={(event) => {
-                  setCustomerName(event.target.value);
-
-                  if (!cardHolderName) {
-                    setCardHolderName(event.target.value);
-                  }
-                }}
+                onChange={(event) => setCustomerName(event.target.value)}
                 placeholder="Seu nome"
+                autoComplete="name"
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
               />
             </div>
@@ -778,10 +837,22 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
               <input
                 value={customerEmail}
-                onChange={(event) => setCustomerEmail(event.target.value)}
+                onChange={(event) => {
+                  if (!emailLockedByAccount) {
+                    setCustomerEmail(event.target.value);
+                  }
+                }}
                 placeholder="seuemail@gmail.com"
+                type="email"
+                autoComplete="email"
+                readOnly={emailLockedByAccount}
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
               />
+              {emailLockedByAccount && (
+                <p className="mt-2 text-xs font-bold text-zinc-500">
+                  Compra vinculada ao e-mail da sua conta FatorZ.
+                </p>
+              )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -796,6 +867,8 @@ export default function ProductCheckout({ user: userFromApp }: any) {
                     setCustomerPhone(maskPhone(event.target.value))
                   }
                   placeholder="(00) 00000-0000"
+                  inputMode="tel"
+                  autoComplete="tel"
                   className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
                 />
               </div>
@@ -811,6 +884,8 @@ export default function ProductCheckout({ user: userFromApp }: any) {
                     setDocumentNumber(maskCpf(event.target.value))
                   }
                   placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  autoComplete="off"
                   className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-pink-500/40"
                 />
               </div>
@@ -869,8 +944,12 @@ export default function ProductCheckout({ user: userFromApp }: any) {
 
                     <input
                       value={cardHolderName}
-                      onChange={(event) => setCardHolderName(event.target.value)}
+                      onChange={(event) => {
+                        setCardHolderNameEdited(true);
+                        setCardHolderName(event.target.value);
+                      }}
                       placeholder="Nome como está no cartão"
+                      autoComplete="cc-name"
                       className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-4 text-white outline-none placeholder:text-zinc-500 focus:border-blue-400/50"
                     />
                   </div>

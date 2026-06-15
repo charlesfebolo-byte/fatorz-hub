@@ -52,7 +52,7 @@ export default function ThankYou() {
                   <div>
                     <h3 className="font-black">Pagamento em análise</h3>
                     <p className="text-zinc-400">
-                      O Mercado Pago confirma se o pagamento foi aprovado.
+                      A Appmax confirma se o pagamento foi aprovado.
                     </p>
                   </div>
                 </div>
