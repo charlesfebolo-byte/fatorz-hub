@@ -182,47 +182,35 @@ export default function ThankYou() {
     if (!summary) {
       return {
         badge: "Pedido recebido",
-        title: "Obrigado pela compra",
-        text: "Estamos buscando as informações do seu pedido.",
+        title: "Obrigado por escolher a FatorZ.",
+        text: "Estamos buscando as informações do seu pedido para mostrar o próximo passo com clareza.",
+        note: "Seu pedido está sendo preparado no nosso sistema.",
       };
     }
 
     if (summary.order.status === "approved") {
       return {
         badge: "Pedido confirmado",
-        title: "Pedido confirmado",
-        text: "Seu pagamento foi aprovado. Agora siga o próximo passo para liberar sua entrega.",
+        title: "Obrigado pela compra!",
+        text: "Seu pedido foi confirmado com sucesso. Agora siga o próximo passo para começarmos sua entrega.",
+        note: "Obrigado por escolher a FatorZ. Vamos cuidar dos próximos passos com atenção.",
       };
     }
 
     if (summary.order.status === "cancelled") {
       return {
-        badge: "Pagamento recusado",
-        title: "Pagamento não aprovado",
-        text: "A cobrança não foi concluída. Você pode tentar novamente com outra forma de pagamento.",
-      };
-    }
-
-    if (summary.payment.method === "pix") {
-      return {
-        badge: "Aguardando pagamento",
-        title: "Seu pedido foi criado",
-        text: "Falta só confirmar o Pix para iniciarmos sua entrega.",
-      };
-    }
-
-    if (summary.payment.method === "boleto") {
-      return {
-        badge: "Aguardando pagamento",
-        title: "Seu boleto foi gerado",
-        text: "Pague o boleto para confirmar o pedido. A compensação pode levar mais tempo.",
+        badge: "Quase lá",
+        title: "Quase lá",
+        text: "Não conseguimos confirmar o pagamento. Você pode tentar novamente ou escolher outra forma de pagamento.",
+        note: "Seu pedido ficou registrado, mas precisa de uma nova confirmação de pagamento para avançar.",
       };
     }
 
     return {
       badge: "Aguardando pagamento",
-      title: "Seu pedido foi criado",
-      text: "Assim que o gateway confirmar o pagamento, atualizaremos o status no Hub.",
+      title: "Obrigado pelo pedido!",
+      text: "Recebemos sua solicitação. Agora falta só confirmar o pagamento para iniciarmos sua entrega.",
+      note: "Obrigado por escolher a FatorZ. Seu pedido já está registrado no nosso sistema.",
     };
   }, [summary]);
 
@@ -296,7 +284,7 @@ export default function ThankYou() {
       return {
         eyebrow: "Próximo passo",
         title: "Aguarde a confirmação",
-        text: "O pedido já foi criado. Assim que o pagamento for confirmado, o status será atualizado no Hub.",
+        text: "Seu pedido já está registrado no nosso sistema. Assim que o pagamento for confirmado, seguimos para a próxima etapa.",
         action: "Ver minhas entregas",
         onClick: () => navigate("/minhas-entregas"),
       };
@@ -387,6 +375,9 @@ export default function ThankYou() {
                 <p className="mt-5 max-w-2xl text-base leading-relaxed text-zinc-400 md:text-lg">
                   {hero.text}
                 </p>
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-500">
+                  {hero.note}
+                </p>
                 {summary?.order.created_at && (
                   <p className="mt-5 text-sm font-bold text-zinc-600">
                     Pedido #{summary.order.id} criado em{" "}
@@ -409,6 +400,7 @@ export default function ThankYou() {
                     <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">
                       Copie o código Pix abaixo ou escaneie o QR Code. A
                       confirmação acontece automaticamente após o pagamento.
+                      Enquanto isso, mantenha o código Pix salvo.
                     </p>
                   </div>
                 </div>
@@ -444,6 +436,7 @@ export default function ThankYou() {
                         </button>
                         <p className="mt-3 text-center text-xs font-bold text-zinc-500">
                           Não feche esta página antes de salvar ou copiar seu Pix.
+                          Assim que o pagamento for confirmado, seguimos para a próxima etapa.
                         </p>
                       </>
                     ) : (
@@ -469,7 +462,7 @@ export default function ThankYou() {
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">
                   Use a linha digitável ou abra o boleto em uma nova aba. A
                   compensação pode levar mais tempo, e a confirmação acontece
-                  automaticamente.
+                  automaticamente. Seu pedido já está registrado no nosso sistema.
                 </p>
 
                 {boletoCode && (
@@ -534,7 +527,7 @@ export default function ThankYou() {
                     ? "Tudo certo com a cobrança. Agora siga o próximo passo para avançarmos com sua entrega."
                     : summary.order.status === "cancelled"
                       ? "A cobrança não foi aprovada. Você pode voltar ao checkout e tentar outra forma de pagamento."
-                      : "A Appmax ainda está analisando o retorno do pagamento. Aguarde a confirmação automática antes de comprar novamente."}
+                      : "Seu pedido já está registrado. A Appmax ainda está analisando o retorno do pagamento, então aguarde a confirmação automática antes de comprar novamente."}
                 </p>
               </section>
             )}
@@ -621,6 +614,8 @@ export default function ThankYou() {
                       <p className="mt-3 text-sm leading-relaxed text-zinc-300">
                         Combine este serviço com uma presença mensal mais
                         organizada e mantenha seu perfil sempre em movimento.
+                        É uma sugestão opcional para complementar o pedido
+                        principal.
                       </p>
                     </div>
                   </div>
