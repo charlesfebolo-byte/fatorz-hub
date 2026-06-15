@@ -1005,6 +1005,8 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({
         success: true,
         idempotent: true,
+        site_product_order_id: reusableOrder.id,
+        order_id: reusableOrder.id,
         product,
         order: reusableOrder,
         academy_purchase: academyPurchase,
@@ -1331,6 +1333,8 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json({
           success: true,
           recovered: true,
+          site_product_order_id: recoveredOrder.id,
+          order_id: recoveredOrder.id,
           product,
           order: recoveredOrder,
           academy_purchase: academyPurchase,
@@ -1379,6 +1383,8 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({
       success: true,
+      site_product_order_id: order.id,
+      order_id: order.id,
       product,
       order,
       academy_purchase: academyPurchase,

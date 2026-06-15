@@ -270,9 +270,17 @@ function productNeedsBriefing(product: SiteProduct | null) {
 
 function getPaymentResultOrderId(result: PaymentResult | null) {
   const rawId =
+    (result as any)?.site_product_order_id ||
+    (result as any)?.order_id ||
+    (result as any)?.siteProductOrderId ||
+    (result as any)?.orderId ||
     result?.order?.id ||
-    result?.order?.order_id ||
     result?.order?.site_product_order_id ||
+    result?.order?.order_id ||
+    result?.order?.siteProductOrderId ||
+    result?.order?.orderId ||
+    (result as any)?.data?.site_product_order_id ||
+    (result as any)?.data?.order?.id ||
     null;
 
   return rawId ? String(rawId) : "";
