@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { createHash, timingSafeEqual } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
 dotenv.config({ path: ".env.local" });
@@ -12,6 +13,25 @@ function normalizeText(value: any) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+}
+
+function hashOrderAccessToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function safeCompareTokenHash(token: string, expectedHash: string | null | undefined) {
+  if (!token || !expectedHash) return false;
+
+  try {
+    const received = Buffer.from(hashOrderAccessToken(token), "hex");
+    const expected = Buffer.from(String(expectedHash), "hex");
+
+    if (received.length !== expected.length) return false;
+
+    return timingSafeEqual(received, expected);
+  } catch {
+    return false;
+  }
 }
 
 function normalizeStatus(value: any) {
@@ -258,10 +278,18 @@ export default async function handler(req: any, res: any) {
   }
 
   const orderId = Number(req.query?.orderId || 0);
+  const orderAccessToken = String(req.query?.token || "").trim();
 
   if (!Number.isFinite(orderId) || orderId <= 0) {
     return res.status(400).json({
       error: "Pedido invalido.",
+    });
+  }
+
+  if (!orderAccessToken) {
+    return res.status(400).json({
+      error:
+        "Link seguro do pedido incompleto. Acesse pelo Hub ou fale com o suporte da FatorZ.",
     });
   }
 
@@ -300,6 +328,7 @@ export default async function handler(req: any, res: any) {
         "boleto_barcode",
         "boleto_digitable_line",
         "boleto_expiration_date",
+        "order_access_token_hash",
       ].join(",")
     )
     .eq("id", orderId)
@@ -316,6 +345,13 @@ export default async function handler(req: any, res: any) {
   if (!order) {
     return res.status(404).json({
       error: "Pedido nao encontrado.",
+    });
+  }
+
+  if (!safeCompareTokenHash(orderAccessToken, order.order_access_token_hash)) {
+    return res.status(403).json({
+      error:
+        "Link seguro do pedido invalido ou expirado. Acesse pelo Hub ou fale com o suporte da FatorZ.",
     });
   }
 

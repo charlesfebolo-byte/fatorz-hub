@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { createHash, randomBytes } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
 dotenv.config({ path: ".env.local" });
@@ -18,6 +19,43 @@ const paymentRateLimitPerMinute = Number(
 );
 
 const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function generateOrderAccessToken() {
+  return randomBytes(32).toString("hex");
+}
+
+function hashOrderAccessToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function removeOrderAccessTokenHash(order: any) {
+  if (!order) return order;
+
+  const safeOrder = { ...order };
+  delete safeOrder.order_access_token_hash;
+
+  return safeOrder;
+}
+
+async function rotateOrderAccessToken(supabaseAdmin: any, orderId: any) {
+  const token = generateOrderAccessToken();
+  const now = new Date().toISOString();
+  const { error } = await supabaseAdmin
+    .from("site_product_orders")
+    .update({
+      order_access_token_hash: hashOrderAccessToken(token),
+      order_access_token_created_at: now,
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    throw new Error(
+      `Nao foi possivel gerar token de acesso do pedido: ${error.message}`
+    );
+  }
+
+  return token;
+}
 
 function onlyNumbers(value: string) {
   return String(value || "").replace(/\D/g, "");
@@ -988,6 +1026,10 @@ export default async function handler(req: any, res: any) {
     });
 
     if (reusableOrder) {
+      const orderAccessToken = await rotateOrderAccessToken(
+        supabaseAdmin,
+        reusableOrder.id
+      );
       let academyPurchase: any = null;
       let academyPurchaseError: string | null = null;
 
@@ -1007,8 +1049,10 @@ export default async function handler(req: any, res: any) {
         idempotent: true,
         site_product_order_id: reusableOrder.id,
         order_id: reusableOrder.id,
+        order_access_token: orderAccessToken,
+        access_token: orderAccessToken,
         product,
-        order: reusableOrder,
+        order: removeOrderAccessTokenHash(reusableOrder),
         academy_purchase: academyPurchase,
         academy_purchase_error: academyPurchaseError,
         appmax: {
@@ -1255,6 +1299,9 @@ export default async function handler(req: any, res: any) {
       cardToken,
     });
 
+    const orderAccessToken = generateOrderAccessToken();
+    const orderAccessTokenCreatedAt = new Date().toISOString();
+
     const { data: order, error: orderSaveError } = await supabaseAdmin
       .from("site_product_orders")
       .insert({
@@ -1293,6 +1340,8 @@ export default async function handler(req: any, res: any) {
           paymentMethod === "boleto" ? getExpirationDate(3) : null,
 
         raw_payment_response: safeRawResponse,
+        order_access_token_hash: hashOrderAccessToken(orderAccessToken),
+        order_access_token_created_at: orderAccessTokenCreatedAt,
         notes:
           paymentMethod === "card"
             ? `Pedido de produto criado pelo checkout FatorZ via cartão. Final ${cardLast4 || "—"} em ${cardInstallments || 1}x.`
@@ -1316,6 +1365,10 @@ export default async function handler(req: any, res: any) {
       });
 
       if (recoveredOrder) {
+        const recoveredOrderAccessToken = await rotateOrderAccessToken(
+          supabaseAdmin,
+          recoveredOrder.id
+        );
         let academyPurchase: any = null;
         let academyPurchaseError: string | null = null;
 
@@ -1335,8 +1388,10 @@ export default async function handler(req: any, res: any) {
           recovered: true,
           site_product_order_id: recoveredOrder.id,
           order_id: recoveredOrder.id,
+          order_access_token: recoveredOrderAccessToken,
+          access_token: recoveredOrderAccessToken,
           product,
-          order: recoveredOrder,
+          order: removeOrderAccessTokenHash(recoveredOrder),
           academy_purchase: academyPurchase,
           academy_purchase_error: academyPurchaseError,
           appmax: {
@@ -1385,8 +1440,10 @@ export default async function handler(req: any, res: any) {
       success: true,
       site_product_order_id: order.id,
       order_id: order.id,
+      order_access_token: orderAccessToken,
+      access_token: orderAccessToken,
       product,
-      order,
+      order: removeOrderAccessTokenHash(order),
       academy_purchase: academyPurchase,
       academy_purchase_error: academyPurchaseError,
       appmax: {

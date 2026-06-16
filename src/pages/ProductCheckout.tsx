@@ -30,6 +30,8 @@ type PaymentMethod = "pix" | "boleto" | "card";
 
 type PaymentResult = {
   success: boolean;
+  order_access_token?: string | null;
+  access_token?: string | null;
   product: SiteProduct;
   order: any;
   appmax: {
@@ -284,6 +286,19 @@ function getPaymentResultOrderId(result: PaymentResult | null) {
     null;
 
   return rawId ? String(rawId) : "";
+}
+
+function getPaymentResultOrderAccessToken(result: PaymentResult | null) {
+  const rawToken =
+    result?.order_access_token ||
+    result?.access_token ||
+    result?.order?.order_access_token ||
+    result?.order?.access_token ||
+    (result as any)?.data?.order_access_token ||
+    (result as any)?.data?.access_token ||
+    null;
+
+  return rawToken ? String(rawToken) : "";
 }
 
 export default function ProductCheckout({ user: userFromApp, profile }: any) {
@@ -621,9 +636,22 @@ export default function ProductCheckout({ user: userFromApp, profile }: any) {
       }
 
       const orderId = getPaymentResultOrderId(data);
+      const orderAccessToken = getPaymentResultOrderAccessToken(data);
 
-      if (orderId) {
-        navigate(`/obrigado?orderId=${encodeURIComponent(orderId)}`);
+      if (orderId && orderAccessToken) {
+        navigate(
+          `/obrigado?orderId=${encodeURIComponent(orderId)}&token=${encodeURIComponent(
+            orderAccessToken
+          )}`
+        );
+        return;
+      }
+
+      if (orderId && !orderAccessToken) {
+        alert(
+          "Pagamento criado, mas não recebemos o token seguro para abrir a página de obrigado. Confira os dados do pagamento abaixo ou acesse pelo Hub."
+        );
+        setPaymentResult(data);
         return;
       }
 

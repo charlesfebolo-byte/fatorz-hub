@@ -120,9 +120,10 @@ export default function ThankYou() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get("orderId") || "";
+  const orderAccessToken = searchParams.get("token") || "";
 
   const [summary, setSummary] = useState<OrderSummary | null>(null);
-  const [loading, setLoading] = useState(Boolean(orderId));
+  const [loading, setLoading] = useState(Boolean(orderId && orderAccessToken));
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -139,16 +140,27 @@ export default function ThankYou() {
       return;
     }
 
-    loadOrderSummary(orderId);
-  }, [orderId]);
+    if (!orderAccessToken) {
+      setSummary(null);
+      setError(
+        "Este link de pedido está incompleto. Para proteger seus dados de pagamento, acesse pelo Hub ou fale com o suporte da FatorZ."
+      );
+      setLoading(false);
+      return;
+    }
 
-  async function loadOrderSummary(id: string) {
+    loadOrderSummary(orderId, orderAccessToken);
+  }, [orderId, orderAccessToken]);
+
+  async function loadOrderSummary(id: string, token: string) {
     setLoading(true);
     setError("");
 
     try {
       const response = await fetch(
-        `/api/get-order-summary?orderId=${encodeURIComponent(id)}`
+        `/api/get-order-summary?orderId=${encodeURIComponent(
+          id
+        )}&token=${encodeURIComponent(token)}`
       );
       const data = await response.json();
 
