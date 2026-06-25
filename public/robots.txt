@@ -17,4 +17,5 @@ Disallow: /mural
 Disallow: /obrigado
 Disallow: /projetos
 
+Sitemap: https://fatorz-hub.vercel.app/sitemap-index.xml
 Sitemap: https://fatorz-hub.vercel.app/sitemap.xml
