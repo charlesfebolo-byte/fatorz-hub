@@ -306,7 +306,7 @@ export default async function handler(req: any, res: any) {
     },
   });
 
-  const { data: order, error: orderError } = await supabaseAdmin
+  const { data: orderData, error: orderError } = await supabaseAdmin
     .from("site_product_orders")
     .select(
       [
@@ -341,6 +341,8 @@ export default async function handler(req: any, res: any) {
       error: "Nao foi possivel buscar o pedido.",
     });
   }
+
+  const order = orderData as any | null;
 
   if (!order) {
     return res.status(404).json({
