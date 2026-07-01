@@ -129,6 +129,15 @@ function getDeliveryType(product: SiteProduct) {
   return "Entrega única";
 }
 
+function isAcademyCourseProduct(product: SiteProduct | null) {
+  return Boolean(
+    product &&
+      (product.category === "academy" ||
+        product.product_type === "course" ||
+        product.course_id)
+  );
+}
+
 function canRenderImage(value: string | null) {
   if (!value) return false;
 
@@ -415,6 +424,18 @@ export default function ProductCheckout({ user: userFromApp, profile }: any) {
 
     setProduct(data);
 
+    if (isAcademyCourseProduct(data) && !activeUser) {
+      navigate(
+        `/login?redirectTo=${encodeURIComponent(
+          `/checkout/produto?slug=${data.slug}${
+            requestedMethod ? `&method=${requestedMethod}` : ""
+          }`
+        )}`,
+        { replace: true }
+      );
+      return;
+    }
+
     if (requestedMethod && productAcceptsPaymentMethod(data, requestedMethod)) {
       setPaymentMethod(requestedMethod);
       return;
@@ -493,6 +514,16 @@ export default function ProductCheckout({ user: userFromApp, profile }: any) {
 
   async function createPayment() {
     if (!product) return;
+
+    if (isAcademyCourseProduct(product) && !currentUser?.id) {
+      alert("Entre na sua conta para comprar cursos da FatorZ Academy.");
+      navigate(
+        `/login?redirectTo=${encodeURIComponent(
+          `/checkout/produto?slug=${product.slug}&method=${paymentMethod}`
+        )}`
+      );
+      return;
+    }
 
     const cleanPhone = onlyNumbers(customerPhone);
     const cleanCpf = onlyNumbers(documentNumber);

@@ -151,7 +151,6 @@ export default function Academy({ user, profile }: any) {
 
     const [
       coursesResponse,
-      lessonsResponse,
       progressResponse,
       linksResponse,
       purchasesResponse,
@@ -160,14 +159,6 @@ export default function Academy({ user, profile }: any) {
         .from("courses")
         .select("*")
         .eq("is_active", true)
-        .order("order_index", { ascending: true })
-        .order("created_at", { ascending: true }),
-
-      supabase
-        .from("lessons")
-        .select("*")
-        .order("course_id", { ascending: true })
-        .order("module_title", { ascending: true })
         .order("order_index", { ascending: true })
         .order("created_at", { ascending: true }),
 
@@ -187,17 +178,10 @@ export default function Academy({ user, profile }: any) {
         .order("created_at", { ascending: false }),
     ]);
 
-    setLoading(false);
-
     if (coursesResponse.error) {
       console.log("Erro courses:", coursesResponse.error);
+      setLoading(false);
       alert("Erro ao carregar cursos.");
-      return;
-    }
-
-    if (lessonsResponse.error) {
-      console.log("Erro lessons:", lessonsResponse.error);
-      alert("Erro ao carregar aulas.");
       return;
     }
 
@@ -214,10 +198,44 @@ export default function Academy({ user, profile }: any) {
     }
 
     const coursesData = coursesResponse.data || [];
-    const lessonsData = lessonsResponse.data || [];
     const progressData = progressResponse.data || [];
     const linksData = linksResponse.data || [];
     const purchasesData = purchasesResponse.data || [];
+    const approvedCourseIds = purchasesData
+      .filter(
+        (purchase: CoursePurchase) =>
+          purchase.status === "approved" && purchase.course_id
+      )
+      .map((purchase: CoursePurchase) => purchase.course_id);
+
+    let lessonsData: Lesson[] = [];
+
+    if (isTeam || approvedCourseIds.length > 0) {
+      let lessonsQuery = supabase
+        .from("lessons")
+        .select("*")
+        .order("course_id", { ascending: true })
+        .order("module_title", { ascending: true })
+        .order("order_index", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (!isTeam) {
+        lessonsQuery = lessonsQuery.in("course_id", approvedCourseIds);
+      }
+
+      const lessonsResponse = await lessonsQuery;
+
+      if (lessonsResponse.error) {
+        console.log("Erro lessons:", lessonsResponse.error);
+        setLoading(false);
+        alert("Erro ao carregar aulas.");
+        return;
+      }
+
+      lessonsData = lessonsResponse.data || [];
+    }
+
+    setLoading(false);
 
     setCourses(coursesData);
     setLessons(lessonsData);

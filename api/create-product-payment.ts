@@ -557,10 +557,9 @@ function getProductCourseId(product: any) {
 
 function isAcademyCourseProduct(product: any) {
   return Boolean(
-    getProductCourseId(product) &&
-      (product?.category === "academy" ||
-        product?.product_type === "course" ||
-        product?.course_id)
+    product?.category === "academy" ||
+      product?.product_type === "course" ||
+      getProductCourseId(product)
   );
 }
 
@@ -1005,6 +1004,21 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({
         error: "Esse produto não aceita cartão.",
       });
+    }
+
+    if (isAcademyCourseProduct(product)) {
+      if (!safeUserId) {
+        return res.status(401).json({
+          error:
+            "Para comprar um curso da FatorZ Academy, entre na sua conta antes de continuar.",
+        });
+      }
+
+      if (!getProductCourseId(product)) {
+        return res.status(400).json({
+          error: "Produto Academy sem curso vinculado. Fale com o suporte da FatorZ.",
+        });
+      }
     }
 
     const amountCents = Number(product.price_cents || 0);
