@@ -1,5 +1,7 @@
+import type { LucideIcon } from "lucide-react";
+
 type Card = {
-  icon: string;
+  icon: LucideIcon;
   label: string;
   value: string | number;
   trend: string;
@@ -11,40 +13,42 @@ type DashboardCardsProps = {
 
 export default function DashboardCards({ cards }: DashboardCardsProps) {
   return (
-    <section className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
-      {cards.map((card, index) => (
-        <div
-          key={card.label}
-          className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[#08080d]/90 p-5 shadow-[0_0_35px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 hover:border-[#ff0096]/30 hover:shadow-[0_0_55px_rgba(255,0,150,0.14)]"
-        >
-          <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full bg-[#ff0096]/10 blur-2xl transition duration-300 group-hover:bg-[#ff0096]/18" />
-          <div className="pointer-events-none absolute -bottom-16 -left-16 h-32 w-32 rounded-full bg-[#005cff]/10 blur-2xl transition duration-300 group-hover:bg-[#005cff]/18" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+    <section className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
+      {cards.map((card, index) => {
+        const Icon = card.icon;
 
-          <div className="relative flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="mb-2 text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">
-                {card.label}
-              </p>
+        return (
+          <div
+            key={card.label}
+            className="group relative overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5 transition duration-200 hover:border-[#8b5cf6]/35 hover:bg-[#111120]"
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] opacity-0 transition group-hover:opacity-100" />
 
-              <h3 className="truncate text-2xl font-black tracking-tight text-white md:text-3xl">
-                {card.value}
-              </h3>
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500">
+                  {card.label}
+                </p>
 
-              <p className="mt-2 text-[11px] font-black leading-5 text-emerald-300">
-                {card.trend}
-              </p>
-            </div>
+                <h3 className="truncate font-['Sora',sans-serif] text-2xl font-black tracking-tight text-white">
+                  {card.value}
+                </h3>
 
-            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-xl shadow-[0_0_28px_rgba(0,0,0,0.35)] transition group-hover:scale-105 group-hover:border-[#ff0096]/30">
-              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-black text-[10px] font-black text-zinc-500">
-                {index + 1}
-              </span>
-              {card.icon}
+                <p className="mt-2 text-[11px] font-semibold leading-5 text-zinc-500 group-hover:text-emerald-300">
+                  {card.trend}
+                </p>
+              </div>
+
+              <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.07] bg-[#111120] text-[#8b5cf6] transition group-hover:border-[#8b5cf6]/35">
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-white/10 bg-[#050509] text-[9px] font-black text-zinc-600">
+                  {index + 1}
+                </span>
+                <Icon className="h-[16px] w-[16px]" strokeWidth={2.2} />
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </section>
   );
 }

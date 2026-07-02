@@ -1,6 +1,24 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import {
+  LayoutGrid,
+  ShoppingBag,
+  PlayCircle,
+  Sparkles,
+  PackageCheck,
+  Settings,
+  ShoppingCart,
+  Boxes,
+  Layers,
+  Users,
+  CheckCircle2,
+  BookOpen,
+  Video,
+  Link2,
+  LogOut,
+  type LucideIcon,
+} from "lucide-react";
 
 type SidebarProps = {
   profile: any;
@@ -41,10 +59,10 @@ function isTeamMember(profile: any) {
   return getStaffRole(profile) !== "none";
 }
 
-function SidebarIcon({ children }: { children: any }) {
+function SidebarIcon({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-[15px]">
-      {children}
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.07] bg-[#111120]">
+      <Icon className="h-[15px] w-[15px]" strokeWidth={2.25} />
     </span>
   );
 }
@@ -100,10 +118,10 @@ export default function Sidebar({ profile }: SidebarProps) {
   ]);
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-black transition ${
+    `group flex items-center gap-3 rounded-[9px] px-3 py-2.5 text-sm font-semibold transition ${
       isActive
-        ? "bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] text-white shadow-[0_0_26px_rgba(145,35,255,0.28)]"
-        : "text-zinc-500 hover:bg-white/[0.06] hover:text-white"
+        ? "border border-[#8b5cf6]/30 bg-gradient-to-r from-[#8b5cf6]/16 to-[#3b82f6]/6 text-white"
+        : "border border-transparent text-zinc-400 hover:bg-white/[0.035] hover:text-white"
     }`;
 
   async function logout() {
@@ -129,8 +147,8 @@ export default function Sidebar({ profile }: SidebarProps) {
     return (
       <button
         onClick={() => navigate("/dashboard")}
-        className={`flex items-center gap-1 font-black text-white ${
-          compact ? "text-2xl" : "mb-8 text-3xl"
+        className={`flex items-center gap-1 font-['Sora',sans-serif] font-black text-white ${
+          compact ? "text-xl" : "mb-6 px-1 text-xl"
         }`}
       >
         <span>Fator</span>
@@ -143,17 +161,15 @@ export default function Sidebar({ profile }: SidebarProps) {
 
   function AccountBox() {
     return (
-      <div className="mb-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_0_35px_rgba(145,35,255,0.08)]">
+      <div className="mb-5 overflow-hidden rounded-xl border border-white/[0.12] bg-[#111120] p-3">
         <div className="relative">
-          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-zinc-500">
-            Conta
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">Conta</p>
 
           <h3 className="mt-2 break-all text-sm font-black text-white">
             {profile?.nome || profile?.name || profile?.email || "FatorZ"}
           </h3>
 
-          <div className="mt-3 inline-flex rounded-full border border-pink-500/25 bg-pink-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-pink-300">
+          <div className="mt-3 inline-flex rounded-md bg-[#8b5cf6]/14 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#a78bfa]">
             {roleLabel}
           </div>
         </div>
@@ -163,7 +179,7 @@ export default function Sidebar({ profile }: SidebarProps) {
 
   function SectionTitle({ children }: { children: string }) {
     return (
-      <div className="mb-2 mt-6 px-2 text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600">
+      <div className="mb-2 mt-5 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-600">
         {children}
       </div>
     );
@@ -175,32 +191,32 @@ export default function Sidebar({ profile }: SidebarProps) {
         <AccountBox />
 
         <NavLink to="/dashboard" className={linkClass} onClick={closeMobileMenu}>
-          <SidebarIcon>▦</SidebarIcon>
+          <SidebarIcon icon={LayoutGrid} />
           <span>Painel</span>
         </NavLink>
 
         <NavLink to="/" className={linkClass} onClick={closeMobileMenu}>
-          <SidebarIcon>🛍️</SidebarIcon>
+          <SidebarIcon icon={ShoppingBag} />
           <span>Produtos FatorZ</span>
         </NavLink>
 
         <NavLink to="/academy" className={linkClass} onClick={closeMobileMenu}>
-          <SidebarIcon>▶</SidebarIcon>
+          <SidebarIcon icon={PlayCircle} />
           <span>Academy</span>
         </NavLink>
 
         <NavLink to="/mural" className={linkClass} onClick={closeMobileMenu}>
-          <SidebarIcon>✦</SidebarIcon>
+          <SidebarIcon icon={Sparkles} />
           <span>Mural</span>
         </NavLink>
 
         <NavLink to="/minhas-entregas" className={linkClass} onClick={closeMobileMenu}>
-          <SidebarIcon>□</SidebarIcon>
+          <SidebarIcon icon={PackageCheck} />
           <span>Minhas Entregas</span>
         </NavLink>
 
         <NavLink to="/configuracoes" className={linkClass} onClick={closeMobileMenu}>
-          <SidebarIcon>⚙</SidebarIcon>
+          <SidebarIcon icon={Settings} />
           <span>Configurações</span>
         </NavLink>
 
@@ -210,35 +226,35 @@ export default function Sidebar({ profile }: SidebarProps) {
 
             {canSeeOrders && (
               <NavLink to="/admin/pedidos" className={linkClass} onClick={closeMobileMenu}>
-                <SidebarIcon>🛒</SidebarIcon>
+                <SidebarIcon icon={ShoppingCart} />
                 <span>Pedidos</span>
               </NavLink>
             )}
 
             {canSeeProducts && (
               <NavLink to="/admin/produtos" className={linkClass} onClick={closeMobileMenu}>
-                <SidebarIcon>▣</SidebarIcon>
+                <SidebarIcon icon={Boxes} />
                 <span>Produtos Admin</span>
               </NavLink>
             )}
 
             {canSeeProjects && (
               <NavLink to="/projetos" className={linkClass} onClick={closeMobileMenu}>
-                <SidebarIcon>◆</SidebarIcon>
+                <SidebarIcon icon={Layers} />
                 <span>Projetos</span>
               </NavLink>
             )}
 
             {canSeeUsers && (
               <NavLink to="/admin/usuarios" className={linkClass} onClick={closeMobileMenu}>
-                <SidebarIcon>👥</SidebarIcon>
+                <SidebarIcon icon={Users} />
                 <span>Usuários</span>
               </NavLink>
             )}
 
             {canSeeSubscriptions && (
               <NavLink to="/admin/assinaturas" className={linkClass} onClick={closeMobileMenu}>
-                <SidebarIcon>✓</SidebarIcon>
+                <SidebarIcon icon={CheckCircle2} />
                 <span>Acessos Academy</span>
               </NavLink>
             )}
@@ -250,17 +266,17 @@ export default function Sidebar({ profile }: SidebarProps) {
             <SectionTitle>Academy Admin</SectionTitle>
 
             <NavLink to="/admin/cursos" className={linkClass} onClick={closeMobileMenu}>
-              <SidebarIcon>▤</SidebarIcon>
+              <SidebarIcon icon={BookOpen} />
               <span>Cursos Academy</span>
             </NavLink>
 
             <NavLink to="/admin/aulas" className={linkClass} onClick={closeMobileMenu}>
-              <SidebarIcon>▸</SidebarIcon>
+              <SidebarIcon icon={Video} />
               <span>Aulas Academy</span>
             </NavLink>
 
             <NavLink to="/admin/links" className={linkClass} onClick={closeMobileMenu}>
-              <SidebarIcon>↗</SidebarIcon>
+              <SidebarIcon icon={Link2} />
               <span>Links Academy</span>
             </NavLink>
           </>
@@ -271,7 +287,7 @@ export default function Sidebar({ profile }: SidebarProps) {
             onClick={logout}
             className="flex w-full items-center gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-left font-black text-red-300 transition hover:bg-red-500/20"
           >
-            <SidebarIcon>×</SidebarIcon>
+            <SidebarIcon icon={LogOut} />
             <span>Sair da conta</span>
           </button>
         </div>
@@ -281,12 +297,12 @@ export default function Sidebar({ profile }: SidebarProps) {
 
   return (
     <>
-      <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between border-b border-white/10 bg-black/90 px-4 py-4 backdrop-blur-xl lg:hidden">
+      <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between border-b border-white/10 bg-[#050509]/95 px-4 py-4 backdrop-blur-xl lg:hidden">
         <BrandButton compact />
 
         <button
           onClick={() => setMobileOpen(true)}
-          className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 font-black text-white shadow-[0_0_20px_rgba(145,35,255,0.15)]"
+          className="rounded-xl border border-white/10 bg-[#111120] px-5 py-3 font-black text-white"
         >
           Menu
         </button>
@@ -299,7 +315,7 @@ export default function Sidebar({ profile }: SidebarProps) {
             onClick={() => setMobileOpen(false)}
           />
 
-          <aside className="absolute left-0 top-0 h-full w-[86vw] max-w-[360px] overflow-y-auto border-r border-white/10 bg-[#050509] p-6 shadow-[0_0_70px_rgba(0,0,0,0.8)]">
+          <aside className="absolute left-0 top-0 h-full w-[86vw] max-w-[360px] overflow-y-auto border-r border-white/10 bg-[#0c0c16] p-5 shadow-[0_0_70px_rgba(0,0,0,0.8)]">
             <div className="mb-8 flex items-center justify-between">
               <button
                 onClick={() => {
@@ -329,9 +345,8 @@ export default function Sidebar({ profile }: SidebarProps) {
         </div>
       )}
 
-      <aside className="sticky top-0 hidden h-screen w-[300px] shrink-0 overflow-y-auto border-r border-white/10 bg-[#050509]/95 p-6 shadow-[0_0_60px_rgba(0,0,0,0.65)] lg:block">
-        <div className="pointer-events-none absolute left-0 top-0 h-40 w-40 rounded-full bg-[#ff0096]/10 blur-3xl" />
-        <div className="pointer-events-none absolute right-0 top-40 h-40 w-40 rounded-full bg-[#005cff]/10 blur-3xl" />
+      <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 overflow-y-auto border-r border-white/[0.07] bg-[#0c0c16] p-4 lg:block">
+        <div className="pointer-events-none absolute left-0 top-0 h-40 w-40 rounded-full bg-[#8b5cf6]/8 blur-3xl" />
 
         <div className="relative">
           <BrandButton />

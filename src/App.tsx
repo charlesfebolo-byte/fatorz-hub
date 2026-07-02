@@ -111,10 +111,10 @@ function LoadingScreen({ text = "Carregando..." }: { text?: string }) {
 
 function DashboardLayout({ children, profile }: any) {
   return (
-    <div className="min-h-screen bg-[#09090B] flex overflow-x-hidden">
+    <div className="fz-admin-shell min-h-screen bg-[#050509] flex overflow-x-hidden">
       <Sidebar profile={profile} />
 
-      <main className="flex-1 w-full min-w-0 px-4 py-6 pt-24 lg:p-8 overflow-x-hidden">
+      <main className="flex-1 w-full min-w-0 px-4 py-6 pt-24 lg:px-8 lg:py-7 overflow-x-hidden">
         {children}
       </main>
     </div>

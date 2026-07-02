@@ -14,12 +14,12 @@ type FinanceiroResumoProps = {
 
 export default function FinanceiroResumo({ metrics }: FinanceiroResumoProps) {
   return (
-    <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-      <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+    <div className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
         Análise financeira
       </p>
 
-      <div className="mt-5 space-y-4">
+      <div className="mt-5 divide-y divide-white/[0.07]">
         <Line label="Hoje" value={formatMoney(metrics.revenueToday)} />
         <Line label="Ontem" value={formatMoney(metrics.revenueYesterday)} />
         <Line label="Este mês" value={formatMoney(metrics.revenueMonth)} />
@@ -34,9 +34,9 @@ export default function FinanceiroResumo({ metrics }: FinanceiroResumoProps) {
 
 function Line({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-sm text-zinc-500">{label}</span>
-      <span className="text-xl font-black text-white">{value}</span>
+    <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+      <span className="text-sm text-zinc-400">{label}</span>
+      <span className="font-mono text-sm font-bold text-white">{value}</span>
     </div>
   );
 }

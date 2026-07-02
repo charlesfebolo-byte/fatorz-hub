@@ -693,22 +693,21 @@ export default function Dashboard({ user, profile }: DashboardProps) {
         onSaved={handleManualSaleSaved}
       />
 
-      <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-[#9123ff]/10 blur-[120px]" />
-      <div className="pointer-events-none absolute right-0 top-32 -z-10 h-[380px] w-[380px] rounded-full bg-[#005cff]/10 blur-[100px]" />
-      <div className="pointer-events-none absolute bottom-0 left-0 -z-10 h-[380px] w-[380px] rounded-full bg-[#ff0096]/10 blur-[100px]" />
+      <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[380px] w-[640px] -translate-x-1/2 rounded-full bg-[#8b5cf6]/8 blur-[110px]" />
 
-      <section className="mb-6 overflow-hidden rounded-[32px] border border-white/10 bg-[#050509]/95 p-5 shadow-[0_0_80px_rgba(0,0,0,0.55)] md:p-8">
+      <section className="mb-5">
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.4em] text-[#ff0096]">
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
+              <span className="h-1 w-1 rounded-full bg-[#8b5cf6]" />
               {isTeam ? "Dashboard FatorZ" : "Hub FatorZ"}
             </p>
 
-            <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">
+            <h1 className="mt-2 font-['Sora',sans-serif] text-3xl font-bold tracking-tight md:text-[40px]">
               Centro de controle
             </h1>
 
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-500 md:text-base">
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-500">
               {isTeam
                 ? `Bem-vindo, ${greetingName}. Aqui você acompanha vendas, clientes, projetos, produtos e movimentações da FatorZ em um só lugar.`
                 : `Bem-vindo, ${greetingName}. Acompanhe seus pedidos, cursos, entregas e movimentações da sua conta.`}
@@ -716,15 +715,15 @@ export default function Dashboard({ user, profile }: DashboardProps) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-full border border-yellow-400/25 bg-yellow-400/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-yellow-300">
+            <span className="rounded-full border border-yellow-400/25 bg-yellow-400/10 px-3 py-2 text-xs font-bold text-yellow-300">
               Cliente {customerLabel}
             </span>
 
-            <span className="rounded-full border border-[#ff0096]/25 bg-[#ff0096]/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-[#ff7bd0]">
+            <span className="rounded-full border border-[#8b5cf6]/25 bg-[#8b5cf6]/10 px-3 py-2 text-xs font-bold text-[#a78bfa]">
               {staffLabel}
             </span>
 
-            <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-emerald-300">
+            <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300">
               {isTeam
                 ? `${metrics.paidOrders} venda(s) paga(s)`
                 : `${approvedPurchases.length} curso(s)`}
@@ -748,15 +747,15 @@ export default function Dashboard({ user, profile }: DashboardProps) {
       )}
 
       {isTeam && (
-        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+        <section className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr_1fr]">
+          <div className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
             <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
                   Performance
                 </p>
 
-                <h2 className="mt-3 text-3xl font-black">
+                <h2 className="mt-2 font-['Sora',sans-serif] text-xl font-bold">
                   Resumo visual da receita
                 </h2>
 
@@ -767,7 +766,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
               <button
                 onClick={() => setManualSaleOpen(true)}
-                className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-3 text-sm font-black text-white transition hover:scale-[1.02]"
+                className="rounded-lg bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] px-4 py-2.5 text-sm font-bold text-white transition hover:scale-[1.01]"
               >
                 + Nova venda manual
               </button>
@@ -777,18 +776,18 @@ export default function Dashboard({ user, profile }: DashboardProps) {
               {chartBars.map((item) => (
                 <div key={item.label}>
                   <div className="mb-2 flex items-center justify-between gap-4">
-                    <span className="text-sm font-black text-zinc-300">
+                    <span className="text-sm font-semibold text-zinc-300">
                       {item.label}
                     </span>
 
-                    <span className="text-sm font-black text-white">
+                    <span className="font-mono text-sm font-bold text-white">
                       {formatMoney(item.value)}
                     </span>
                   </div>
 
-                  <div className="h-4 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-2 overflow-hidden rounded-full bg-[#111120]">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                      className="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6]"
                       style={{ width: `${item.percent}%` }}
                     />
                   </div>
@@ -800,15 +799,15 @@ export default function Dashboard({ user, profile }: DashboardProps) {
           <aside className="space-y-5">
             <FinanceiroResumo metrics={metrics} />
 
-            <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+            <div className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
                 Ações rápidas
               </p>
 
               <div className="mt-5 space-y-3">
                 <button
                   onClick={() => setManualSaleOpen(true)}
-                  className="w-full rounded-[20px] border border-emerald-400/20 bg-emerald-500/10 p-4 text-left transition hover:border-emerald-400/40 hover:bg-emerald-500/15"
+                  className="w-full rounded-[10px] border border-emerald-400/20 bg-emerald-500/10 p-4 text-left transition hover:border-emerald-400/40 hover:bg-emerald-500/15"
                 >
                   <h3 className="font-black text-emerald-300">
                     Registrar venda manual
@@ -820,7 +819,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
                 <button
                   onClick={() => navigate("/admin/pedidos")}
-                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#ff0096]/40 hover:bg-white/[0.07]"
+                  className="w-full rounded-[10px] border border-white/[0.07] bg-[#111120] p-4 text-left transition hover:border-[#8b5cf6]/40 hover:bg-white/[0.04]"
                 >
                   <h3 className="font-black">Gerenciar pedidos</h3>
                   <p className="mt-1 text-sm text-zinc-500">
@@ -830,7 +829,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
 
                 <button
                   onClick={() => navigate("/projetos")}
-                  className="w-full rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#00a3ff]/40 hover:bg-white/[0.07]"
+                  className="w-full rounded-[10px] border border-white/[0.07] bg-[#111120] p-4 text-left transition hover:border-[#3b82f6]/40 hover:bg-white/[0.04]"
                 >
                   <h3 className="font-black">Projetos</h3>
                   <p className="mt-1 text-sm text-zinc-500">
