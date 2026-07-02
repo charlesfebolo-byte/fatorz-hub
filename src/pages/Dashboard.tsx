@@ -1,3 +1,4 @@
+import { Wallet, Rocket, Hourglass, Target, ShoppingCart, Users, Package, Trophy, ShoppingBag, CalendarClock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatMoney, useDashboard } from "../hooks/useDashboard";
@@ -588,49 +589,49 @@ export default function Dashboard({ user, profile }: DashboardProps) {
   const cards = isTeam
     ? [
         {
-          icon: "💰",
+          icon: Wallet,
           label: "Receita hoje",
           value: formatMoney(metrics.revenueToday),
           trend: "Pedidos pagos de hoje",
         },
         {
-          icon: "🚀",
+          icon: Rocket,
           label: "Este mês",
           value: formatMoney(metrics.revenueMonth),
           trend: "Receita mensal atual",
         },
         {
-          icon: "⏳",
+          icon: Hourglass,
           label: "Pendente",
           value: formatMoney(metrics.pendingValue),
           trend: `${metrics.pendingOrders} pedido(s) pendente(s)`,
         },
         {
-          icon: "🎯",
+          icon: Target,
           label: "Ticket médio",
           value: formatMoney(metrics.averageTicket),
           trend: "Média por venda paga",
         },
         {
-          icon: "🛒",
+          icon: ShoppingCart,
           label: "Pedidos pagos",
           value: metrics.paidOrders,
           trend: `${metrics.totalOrders} pedido(s) total`,
         },
         {
-          icon: "👥",
+          icon: Users,
           label: "Clientes automáticos",
           value: crm.metrics.totalClientes,
           trend: `${crm.metrics.clientesPagantes} cliente(s) pagante(s)`,
         },
         {
-          icon: "📦",
+          icon: Package,
           label: "Projetos ativos",
           value: metrics.activeProjects,
           trend: `${metrics.totalProjects} projeto(s) total`,
         },
         {
-          icon: "🏆",
+          icon: Trophy,
           label: "Produtos vendidos",
           value: productRanking.reduce((sum, item) => sum + item.paidOrders, 0),
           trend: `${productRanking.length} produto(s) no ranking`,
@@ -638,31 +639,30 @@ export default function Dashboard({ user, profile }: DashboardProps) {
       ]
     : [
         {
-          icon: "🛒",
+          icon: ShoppingCart,
           label: "Pedidos",
           value: orders.length,
           trend: `${metrics.pendingOrders} ativo(s)`,
         },
         {
-          icon: "📦",
+          icon: Package,
           label: "Cursos",
           value: approvedPurchases.length,
           trend: `${pendingPurchases.length} pendente(s)`,
         },
         {
-          icon: "📅",
+          icon: CalendarClock,
           label: "Entregas",
           value: projects.length,
           trend: "Acompanhamento de projetos",
         },
         {
-          icon: "🛍️",
+          icon: ShoppingBag,
           label: "Produtos FatorZ",
           value: "Acessar",
           trend: "Sites, criativos, SEO e Academy",
         },
       ];
-
   async function handleManualSaleSaved() {
     await Promise.all([reload(), crm.reload()]);
   }
