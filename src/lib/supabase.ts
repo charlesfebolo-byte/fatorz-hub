@@ -1,8 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://ezfpxvezwpjtokbzsidu.supabase.co'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6ZnB4dmV6d3BqdG9rYnpzaWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NTA0MTQsImV4cCI6MjA5NTIyNjQxNH0.Q-IxcY36aSR9XUe43DCRxrkQyJKuL3YJmduvIDFTDZ0'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY antes de iniciar o FatorZ Hub.'
+  )
+}
 
 export const supabase = createClient(
   supabaseUrl,
