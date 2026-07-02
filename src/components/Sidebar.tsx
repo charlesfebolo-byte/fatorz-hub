@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
@@ -217,12 +217,19 @@ export default function Sidebar({ profile }: SidebarProps) {
 
         <NavLink to="/configuracoes" className={linkClass} onClick={closeMobileMenu}>
           <SidebarIcon icon={Settings} />
-          <span>Configurações</span>
+          <span>ConfiguraÃ§Ãµes</span>
         </NavLink>
 
         {isTeamMember(profile) && (
           <>
-            <SectionTitle>Operação FatorZ</SectionTitle>
+            <SectionTitle>OperaÃ§Ã£o FatorZ</SectionTitle>
+
+            {hasAnyRole(profile, ["ceo_fatorz", "diretor_operacional"]) && (
+              <NavLink to="/admin/landing" className={linkClass} onClick={closeMobileMenu}>
+                <SidebarIcon icon={Sparkles} />
+                <span>Landing</span>
+              </NavLink>
+            )}
 
             {canSeeOrders && (
               <NavLink to="/admin/pedidos" className={linkClass} onClick={closeMobileMenu}>
@@ -248,7 +255,7 @@ export default function Sidebar({ profile }: SidebarProps) {
             {canSeeUsers && (
               <NavLink to="/admin/usuarios" className={linkClass} onClick={closeMobileMenu}>
                 <SidebarIcon icon={Users} />
-                <span>Usuários</span>
+                <span>UsuÃ¡rios</span>
               </NavLink>
             )}
 
@@ -359,3 +366,4 @@ export default function Sidebar({ profile }: SidebarProps) {
     </>
   );
 }
+

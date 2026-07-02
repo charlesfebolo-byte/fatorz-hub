@@ -4,8 +4,7 @@ import { supabase } from "../lib/supabase";
 import { getSeoServiceBySlug, seoServices } from "../data/seoServices";
 import ProductCard from "../components/ProductCard";
 import type { SiteProduct } from "../components/ProductCard";
-
-const INSTAGRAM_URL = "https://www.instagram.com/fatorzhouse/";
+import { buildProductWhatsAppUrl, FATORZ_WHATSAPP_URL } from "../lib/fatorzContacts";
 
 const productMatchBySlug: Record<string, string[]> = {
   "agencia-de-marketing-digital": [
@@ -203,15 +202,15 @@ export default function ServicePage() {
     return sortProducts(products).slice(0, 6);
   }, [products, service]);
 
-  function openInstagram() {
-    window.open(INSTAGRAM_URL, "_blank");
+  function openWhatsApp() {
+    window.open(FATORZ_WHATSAPP_URL, "_blank");
   }
 
   function handleBuy(product: SiteProduct) {
     setBuyingId(product.id);
 
     if (product.checkout_provider === "manual") {
-      openInstagram();
+      window.open(buildProductWhatsAppUrl(product.name), "_blank");
       setBuyingId(null);
       return;
     }
@@ -307,10 +306,10 @@ export default function ServicePage() {
           </nav>
 
           <button
-            onClick={openInstagram}
+            onClick={openWhatsApp}
             className="fz-shine-btn px-5 py-3 text-sm md:px-6"
           >
-            Chamar FatorZ
+            WhatsApp FatorZ
           </button>
         </div>
       </header>
@@ -354,7 +353,7 @@ export default function ServicePage() {
                 </button>
 
                 <button
-                  onClick={openInstagram}
+                  onClick={openWhatsApp}
                   className="rounded-full border border-white/10 bg-white/[0.04] px-7 py-4 text-base font-black text-white transition hover:border-pink-500/30 hover:bg-white/10"
                 >
                   Pedir recomendação
@@ -610,10 +609,10 @@ export default function ServicePage() {
               </div>
 
               <button
-                onClick={openInstagram}
+                onClick={openWhatsApp}
                 className="fz-shine-btn px-8 py-4 text-base"
               >
-                Chamar no direct
+                Chamar no WhatsApp
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { buildProductWhatsAppUrl, FATORZ_WHATSAPP_URL } from "../lib/fatorzContacts";
 
 type SiteProduct = {
   id: number;
@@ -127,6 +128,116 @@ function getDeliveryType(product: SiteProduct) {
   if (product.product_type === "branding") return "Entrega estratégica";
   if (product.product_type === "diagnostic") return "Diagnóstico";
   return "Entrega única";
+}
+
+function getProductBenefits(product: SiteProduct | null) {
+  if (!product) return [];
+
+  const customBenefits = String((product as any).notes || "")
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (customBenefits.length) return customBenefits;
+
+  if (product.product_type === "diagnostic") {
+    return [
+      "Análise direta do perfil e da percepção atual da marca",
+      "Identificação dos pontos que reduzem confiança e conversão",
+      "Direção clara do que ajustar antes de investir mais dinheiro",
+      "Próximo passo recomendado dentro da estrutura FatorZ",
+    ];
+  }
+
+  if (product.product_type === "subscription") {
+    return [
+      "Acompanhamento recorrente da presença digital",
+      "Organização de conteúdo, posicionamento e prioridades",
+      "Direção mensal para sair do improviso",
+      "Base para aumentar confiança e gerar mais oportunidades",
+    ];
+  }
+
+  if (product.product_type === "site") {
+    return [
+      "Estrutura profissional para apresentar sua oferta",
+      "Página pensada para conversão e campanhas",
+      "Copy, hierarquia visual e CTA com intenção comercial",
+      "Base pronta para tráfego, atendimento e vendas",
+    ];
+  }
+
+  if (product.product_type === "branding") {
+    return [
+      "Direção visual e percepção de marca",
+      "Organização da mensagem e posicionamento",
+      "Mais clareza para ser lembrado e escolhido",
+      "Base para Instagram, site e materiais comerciais",
+    ];
+  }
+
+  if (product.product_type === "course") {
+    return [
+      "Acesso individual vinculado à sua conta",
+      "Conteúdo organizado dentro da FatorZ Academy",
+      "Compra única, sem mensalidade",
+      "Aplicação prática no seu ritmo",
+    ];
+  }
+
+  return [
+    "Entrega objetiva para melhorar sua presença digital",
+    "Aplicação direta no Instagram, marca ou oferta",
+    "Direção profissional da FatorZ",
+    "Próximo passo claro para vender melhor",
+  ];
+}
+
+function getSalesHeadline(product: SiteProduct | null) {
+  if (!product) return "Página de venda FatorZ";
+
+  if (product.product_type === "diagnostic") {
+    return "Antes de investir em conteúdo, descubra o que trava seu perfil.";
+  }
+
+  if (product.product_type === "subscription") {
+    return "Presença digital com direção, recorrência e acompanhamento.";
+  }
+
+  if (product.product_type === "site") {
+    return "Uma página profissional para transformar atenção em ação.";
+  }
+
+  if (product.product_type === "branding") {
+    return "Ajuste a percepção da sua marca antes de tentar vender mais.";
+  }
+
+  if (product.product_type === "course") {
+    return "Aprenda e aplique com uma estrutura organizada.";
+  }
+
+  return "Contrate uma solução FatorZ com clareza e segurança.";
+}
+
+function getFaq(product: SiteProduct | null) {
+  const isDiagnostic = product?.product_type === "diagnostic";
+
+  return [
+    {
+      q: "O que acontece depois do pagamento?",
+      a: isDiagnostic
+        ? "Você recebe a orientação para enviar o perfil e os dados necessários para a análise."
+        : "Você recebe o próximo passo no painel/obrigado e, quando necessário, preenche o briefing.",
+    },
+    {
+      q: "Preciso ter conta na FatorZ?",
+      a: "Cursos da Academy exigem conta. Para produtos e serviços, a compra pode gerar acesso e acompanhamento pelo painel.",
+    },
+    {
+      q: "Posso pagar no Pix, boleto ou cartão?",
+      a: "Depende do produto. O checkout mostra somente os métodos ativos para esta oferta.",
+    },
+  ];
 }
 
 function isAcademyCourseProduct(product: SiteProduct | null) {
@@ -740,12 +851,10 @@ export default function ProductCheckout({ user: userFromApp, profile }: any) {
           </p>
 
           <button
-            onClick={() =>
-              window.open("https://www.instagram.com/fatorzhouse/", "_blank")
-            }
+            onClick={() => window.open(buildProductWhatsAppUrl(product.name), "_blank")}
             className="mt-6 rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-6 py-4 font-black text-white transition hover:opacity-90"
           >
-            Chamar no Instagram
+            Chamar no WhatsApp
           </button>
         </div>
       </div>
@@ -790,16 +899,24 @@ export default function ProductCheckout({ user: userFromApp, profile }: any) {
             Fator<span className="text-pink-500">Z</span>
           </button>
 
-          <button
-            onClick={() => navigate("/")}
-            className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/10"
-          >
-            Voltar
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => window.open(FATORZ_WHATSAPP_URL, "_blank")}
+              className="hidden rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/10 md:block"
+            >
+              WhatsApp
+            </button>
+            <button
+              onClick={() => navigate("/")}
+              className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/10"
+            >
+              Voltar
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto grid max-w-7xl gap-8 px-4 py-10 md:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:py-16">
+      <main className="relative z-10 mx-auto grid max-w-7xl gap-8 px-4 py-10 md:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:py-16">
         <section className="h-fit rounded-[38px] border border-white/10 bg-black/60 p-6 md:p-8">
           {product.image_url && (
             <div className="mb-6 h-56 overflow-hidden rounded-[28px] border border-white/10 bg-zinc-900">
@@ -837,6 +954,39 @@ export default function ProductCheckout({ user: userFromApp, profile }: any) {
               "Solução FatorZ para organizar sua presença digital."}
           </p>
 
+          <div className="mt-6 rounded-[26px] border border-[#8b5cf6]/25 bg-[#8b5cf6]/10 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#c4b5fd]">
+              Pagina de venda
+            </p>
+            <h2 className="mt-2 font-['Sora',sans-serif] text-2xl font-black leading-tight">
+              {getSalesHeadline(product)}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              Leia a oferta, entenda o que recebe e finalize o pagamento no mesmo lugar. Menos clique, mais decisao.
+            </p>
+          </div>
+
+          <div className="mt-6 rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
+            <h3 className="font-['Sora',sans-serif] text-xl font-black">O que voce recebe</h3>
+            <ul className="mt-4 space-y-3">
+              {getProductBenefits(product).map((benefit) => (
+                <li key={benefit} className="flex gap-3 text-sm leading-relaxed text-zinc-300">
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#8b5cf6]" />
+                  <span>{benefit}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {["Escolha a oferta", "Preencha seus dados", "Receba o proximo passo"].map((step, index) => (
+              <div key={step} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                <span className="text-xs font-black text-[#8b5cf6]">0{index + 1}</span>
+                <p className="mt-2 text-sm font-black text-white">{step}</p>
+              </div>
+            ))}
+          </div>
+
           <div className="mt-8 rounded-[30px] border border-white/10 bg-white/[0.045] p-6">
             <p className="text-sm font-black uppercase tracking-widest text-zinc-500">
               Valor
@@ -871,9 +1021,21 @@ export default function ProductCheckout({ user: userFromApp, profile }: any) {
               </p>
             </div>
           </div>
+
+          <div className="mt-6 rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
+            <h3 className="font-['Sora',sans-serif] text-xl font-black">Dúvidas rápidas</h3>
+            <div className="mt-4 space-y-4">
+              {getFaq(product).map((item) => (
+                <div key={item.q}>
+                  <p className="font-bold text-white">{item.q}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-zinc-500">{item.a}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
-        <section className="rounded-[38px] border border-white/10 bg-black/60 p-6 md:p-8">
+        <section id="pagamento" className="h-fit rounded-[38px] border border-white/10 bg-black/60 p-6 md:sticky md:top-6 md:p-8">
           <div className="mb-7">
             <p className="mb-3 text-sm font-black uppercase tracking-[0.25em] text-pink-400">
               Checkout FatorZ

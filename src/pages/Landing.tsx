@@ -13,10 +13,11 @@ import {
   Target,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
-
-const INSTAGRAM_URL = "https://www.instagram.com/fatorzhouse/";
-const WHATSAPP_URL =
-  "https://wa.me/?text=Quero%20agendar%20um%20diagnostico%20com%20a%20FatorZ";
+import {
+  buildProductWhatsAppUrl,
+  FATORZ_WHATSAPP_URL,
+} from "../lib/fatorzContacts";
+import { findDiagnosticProduct } from "../lib/products";
 
 type SiteProduct = {
   id: number;
@@ -133,6 +134,25 @@ const processSteps = [
   },
 ];
 
+const defaultLandingConfig = {
+  hero_eyebrow: "Percepcao · Presenca · Direcao",
+  hero_title: "Sua marca nao precisa so aparecer. Precisa ser",
+  hero_highlight: "impossivel de ignorar.",
+  hero_subtitle:
+    "Posicionamento, conteudo estrategico e direcao constante para transformar presenca digital em autoridade e vendas reais.",
+  primary_cta_label: "Agendar Diagnostico",
+  secondary_cta_label: "Falar no WhatsApp",
+  diagnostic_title: "Diagnostico de Perfil",
+  diagnostic_subtitle:
+    "A porta de entrada da FatorZ: descubra o que trava seu perfil antes de investir em conteudo, site ou gestao.",
+  diagnostic_cta_label: "Comecar pelo Diagnostico",
+  seo_title: "FatorZ | Percepcao, Presenca e Direcao",
+  seo_description:
+    "Marketing, posicionamento, conteudo estrategico e landing pages para marcas que querem vender melhor.",
+};
+
+type LandingConfig = Partial<typeof defaultLandingConfig> & { id?: string };
+
 function formatMoney(cents: number | null | undefined) {
   return (Number(cents || 0) / 100).toLocaleString("pt-BR", {
     style: "currency",
@@ -244,6 +264,25 @@ export default function Landing() {
   const [selectedCategory, setSelectedCategory] = useState("assessoria");
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [buyingId, setBuyingId] = useState<number | null>(null);
+  const [landingConfig, setLandingConfig] = useState<LandingConfig>(defaultLandingConfig);
+
+
+  async function loadLandingConfig() {
+    const { data, error } = await supabase
+      .from("landing_config")
+      .select("*")
+      .eq("id", "default")
+      .maybeSingle();
+
+    if (error) {
+      console.log("Landing config indisponivel, usando fallback:", error);
+      return;
+    }
+
+    if (data) {
+      setLandingConfig({ ...defaultLandingConfig, ...data });
+    }
+  }
 
   async function loadProducts() {
     setLoadingProducts(true);
@@ -277,7 +316,7 @@ export default function Landing() {
   }
 
   useEffect(() => {
-    void Promise.resolve().then(loadProducts);
+    void Promise.all([loadProducts(), loadLandingConfig()]);
   }, []);
 
   const groupedProducts = useMemo(() => {
@@ -318,12 +357,12 @@ export default function Landing() {
   }, [groupedProducts]);
 
   const selectedProducts = groupedProducts[selectedCategory] || [];
-  function openInstagram() {
-    window.open(INSTAGRAM_URL, "_blank");
-  }
+  const diagnosticProduct = useMemo(() => findDiagnosticProduct(products), [products]);
+  const landing = { ...defaultLandingConfig, ...landingConfig };
+
 
   function openWhatsApp() {
-    window.open(WHATSAPP_URL, "_blank");
+    window.open(FATORZ_WHATSAPP_URL, "_blank");
   }
 
   function scrollToProducts() {
@@ -336,11 +375,33 @@ export default function Landing() {
     section?.scrollIntoView({ behavior: "smooth" });
   }
 
+  function goToLogin() {
+    navigate("/login?mode=login&redirectTo=/dashboard");
+  }
+
+  function goToRegister() {
+    navigate("/login?mode=register&redirectTo=/dashboard");
+  }
+
+  function goToDiagnosticProduct() {
+    if (diagnosticProduct?.slug) {
+      navigate(`/checkout/produto?slug=${diagnosticProduct.slug}`);
+      return;
+    }
+
+    const diagnosticCategory = visibleCategories.find((category) =>
+      ["servicos-unicos", "assessoria", "identidade"].includes(category)
+    );
+
+    if (diagnosticCategory) setSelectedCategory(diagnosticCategory);
+    setTimeout(scrollToProducts, 80);
+  }
+
   function handleBuy(product: SiteProduct) {
     setBuyingId(product.id);
 
     if (product.checkout_provider === "manual") {
-      openInstagram();
+      window.open(buildProductWhatsAppUrl(product.name), "_blank");
       setBuyingId(null);
       return;
     }
@@ -523,7 +584,7 @@ export default function Landing() {
                     {buyingId === product.id
                       ? "Abrindo..."
                       : product.checkout_provider === "manual"
-                        ? "Chamar no direct"
+                        ? "Chamar no WhatsApp"
                         : product.checkout_provider === "external"
                           ? "Abrir pagamento"
                           : "Comprar agora"}
@@ -564,7 +625,19 @@ export default function Landing() {
               </button>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={goToLogin}
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:bg-white/10"
+              >
+                Entrar
+              </button>
+              <button
+                onClick={goToRegister}
+                className="hidden rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white transition hover:bg-white/10 xl:block"
+              >
+                Criar conta
+              </button>
               <button
                 onClick={openWhatsApp}
                 className="fz-public-btn fz-public-btn-whatsapp"
@@ -573,10 +646,10 @@ export default function Landing() {
                 WhatsApp
               </button>
               <button
-                onClick={scrollToProducts}
+                onClick={goToDiagnosticProduct}
                 className="fz-public-btn fz-public-btn-primary"
               >
-                Agendar Diagnostico
+                {landing.primary_cta_label}
               </button>
             </div>
           </nav>
@@ -589,30 +662,29 @@ export default function Landing() {
               <div className="fz-reveal">
                 <div className="fz-home-eyebrow">
                   <span />
-                  Percepcao · Presenca · Direcao
+                  {landing.hero_eyebrow}
                 </div>
                 <h1 className="mt-4 max-w-4xl font-['Sora',sans-serif] text-5xl font-bold leading-[1.08] tracking-tight lg:text-[64px] xl:text-[68px]">
-                  Sua marca nao precisa so aparecer. Precisa ser{" "}
-                  <span className="fz-home-grad-text">impossivel de ignorar.</span>
+                  {landing.hero_title}{" "}
+                  <span className="fz-home-grad-text">{landing.hero_highlight}</span>
                 </h1>
                 <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-400">
-                  Posicionamento, conteudo estrategico e direcao constante para
-                  transformar presenca digital em autoridade e vendas reais.
+                  {landing.hero_subtitle}
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
                   <button
-                    onClick={scrollToProducts}
+                    onClick={goToDiagnosticProduct}
                     className="fz-public-btn fz-public-btn-primary px-6 py-3.5"
                   >
-                    Agendar Diagnostico <ArrowRight className="h-4 w-4" />
+                    {landing.primary_cta_label} <ArrowRight className="h-4 w-4" />
                   </button>
                   <button
                     onClick={openWhatsApp}
                     className="fz-public-btn fz-public-btn-ghost px-6 py-3.5"
                   >
                     <MessageCircle className="h-4 w-4" />
-                    Falar no WhatsApp
+                    {landing.secondary_cta_label}
                   </button>
                 </div>
 
@@ -659,6 +731,40 @@ export default function Landing() {
             </div>
           </section>
 
+
+          <section className="fz-reveal mx-auto w-full max-w-[1240px] px-6 py-10">
+            <div className="grid items-center gap-6 overflow-hidden rounded-[28px] border border-[#8b5cf6]/30 bg-gradient-to-br from-[#8b5cf6]/18 via-[#101020] to-[#3b82f6]/10 p-7 shadow-[0_0_70px_rgba(139,92,246,0.10)] lg:grid-cols-[1.1fr_0.9fr] lg:p-9">
+              <div>
+                <div className="fz-home-eyebrow">
+                  <span />
+                  Porta de entrada
+                </div>
+                <h2 className="mt-3 font-['Sora',sans-serif] text-3xl font-black md:text-4xl">
+                  {landing.diagnostic_title}
+                </h2>
+                <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-300">
+                  {landing.diagnostic_subtitle}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+                <p className="text-sm font-bold text-zinc-400">
+                  Ticket de entrada para descobrir o que precisa mudar antes de contratar qualquer plano maior.
+                </p>
+                {diagnosticProduct && (
+                  <p className="mt-3 font-['Sora',sans-serif] text-2xl font-black">
+                    {formatMoney(diagnosticProduct.price_cents)}
+                  </p>
+                )}
+                <button
+                  onClick={goToDiagnosticProduct}
+                  className="fz-public-btn fz-public-btn-primary mt-5 w-full"
+                >
+                  {landing.diagnostic_cta_label}
+                </button>
+              </div>
+            </div>
+          </section>
+
           <section className="fz-reveal mx-auto w-full max-w-[1240px] px-6 py-16">
             <div className="mx-auto mb-11 max-w-2xl text-center">
               <div className="fz-home-eyebrow justify-center">
@@ -688,6 +794,8 @@ export default function Landing() {
               })}
             </div>
           </section>
+
+          {renderProductSection()}
 
           <section id="metodo" className="fz-reveal mx-auto w-full max-w-[1240px] px-6 py-16">
             <div className="mx-auto mb-11 max-w-2xl text-center">
@@ -828,7 +936,6 @@ export default function Landing() {
             </div>
           </section>
 
-          {renderProductSection()}
 
           <section className="fz-reveal mx-auto w-full max-w-[1240px] px-6 py-16">
             <div className="flex flex-wrap items-center justify-between gap-8 rounded-[22px] border border-white/15 bg-gradient-to-br from-[#8b5cf6]/20 to-[#3b82f6]/10 p-10">
@@ -849,10 +956,10 @@ export default function Landing() {
                   WhatsApp
                 </button>
                 <button
-                  onClick={scrollToProducts}
+                  onClick={goToDiagnosticProduct}
                   className="fz-public-btn fz-public-btn-primary px-6 py-3.5"
                 >
-                  Agendar Diagnostico
+                  {landing.primary_cta_label}
                 </button>
               </div>
             </div>
@@ -870,7 +977,7 @@ export default function Landing() {
               </div>
               <FooterGroup title="Navegacao" items={["Inicio", "Metodo", "Cases", "Planos"]} />
               <FooterGroup title="Servicos" items={["Instagram", "Landing Pages", "Identidade", "Academy"]} />
-              <FooterGroup title="Contato" items={["@fatorzhouse", "WhatsApp", "Diagnostico"]} />
+              <FooterGroup title="Contato" items={["@fatorzhouse", "WhatsApp", "Facebook", "Diagnostico"]} />
             </div>
           </footer>
         </main>
@@ -885,6 +992,12 @@ export default function Landing() {
             FATOR<span className="text-[#8b5cf6]">Z</span>
           </button>
           <div className="flex items-center gap-2">
+            <button
+              onClick={goToLogin}
+              className="rounded-xl border border-white/10 bg-[#101020] px-3 py-2 text-xs font-black text-white"
+            >
+              Entrar
+            </button>
             <button
               onClick={scrollToProducts}
               aria-label="Ver planos"
@@ -910,12 +1023,11 @@ export default function Landing() {
               Percepcao · Presenca · Direcao
             </div>
             <h1 className="relative mt-3 font-['Sora',sans-serif] text-[29px] font-bold leading-tight">
-              Sua marca nao precisa so aparecer. Precisa ser{" "}
-              <span className="fz-home-grad-text">impossivel de ignorar.</span>
+              {landing.hero_title}{" "}
+              <span className="fz-home-grad-text">{landing.hero_highlight}</span>
             </h1>
             <p className="relative mt-3 text-[15px] leading-relaxed text-zinc-400">
-              Posicionamento, conteudo e direcao constante para virar autoridade
-              e vender melhor.
+              {landing.hero_subtitle}
             </p>
 
             <div className="fz-mobile-signal mt-5">
@@ -937,6 +1049,28 @@ export default function Landing() {
                   <span>{stat.label}</span>
                 </div>
               ))}
+            </div>
+          </section>
+
+
+          <section className="px-4 py-4">
+            <div className="rounded-[18px] border border-[#8b5cf6]/30 bg-gradient-to-br from-[#8b5cf6]/20 to-[#101020] p-5">
+              <div className="fz-home-eyebrow">
+                <span />
+                Porta de entrada
+              </div>
+              <h2 className="mt-2 font-['Sora',sans-serif] text-2xl font-black">
+                {landing.diagnostic_title}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                {landing.diagnostic_subtitle}
+              </p>
+              <button
+                onClick={goToDiagnosticProduct}
+                className="fz-public-btn fz-public-btn-primary mt-4 w-full"
+              >
+                {landing.diagnostic_cta_label}
+              </button>
             </div>
           </section>
 
@@ -965,6 +1099,8 @@ export default function Landing() {
               })}
             </div>
           </section>
+
+          {renderProductSection(true)}
 
           <section id="metodo-mobile" className="px-4 py-5">
             <div className="fz-home-eyebrow">
@@ -1041,7 +1177,6 @@ export default function Landing() {
             </div>
           </section>
 
-          {renderProductSection(true)}
 
           <section className="px-4 py-4">
             <div className="rounded-[18px] border border-white/15 bg-gradient-to-br from-[#8b5cf6]/20 to-[#3b82f6]/10 p-6 text-center">
@@ -1052,10 +1187,10 @@ export default function Landing() {
                 Agende uma conversa gratuita com a FatorZ.
               </p>
               <button
-                onClick={scrollToProducts}
+                onClick={goToDiagnosticProduct}
                 className="fz-public-btn fz-public-btn-primary mt-5 w-full"
               >
-                Agendar Diagnostico
+                {landing.primary_cta_label}
               </button>
             </div>
           </section>
@@ -1070,7 +1205,7 @@ export default function Landing() {
             WhatsApp
           </button>
           <button
-            onClick={scrollToProducts}
+            onClick={goToDiagnosticProduct}
             className="fz-public-btn fz-public-btn-primary min-w-0 flex-1"
           >
             Agendar

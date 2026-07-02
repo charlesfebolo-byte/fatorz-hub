@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const INSTAGRAM_URL = "https://www.instagram.com/fatorzhouse/";
+import { FATORZ_WHATSAPP_URL } from "../lib/fatorzContacts";
 
 const serviceLinks = [
   {
@@ -65,8 +64,16 @@ export default function SiteHeader() {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  function openInstagram() {
-    window.open(INSTAGRAM_URL, "_blank");
+  function openWhatsApp() {
+    window.open(FATORZ_WHATSAPP_URL, "_blank");
+  }
+
+  function goToLogin() {
+    goTo("/login?mode=login&redirectTo=/dashboard");
+  }
+
+  function goToRegister() {
+    goTo("/login?mode=register&redirectTo=/dashboard");
   }
 
   function goToProducts() {
@@ -74,7 +81,7 @@ export default function SiteHeader() {
     setMobileOpen(false);
 
     if (window.location.pathname === "/") {
-      const section = document.getElementById("produtos");
+      const section = document.getElementById("planos");
       section?.scrollIntoView({ behavior: "smooth" });
       return;
     }
@@ -82,7 +89,7 @@ export default function SiteHeader() {
     navigate("/");
 
     setTimeout(() => {
-      const section = document.getElementById("produtos");
+      const section = document.getElementById("planos");
       section?.scrollIntoView({ behavior: "smooth" });
     }, 250);
   }
@@ -200,10 +207,10 @@ export default function SiteHeader() {
                           </p>
 
                           <button
-                            onClick={openInstagram}
+                            onClick={openWhatsApp}
                             className="mt-4 w-full rounded-xl bg-white px-4 py-3 text-xs font-black text-black hover:bg-zinc-200"
                           >
-                            Chamar no direct
+                            Chamar no WhatsApp
                           </button>
                         </div>
                       </div>
@@ -232,7 +239,7 @@ export default function SiteHeader() {
           </button>
 
           <button
-            onClick={openInstagram}
+            onClick={openWhatsApp}
             className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-3 text-sm font-black text-white transition hover:opacity-90"
           >
             @fatorzhouse
@@ -332,7 +339,7 @@ export default function SiteHeader() {
                 </button>
 
                 <button
-                  onClick={openInstagram}
+                  onClick={openWhatsApp}
                   className="rounded-2xl bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096] px-5 py-4 text-sm font-black text-white"
                 >
                   Instagram

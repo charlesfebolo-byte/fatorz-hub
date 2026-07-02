@@ -28,6 +28,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminSubscriptions from "./pages/AdminSubscriptions";
 import AdminOrders from "./pages/AdminOrders";
 import AdminProducts from "./pages/AdminProducts";
+import AdminLanding from "./pages/AdminLanding";
 import CheckoutAcademy from "./pages/CheckoutAcademy";
 import ProductCheckout from "./pages/ProductCheckout";
 import BriefingForm from "./pages/BriefingForm";
@@ -99,6 +100,11 @@ const PROJECTS_ROLES: StaffRole[] = [
   "gestor_entregas",
   "criador_visual",
   "suporte_fatorz",
+];
+
+const LANDING_ADMIN_ROLES: StaffRole[] = [
+  "ceo_fatorz",
+  "diretor_operacional",
 ];
 
 function LoadingScreen({ text = "Carregando..." }: { text?: string }) {
@@ -191,7 +197,7 @@ function AppContent({ user, profile }: any) {
 
         <Route
           path="/login"
-          element={user ? <Navigate to="/dashboard" replace /> : <Login />}
+          element={<Login user={user} />}
         />
 
         <Route
@@ -293,6 +299,21 @@ function AppContent({ user, profile }: any) {
             >
               <DashboardLayout profile={profile}>
                 <AdminProducts />
+              </DashboardLayout>
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/admin/landing"
+          element={
+            <StaffRoute
+              user={user}
+              profile={profile}
+              allowedRoles={LANDING_ADMIN_ROLES}
+            >
+              <DashboardLayout profile={profile}>
+                <AdminLanding />
               </DashboardLayout>
             </StaffRoute>
           }
