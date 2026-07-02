@@ -4,14 +4,14 @@ import { FATORZ_WHATSAPP_URL } from "../lib/fatorzContacts";
 
 const serviceLinks = [
   {
-    label: "Agência de Marketing Digital",
+    label: "AgÃªncia de Marketing Digital",
     path: "/servicos/agencia-de-marketing-digital",
-    description: "Estratégia, presença digital e posicionamento.",
+    description: "EstratÃ©gia, presenÃ§a digital e posicionamento.",
   },
   {
-    label: "Edição de Reels",
+    label: "EdiÃ§Ã£o de Reels",
     path: "/servicos/edicao-de-reels",
-    description: "Vídeos curtos com acabamento profissional.",
+    description: "VÃ­deos curtos com acabamento profissional.",
   },
   {
     label: "Artes para Instagram",
@@ -21,22 +21,22 @@ const serviceLinks = [
   {
     label: "Landing Page",
     path: "/servicos/landing-page",
-    description: "Páginas para apresentar ofertas e vender melhor.",
+    description: "PÃ¡ginas para apresentar ofertas e vender melhor.",
   },
   {
     label: "Identidade Visual",
     path: "/servicos/identidade-visual",
-    description: "Direção visual para sua marca parecer profissional.",
+    description: "DireÃ§Ã£o visual para sua marca parecer profissional.",
   },
   {
-    label: "Gestão de Instagram",
+    label: "GestÃ£o de Instagram",
     path: "/servicos/gestao-de-instagram",
-    description: "Perfil, conteúdo, calendário e presença digital.",
+    description: "Perfil, conteÃºdo, calendÃ¡rio e presenÃ§a digital.",
   },
   {
     label: "Marketing para Barbeiros",
     path: "/servicos/marketing-para-barbeiros",
-    description: "Instagram, agenda e presença digital para barbearias.",
+    description: "Instagram, agenda e presenÃ§a digital para barbearias.",
   },
 ];
 
@@ -44,17 +44,17 @@ const specialLinks = [
   {
     label: "Plano Local Pelotas",
     path: "/agencia-de-marketing-em-pelotas",
-    description: "Presença digital para negócios locais em Pelotas e região.",
+    description: "PresenÃ§a digital para negÃ³cios locais em Pelotas e regiÃ£o.",
   },
   {
     label: "Blog FatorZ",
     path: "/blog",
-    description: "Conteúdos sobre marketing, Instagram, sites e presença digital.",
+    description: "ConteÃºdos sobre marketing, Instagram, sites e presenÃ§a digital.",
   },
   {
     label: "FatorZ Academy",
     path: "/academy",
-    description: "Aprenda marketing, IA e criação de conteúdo no seu ritmo.",
+    description: "Aprenda marketing, IA e criaÃ§Ã£o de conteÃºdo no seu ritmo.",
   },
 ];
 
@@ -67,16 +67,7 @@ export default function SiteHeader() {
   function openWhatsApp() {
     window.open(FATORZ_WHATSAPP_URL, "_blank");
   }
-
-  function goToLogin() {
-    goTo("/login?mode=login&redirectTo=/dashboard");
-  }
-
-  function goToRegister() {
-    goTo("/login?mode=register&redirectTo=/dashboard");
-  }
-
-  function goToProducts() {
+function goToProducts() {
     setServicesOpen(false);
     setMobileOpen(false);
 
@@ -112,7 +103,7 @@ export default function SiteHeader() {
 
         <nav className="hidden lg:flex items-center gap-8 text-sm font-black text-zinc-400">
           <button onClick={() => goTo("/")} className="hover:text-white">
-            Início
+            InÃ­cio
           </button>
 
           <div
@@ -124,8 +115,8 @@ export default function SiteHeader() {
               onClick={() => setServicesOpen((prev) => !prev)}
               className="flex items-center gap-1 hover:text-white"
             >
-              Serviços
-              <span className="text-pink-500">▾</span>
+              ServiÃ§os
+              <span className="text-pink-500">â–¾</span>
             </button>
 
             {servicesOpen && (
@@ -134,7 +125,7 @@ export default function SiteHeader() {
                   <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.25em] text-pink-400">
-                        Menu de soluções
+                        Menu de soluÃ§Ãµes
                       </p>
 
                       <p className="mt-1 text-xs text-zinc-500">
@@ -153,7 +144,7 @@ export default function SiteHeader() {
                   <div className="grid grid-cols-[1.2fr_0.8fr] gap-4">
                     <div>
                       <p className="mb-3 px-1 text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
-                        Serviços principais
+                        ServiÃ§os principais
                       </p>
 
                       <div className="grid grid-cols-2 gap-2">
@@ -199,11 +190,11 @@ export default function SiteHeader() {
 
                         <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
                           <p className="text-sm font-black text-white">
-                            Não sabe qual escolher?
+                            NÃ£o sabe qual escolher?
                           </p>
 
                           <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-                            Chama no Instagram e a FatorZ indica a melhor solução.
+                            Chama no Instagram e a FatorZ indica a melhor soluÃ§Ã£o.
                           </p>
 
                           <button
@@ -262,14 +253,14 @@ export default function SiteHeader() {
                 onClick={() => goTo("/")}
                 className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left font-black text-white"
               >
-                Início
+                InÃ­cio
               </button>
 
               <button
                 onClick={() => goTo("/servicos")}
                 className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left font-black text-white"
               >
-                Todos os serviços
+                Todos os serviÃ§os
               </button>
 
               <button
@@ -281,7 +272,7 @@ export default function SiteHeader() {
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                 <p className="mb-3 px-2 text-xs font-black uppercase tracking-[0.25em] text-pink-400">
-                  Serviços principais
+                  ServiÃ§os principais
                 </p>
 
                 <div className="grid gap-2">
