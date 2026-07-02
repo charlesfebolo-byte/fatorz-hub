@@ -12,7 +12,12 @@ Nao usar como FatorZ:
 - `jfnyfgcxnucgaqswlknw`
 - `melgfvqsjsfuzyyxptes`
 
-Este runbook e preparatorio. Nao aplicar SQL sem aprovacao explicita.
+Status pos-aplicacao manual:
+
+- Schema base incremental aplicado manualmente com sucesso no SQL Editor do Supabase oficial da FatorZ.
+- Patch `user_id` aplicado manualmente com sucesso no SQL Editor do Supabase oficial da FatorZ.
+- RLS companion `supabase/migrations/20260701152000_secure_rls_schema_base.sql` aplicada manualmente com sucesso no SQL Editor do Supabase oficial da FatorZ.
+- Nao aplicar SQL novamente sem nova aprovacao explicita.
 
 ## A) Backup/snapshot
 
@@ -58,9 +63,9 @@ where schemaname = 'public'
 order by tablename;
 ```
 
-## B) Aplicar schema base
+## B) Schema base aplicado
 
-Aplicar somente:
+Aplicado manualmente no Supabase oficial da FatorZ:
 
 ```text
 supabase/migrations/20260701150000_base_schema_incremental.sql
@@ -140,9 +145,9 @@ Esperado importante:
 - `lesson_progress.lesson_id` = `uuid`
 - `profiles.id` = `uuid`
 
-## D) Aplicar RLS
+## D) RLS aplicada
 
-Aplicar somente depois da verificacao da base:
+Aplicada manualmente no Supabase oficial da FatorZ depois da base:
 
 ```text
 supabase/migrations/20260701152000_secure_rls_schema_base.sql
@@ -239,7 +244,7 @@ order by id;
 
 ## F) Testar fluxos
 
-Testes manuais obrigatorios depois de base + RLS:
+Testes manuais recomendados depois de base + RLS:
 
 1. Login de usuario comum.
 2. Login de admin/staff e chamada `is_admin`.

@@ -20,6 +20,15 @@ Este diagnostico foi feito sem aplicar SQL e sem consultar/alterar producao. Fon
 
 EngajaPro esta fora do escopo.
 
+## Status pos-aplicacao
+
+Aplicacao manual concluida no SQL Editor do Supabase oficial da FatorZ (`ezfpxvezwpjtokbzsidu`, `https://ezfpxvezwpjtokbzsidu.supabase.co`):
+
+- Schema base incremental `supabase/migrations/20260701150000_base_schema_incremental.sql`: aplicado com sucesso.
+- Patch `user_id`: aplicado com sucesso.
+- RLS companion `supabase/migrations/20260701152000_secure_rls_schema_base.sql`: aplicada com sucesso.
+- Nenhum SQL deve ser reaplicado sem nova aprovacao explicita.
+
 ## Resumo executivo
 
 O codigo atual espera 16 tabelas de aplicacao no schema `public`, 2 buckets de Storage e 1 RPC (`is_admin`). As migrations versionadas antes desta analise nao criam a base das tabelas; elas apenas adicionam protecoes/triggers, adicionam token a `site_product_orders` e preparam RLS na migration `20260701151000_secure_rls_academy_checkout.sql`, que nao deve ser aplicada ainda.
@@ -119,12 +128,12 @@ Ela:
 - Tipos foram escolhidos pelo uso do codigo e pelo schema real confirmado, nao por modelagem ideal. Exemplo: `orders.id` e `lessons.id` respeitam `uuid`; `orders.product_id` fica `text` porque o legado tipa assim no frontend.
 - Nao foi feita introspeccao remota por SQL. O status remoto usado aqui e o informado na tarefa.
 
-## Proxima ordem de execucao recomendada
+## Etapa de aplicacao
 
-1. Validar este documento e a migration base local.
-2. Nao aplicar a RLS antiga `20260701151000` neste ciclo; usar a companheira `20260701152000` depois da base.
-3. Gerar backup/snapshot do Supabase `ezfpxvezwpjtokbzsidu`.
-4. Fazer dry-run/revisao SQL da base, especialmente tipos e constraints em tabelas que ja existem (`profiles`, `lessons`, `orders`).
-5. Aplicar a base somente apos aprovacao explicita.
-6. Preparar uma nova migration RLS corrigida, incluindo `mural_posts`, `mural_reactions`, storage policies e RPC `is_admin` se confirmado.
-7. Aplicar RLS corrigida apos validar que os fluxos de checkout, Academy, briefing, admin e assistente continuam funcionando.
+Concluida manualmente no Supabase oficial da FatorZ.
+
+1. Schema base incremental aplicado.
+2. Patch `user_id` aplicado.
+3. RLS companion `20260701152000_secure_rls_schema_base.sql` aplicada.
+4. RLS antiga `20260701151000_secure_rls_academy_checkout.sql` permanece fora deste ciclo.
+5. Proximo trabalho recomendado: validar fluxos funcionais do Hub contra o schema aplicado, sem reaplicar SQL.
