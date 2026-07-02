@@ -843,14 +843,14 @@ export default function Dashboard({ user, profile }: DashboardProps) {
       )}
 
       {isTeam && (
-        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
-          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+        <section className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
             <div className="mb-5">
-              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
                 CRM automático
               </p>
 
-              <h2 className="mt-3 text-3xl font-black">Últimos clientes</h2>
+              <h2 className="mt-2 font-['Sora',sans-serif] text-xl font-bold">Últimos clientes</h2>
 
               <p className="mt-2 text-sm text-zinc-500">
                 Gerado automaticamente pelas vendas, pedidos e pagamentos manuais.
@@ -862,7 +862,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 {recentClients.map((client) => (
                   <div
                     key={client.key}
-                    className="rounded-[22px] border border-white/10 bg-black/35 p-4"
+                    className="rounded-[10px] border border-white/[0.07] bg-[#111120] p-4"
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div className="min-w-0">
@@ -894,7 +894,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 ))}
               </div>
             ) : (
-              <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
+              <div className="rounded-[10px] border border-white/[0.07] bg-[#111120] p-5">
                 <h3 className="text-xl font-black">
                   Nenhum cliente detectado ainda.
                 </h3>
@@ -906,13 +906,13 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             )}
           </div>
 
-          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+          <div className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
             <div className="mb-5">
-              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
                 Operação
               </p>
 
-              <h2 className="mt-3 text-3xl font-black">
+              <h2 className="mt-2 font-['Sora',sans-serif] text-xl font-bold">
                 Projetos em andamento
               </h2>
 
@@ -926,7 +926,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 {recentProjects.map((project) => (
                   <div
                     key={project.id}
-                    className="rounded-[22px] border border-white/10 bg-black/35 p-4"
+                    className="rounded-[10px] border border-white/[0.07] bg-[#111120] p-4"
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
@@ -951,7 +951,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 ))}
               </div>
             ) : (
-              <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
+              <div className="rounded-[10px] border border-white/[0.07] bg-[#111120] p-5">
                 <h3 className="text-xl font-black">
                   Nenhum projeto encontrado.
                 </h3>
@@ -966,14 +966,14 @@ export default function Dashboard({ user, profile }: DashboardProps) {
       )}
 
       {isTeam && (
-        <section className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+        <section className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+          <div className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
             <div className="mb-5">
-              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
                 Produtos
               </p>
 
-              <h2 className="mt-3 text-3xl font-black">
+              <h2 className="mt-2 font-['Sora',sans-serif] text-xl font-bold">
                 Produtos mais vendidos
               </h2>
 
@@ -994,11 +994,11 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                   return (
                     <div
                       key={product.name}
-                      className="rounded-[22px] border border-white/10 bg-black/35 p-4"
+                      className="rounded-[10px] border border-white/[0.07] bg-[#111120] p-4"
                     >
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex min-w-0 items-center gap-3">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-black text-[#ff7bd0]">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.07] bg-[#0c0c16] text-xs font-black text-[#a78bfa]">
                             #{index + 1}
                           </span>
 
@@ -1015,7 +1015,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                         </div>
 
                         <div className="text-left md:text-right">
-                          <p className="text-lg font-black text-emerald-300">
+                          <p className="font-mono text-sm font-bold text-emerald-300">
                             {formatMoney(product.revenue)}
                           </p>
 
@@ -1025,9 +1025,9 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                         </div>
                       </div>
 
-                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#0c0c16]">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#005cff] via-[#9123ff] to-[#ff0096]"
+                          className="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6]"
                           style={{ width: `${percent}%` }}
                         />
                       </div>
@@ -1036,7 +1036,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 })}
               </div>
             ) : (
-              <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
+              <div className="rounded-[10px] border border-white/[0.07] bg-[#111120] p-5">
                 <h3 className="text-xl font-black">
                   Sem vendas registradas ainda.
                 </h3>
@@ -1048,14 +1048,14 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             )}
           </div>
 
-          <aside className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-            <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+          <aside className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
               Maior cliente
             </p>
 
             {crm.metrics.maiorCliente ? (
               <div className="mt-5">
-                <h2 className="text-3xl font-black">
+                <h2 className="font-['Sora',sans-serif] text-xl font-bold">
                   {crm.metrics.maiorCliente.name}
                 </h2>
 
@@ -1065,7 +1065,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                     "Sem contato"}
                 </p>
 
-                <div className="mt-6 rounded-[24px] border border-emerald-400/20 bg-emerald-500/10 p-5">
+                <div className="mt-5 rounded-[10px] border border-emerald-400/20 bg-emerald-500/10 p-4">
                   <p className="text-xs font-black uppercase tracking-widest text-emerald-300">
                     Total gasto
                   </p>
@@ -1088,16 +1088,16 @@ export default function Dashboard({ user, profile }: DashboardProps) {
         </section>
       )}
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.65fr]">
         <div className="space-y-5">
-          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
+          <div className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
             <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
                   Pedidos
                 </p>
 
-                <h2 className="mt-3 text-3xl font-black">
+                <h2 className="mt-2 font-['Sora',sans-serif] text-xl font-bold">
                   Últimas movimentações
                 </h2>
 
@@ -1110,7 +1110,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 onClick={() =>
                   navigate(isTeam ? "/admin/pedidos" : "/minhas-entregas")
                 }
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.08]"
+                className="rounded-lg border border-white/[0.07] bg-[#111120] px-4 py-2.5 text-sm font-bold text-white transition hover:border-[#8b5cf6]/40 hover:bg-white/[0.04]"
               >
                 {isTeam ? "Ver pedidos" : "Ver entregas"}
               </button>
@@ -1121,7 +1121,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 {orders.slice(0, 8).map((order) => (
                   <div
                     key={order.id}
-                    className="rounded-[22px] border border-white/10 bg-black/35 p-4"
+                    className="rounded-[10px] border border-white/[0.07] bg-[#111120] p-4"
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
@@ -1154,7 +1154,7 @@ export default function Dashboard({ user, profile }: DashboardProps) {
                 ))}
               </div>
             ) : (
-              <div className="rounded-[24px] border border-white/10 bg-black/40 p-5">
+              <div className="rounded-[10px] border border-white/[0.07] bg-[#111120] p-5">
                 <h3 className="text-xl font-black">
                   Nenhuma movimentação encontrada.
                 </h3>
@@ -1168,8 +1168,8 @@ export default function Dashboard({ user, profile }: DashboardProps) {
         </div>
 
         <aside className="space-y-5">
-          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-            <p className="text-xs font-black uppercase tracking-[0.35em] text-[#ff0096]">
+          <div className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8b5cf6]">
               {isTeam ? "Resumo operacional" : "Resumo da conta"}
             </p>
 
@@ -1193,8 +1193,8 @@ export default function Dashboard({ user, profile }: DashboardProps) {
             </div>
           </div>
 
-          <div className="rounded-[30px] border border-white/10 bg-[#08080d]/90 p-6">
-            <p className="text-xs font-black uppercase tracking-[0.35em] text-zinc-500">
+          <div className="rounded-[14px] border border-white/[0.07] bg-[#0c0c16] p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
               Dados da conta
             </p>
 

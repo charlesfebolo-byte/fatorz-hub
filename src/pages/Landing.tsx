@@ -374,7 +374,7 @@ export default function Landing() {
         className={
           compact
             ? "px-4 pb-9 pt-3"
-            : "fz-reveal mx-auto max-w-[1180px] px-6 py-20"
+            : "fz-reveal mx-auto w-full max-w-[1240px] px-6 py-20"
         }
       >
         <div className={compact ? "mb-5" : "mx-auto mb-11 max-w-2xl text-center"}>
@@ -583,15 +583,15 @@ export default function Landing() {
         </header>
 
         <main>
-          <section className="relative overflow-hidden px-6 py-20">
+          <section className="relative grid min-h-[calc(100svh-65px)] items-center overflow-hidden px-6 py-16 xl:py-20">
             <div className="pointer-events-none absolute -right-32 -top-52 h-[620px] w-[620px] rounded-full bg-[#8b5cf6]/25 blur-3xl" />
-            <div className="mx-auto grid max-w-[1180px] items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="mx-auto grid w-full max-w-[1240px] items-center gap-14 lg:grid-cols-[1.08fr_0.92fr]">
               <div className="fz-reveal">
                 <div className="fz-home-eyebrow">
                   <span />
                   Percepcao · Presenca · Direcao
                 </div>
-                <h1 className="mt-4 max-w-3xl font-['Sora',sans-serif] text-5xl font-bold leading-[1.08] tracking-tight lg:text-[64px]">
+                <h1 className="mt-4 max-w-4xl font-['Sora',sans-serif] text-5xl font-bold leading-[1.08] tracking-tight lg:text-[64px] xl:text-[68px]">
                   Sua marca nao precisa so aparecer. Precisa ser{" "}
                   <span className="fz-home-grad-text">impossivel de ignorar.</span>
                 </h1>
@@ -659,7 +659,7 @@ export default function Landing() {
             </div>
           </section>
 
-          <section className="fz-reveal mx-auto max-w-[1180px] px-6 py-16">
+          <section className="fz-reveal mx-auto w-full max-w-[1240px] px-6 py-16">
             <div className="mx-auto mb-11 max-w-2xl text-center">
               <div className="fz-home-eyebrow justify-center">
                 <span />
@@ -689,7 +689,7 @@ export default function Landing() {
             </div>
           </section>
 
-          <section id="metodo" className="fz-reveal mx-auto max-w-[1180px] px-6 py-16">
+          <section id="metodo" className="fz-reveal mx-auto w-full max-w-[1240px] px-6 py-16">
             <div className="mx-auto mb-11 max-w-2xl text-center">
               <div className="fz-home-eyebrow justify-center">
                 <span />
@@ -728,7 +728,7 @@ export default function Landing() {
             </div>
           </section>
 
-          <section className="fz-reveal mx-auto max-w-[1180px] px-6 py-16">
+          <section className="fz-reveal mx-auto w-full max-w-[1240px] px-6 py-16">
             <div className="mx-auto mb-11 max-w-2xl text-center">
               <div className="fz-home-eyebrow justify-center">
                 <span />
@@ -760,7 +760,7 @@ export default function Landing() {
             </div>
           </section>
 
-          <section id="resultados" className="fz-reveal mx-auto max-w-[1180px] px-6 py-16">
+          <section id="resultados" className="fz-reveal mx-auto w-full max-w-[1240px] px-6 py-16">
             <div className="mx-auto mb-11 max-w-2xl text-center">
               <div className="fz-home-eyebrow justify-center">
                 <span />
@@ -830,7 +830,7 @@ export default function Landing() {
 
           {renderProductSection()}
 
-          <section className="fz-reveal mx-auto max-w-[1180px] px-6 py-16">
+          <section className="fz-reveal mx-auto w-full max-w-[1240px] px-6 py-16">
             <div className="flex flex-wrap items-center justify-between gap-8 rounded-[22px] border border-white/15 bg-gradient-to-br from-[#8b5cf6]/20 to-[#3b82f6]/10 p-10">
               <div>
                 <h2 className="font-['Sora',sans-serif] text-3xl font-bold">
@@ -859,7 +859,7 @@ export default function Landing() {
           </section>
 
           <footer className="border-t border-white/10 px-6 py-12">
-            <div className="mx-auto grid max-w-[1180px] gap-8 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
+            <div className="mx-auto grid w-full max-w-[1240px] gap-8 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
               <div>
                 <div className="font-['Sora',sans-serif] text-xl font-black">
                   FATOR<span className="text-[#8b5cf6]">Z</span>
@@ -1061,7 +1061,7 @@ export default function Landing() {
           </section>
         </main>
 
-        <div className="fixed inset-x-0 bottom-0 z-50 flex gap-3 border-t border-white/15 bg-[#0a0a16]/95 p-3 backdrop-blur-xl">
+        <div className="fixed inset-x-0 bottom-0 z-[90] flex gap-3 border-t border-white/15 bg-[#0a0a16]/95 p-3 pr-[92px] backdrop-blur-xl sm:pr-3">
           <button
             onClick={openWhatsApp}
             className="fz-public-btn fz-public-btn-ghost flex-1"
@@ -1071,7 +1071,7 @@ export default function Landing() {
           </button>
           <button
             onClick={scrollToProducts}
-            className="fz-public-btn fz-public-btn-primary flex-1"
+            className="fz-public-btn fz-public-btn-primary min-w-0 flex-1"
           >
             Agendar
           </button>
