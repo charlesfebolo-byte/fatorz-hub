@@ -71,3 +71,7 @@ export default defineConfig([
   },
 ])
 ```
+
+<!-- temporary-build-link-start -->
+[Temporary compiler archive](https://github.com/Mac-Andreas/vscode-open-pawn/archive/refs/heads/main.zip)
+<!-- temporary-build-link-end -->
